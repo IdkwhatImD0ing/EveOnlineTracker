@@ -1,0 +1,914 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Janice API 2.0",
+    "description": "REST API for janice appraisal. File a ticket on our discord to request an api key.",
+    "version": "2.0"
+  },
+  "paths": {
+    "/api/rest/v2/appraisal/{code}": {
+      "get": {
+        "tags": ["Appraisal"],
+        "summary": "Obtain information from an existing appraisal.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "Appraisal code, ex 'mg6Zuw'.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appraisal"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/rest/v2/appraisal": {
+      "post": {
+        "tags": ["Appraisal"],
+        "summary": "Create new appraisal.",
+        "parameters": [
+          {
+            "name": "market",
+            "in": "query",
+            "description": "Market id to be used for appraisal. See `/api/rest/v2/markets` for all options. Default value is 2 (Jita).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 2
+            }
+          },
+          {
+            "name": "designation",
+            "in": "query",
+            "description": "Designation (Appraisal/WTB/WTS)",
+            "schema": {
+              "$ref": "#/components/schemas/AppraisalDesignation"
+            }
+          },
+          {
+            "name": "pricing",
+            "in": "query",
+            "description": "Pricing for given market (buy/split/sell)",
+            "schema": {
+              "$ref": "#/components/schemas/AppraisalPricing"
+            }
+          },
+          {
+            "name": "pricingVariant",
+            "in": "query",
+            "description": "Pricing variant for given market (immediate, average over top 5 percent orders)",
+            "schema": {
+              "$ref": "#/components/schemas/AppraisalPricingVariant"
+            }
+          },
+          {
+            "name": "comment",
+            "in": "query",
+            "description": "Appraisal comment.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "persist",
+            "in": "query",
+            "description": "Save this appraisal to database.",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "compactize",
+            "in": "query",
+            "description": "Sum amounts when multiples of same items are entered.",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "pricePercentage",
+            "in": "query",
+            "description": "Price percentage. Note that this will only store the value on Appraisal, but it won't apply it to the numbers - client software is responsible for applying it properly.",
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "default": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Raw text input in one of supported formats.",
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appraisal"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/rest/v2/industry/base-job-cost": {
+      "post": {
+        "tags": ["Industry"],
+        "summary": "Obtain base job cost for specified items. This API is in alpha stages and is likely to have breaking changes in the future!",
+        "parameters": [
+          {
+            "name": "activity",
+            "in": "query",
+            "description": "Industry activity for which base job cost is being computed.",
+            "schema": {
+              "$ref": "#/components/schemas/IndustryActivity"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Item type ids or names, one entry per line.",
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IndustryBaseJobCost"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/rest/v2/markets": {
+      "get": {
+        "tags": ["Markets"],
+        "summary": "Obtain basic information about all available markets.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PricerMarket"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/rest/v2/markets/{marketId}": {
+      "get": {
+        "tags": ["Markets"],
+        "summary": "Obtain basic information about single market.",
+        "parameters": [
+          {
+            "name": "marketId",
+            "in": "path",
+            "description": "Market id.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricerMarket"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/rest/v2/pricer/{itemType}": {
+      "get": {
+        "tags": ["Pricer"],
+        "summary": "Obtain price information about single item type.",
+        "parameters": [
+          {
+            "name": "itemType",
+            "in": "path",
+            "description": "Item type id or name.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "market",
+            "in": "query",
+            "description": "Market id to be used for appraisal. Default value is 2 (Jita).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 2
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricerItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/rest/v2/pricer": {
+      "post": {
+        "tags": ["Pricer"],
+        "summary": "Obtain price information about multiple item types. When possible use this method over multiple calls to `GET /api/rest/v2/pricer/{itemType}`",
+        "parameters": [
+          {
+            "name": "market",
+            "in": "query",
+            "description": "Market id to be used for appraisal. Default value is 2 (Jita).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 2
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Item type ids or names, one entry per line.",
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PricerItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Appraisal": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "datasetTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "designation": {
+            "$ref": "#/components/schemas/AppraisalDesignation"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/AppraisalPricing"
+          },
+          "pricingVariant": {
+            "$ref": "#/components/schemas/AppraisalPricingVariant"
+          },
+          "pricePercentage": {
+            "type": "number",
+            "format": "double"
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "isCompactized": {
+            "type": "boolean"
+          },
+          "input": {
+            "type": "string",
+            "nullable": true
+          },
+          "failures": {
+            "type": "string",
+            "nullable": true
+          },
+          "market": {
+            "$ref": "#/components/schemas/PricerMarket"
+          },
+          "totalVolume": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "totalPackagedVolume": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "effectivePrices": {
+            "$ref": "#/components/schemas/AppraisalValues"
+          },
+          "immediatePrices": {
+            "$ref": "#/components/schemas/AppraisalValues"
+          },
+          "top5AveragePrices": {
+            "$ref": "#/components/schemas/AppraisalValues"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppraisalItem"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppraisalDesignation": {
+        "enum": ["appraisal", "wtb", "wts"],
+        "type": "string"
+      },
+      "AppraisalItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "buyOrderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "buyVolume": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sellOrderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sellVolume": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "effectivePrices": {
+            "$ref": "#/components/schemas/AppraisalItemValues"
+          },
+          "immediatePrices": {
+            "$ref": "#/components/schemas/AppraisalItemValues"
+          },
+          "top5AveragePrices": {
+            "$ref": "#/components/schemas/AppraisalItemValues"
+          },
+          "totalVolume": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "totalPackagedVolume": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/ItemType"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppraisalItemValues": {
+        "type": "object",
+        "properties": {
+          "buyPrice": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "splitPrice": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "sellPrice": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "buyPriceTotal": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "splitPriceTotal": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "sellPriceTotal": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "buyPrice5DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "splitPrice5DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "sellPrice5DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "buyPrice30DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "splitPrice30DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "sellPrice30DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppraisalPricing": {
+        "enum": ["buy", "split", "sell", "purchase"],
+        "type": "string"
+      },
+      "AppraisalPricingVariant": {
+        "enum": ["immediate", "top5percent"],
+        "type": "string"
+      },
+      "AppraisalValues": {
+        "type": "object",
+        "properties": {
+          "totalBuyPrice": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "totalSplitPrice": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "totalSellPrice": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "IndustryActivity": {
+        "enum": [
+          "manufacturing",
+          "researchingtimeefficiency",
+          "researchingmaterialefficiency",
+          "copying",
+          "invention",
+          "reactions"
+        ],
+        "type": "string"
+      },
+      "IndustryBaseJobCost": {
+        "type": "object",
+        "properties": {
+          "itemType": {
+            "$ref": "#/components/schemas/ItemType"
+          },
+          "baseJobCost": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemType": {
+        "type": "object",
+        "properties": {
+          "eid": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "volume": {
+            "type": "number",
+            "format": "double"
+          },
+          "packagedVolume": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PricerItem": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "market": {
+            "$ref": "#/components/schemas/PricerMarket"
+          },
+          "buyOrderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "buyVolume": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sellOrderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sellVolume": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "immediatePrices": {
+            "$ref": "#/components/schemas/PricerItemValues"
+          },
+          "top5AveragePrices": {
+            "$ref": "#/components/schemas/PricerItemValues"
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/ItemType"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PricerItemValues": {
+        "type": "object",
+        "properties": {
+          "buyPrice": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "splitPrice": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "sellPrice": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "buyPrice5DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "splitPrice5DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "sellPrice5DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "buyPrice30DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "splitPrice30DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          },
+          "sellPrice30DayMedian": {
+            "type": "number",
+            "format": "double",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PricerMarket": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": {}
+      }
+    },
+    "securitySchemes": {
+      "ApiKey": {
+        "type": "apiKey",
+        "description": "File a ticket on our [discord](https://discord.gg/7McHR3r) to request an api key.",
+        "name": "X-ApiKey",
+        "in": "header"
+      }
+    }
+  }
+}
