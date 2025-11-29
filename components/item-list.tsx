@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
@@ -10,10 +10,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Copy, ChevronDown, Check } from "lucide-react"
+import { Copy, ChevronDown, Check, ArrowUp, ArrowDown } from "lucide-react"
 import type { RawMaterial, Component } from "@/types/database"
 
 type Item = RawMaterial | Component
+type SortField = "name" | "type" | "quantity" | "unit" | "total"
+type SortDirection = "asc" | "desc"
 
 interface ItemListProps {
   title: string
@@ -28,7 +30,7 @@ function formatNumber(num: number): string {
 }
 
 function formatISK(amount: number | null): string {
-  if (amount === null) return "—"
+  if (amount === null || amount === 0) return "—"
   if (amount >= 1_000_000_000) {
     return `${(amount / 1_000_000_000).toFixed(2)}B`
   }
@@ -41,18 +43,97 @@ function formatISK(amount: number | null): string {
   return amount.toFixed(2)
 }
 
+function getItemTotal(item: Item): number {
+  if (item.buy_price == null) return 0
+  return item.buy_price * item.quantity
+}
+
+interface SortHeaderProps {
+  label: string
+  field: SortField
+  currentField: SortField
+  direction: SortDirection
+  onSort: (field: SortField) => void
+  className?: string
+}
+
+function SortHeader({ label, field, currentField, direction, onSort, className = "" }: SortHeaderProps) {
+  const isActive = currentField === field
+  
+  return (
+    <button
+      onClick={() => onSort(field)}
+      className={`flex items-center gap-1 text-xs font-medium uppercase tracking-wide transition-colors hover:text-foreground ${
+        isActive ? "text-foreground" : "text-muted-foreground"
+      } ${className}`}
+    >
+      {label}
+      {isActive && (
+        direction === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />
+      )}
+    </button>
+  )
+}
+
 export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemListProps) {
   const [copied, setCopied] = useState(false)
+  const [sortField, setSortField] = useState<SortField>("name")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
+
+  // Check if any items have prices
+  const hasPrices = useMemo(() => 
+    items.some(item => item.buy_price != null && item.buy_price > 0),
+    [items]
+  )
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
+
+  const sortedItems = useMemo(() => {
+    const sorted = [...items].sort((a, b) => {
+      let comparison = 0
+      
+      switch (sortField) {
+        case "name":
+          comparison = a.item_name.localeCompare(b.item_name)
+          break
+        case "type":
+          const typeA = a.item_type || ""
+          const typeB = b.item_type || ""
+          comparison = typeA.localeCompare(typeB)
+          break
+        case "quantity":
+          comparison = a.quantity - b.quantity
+          break
+        case "unit":
+          comparison = (a.buy_price || 0) - (b.buy_price || 0)
+          break
+        case "total":
+          comparison = getItemTotal(a) - getItemTotal(b)
+          break
+      }
+      
+      return sortDirection === "asc" ? comparison : -comparison
+    })
+    
+    return sorted
+  }, [items, sortField, sortDirection])
 
   const handleCopy = async (mode: "all" | "remaining") => {
-    const itemsToCopy = mode === "all" 
-      ? items 
+    const itemsToCopy = mode === "all"
+      ? items
       : items.filter((item) => !item.collected)
-    
+
     const text = itemsToCopy
       .map((item) => `${item.item_name} ${item.quantity}`)
       .join("\n")
-    
+
     await navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -60,7 +141,7 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
 
   const handleToggle = async (item: Item) => {
     const newCollected = !item.collected
-    
+
     try {
       const response = await fetch(
         `/api/projects/${projectId}/items/${item.id}?type=${type}`,
@@ -70,7 +151,7 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
           body: JSON.stringify({ collected: newCollected }),
         }
       )
-      
+
       if (response.ok) {
         onItemUpdate(item.id, newCollected)
       }
@@ -132,8 +213,66 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
         </DropdownMenu>
       </CardHeader>
       <CardContent>
-        <div className="space-y-1 max-h-[400px] overflow-y-auto">
-          {items.map((item) => (
+        {/* Column Headers */}
+        <div className="flex items-center gap-3 px-3 py-2 border-b border-border/50 mb-2">
+          <div className="w-4" /> {/* Checkbox spacer */}
+          <div className="flex-1 min-w-0">
+            <SortHeader
+              label="Name"
+              field="name"
+              currentField={sortField}
+              direction={sortDirection}
+              onSort={handleSort}
+            />
+          </div>
+          <div className="shrink-0 w-28">
+            <SortHeader
+              label="Type"
+              field="type"
+              currentField={sortField}
+              direction={sortDirection}
+              onSort={handleSort}
+            />
+          </div>
+          <div className="text-right shrink-0 w-24">
+            <SortHeader
+              label="Qty"
+              field="quantity"
+              currentField={sortField}
+              direction={sortDirection}
+              onSort={handleSort}
+              className="justify-end"
+            />
+          </div>
+          {hasPrices && (
+            <>
+              <div className="text-right shrink-0 w-24">
+                <SortHeader
+                  label="Unit"
+                  field="unit"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                  className="justify-end"
+                />
+              </div>
+              <div className="text-right shrink-0 w-28">
+                <SortHeader
+                  label="Total"
+                  field="total"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                  className="justify-end"
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Item Rows */}
+        <div className="space-y-1 max-h-[500px] overflow-y-auto">
+          {sortedItems.map((item) => (
             <div
               key={item.id}
               className={`flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted/50 ${
@@ -149,14 +288,28 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
                   {item.item_name}
                 </p>
               </div>
-              <div className="text-right shrink-0">
-                <p className="text-sm font-mono">{formatNumber(item.quantity)}</p>
-                {item.buy_price && (
-                  <p className="text-xs text-muted-foreground">
-                    {formatISK(item.buy_price * item.quantity)} ISK
-                  </p>
-                )}
+              <div className="shrink-0 w-28">
+                <p className="text-sm text-muted-foreground truncate">
+                  {item.item_type || "—"}
+                </p>
               </div>
+              <div className="text-right shrink-0 w-24">
+                <p className="text-sm font-mono">{formatNumber(item.quantity)}</p>
+              </div>
+              {hasPrices && (
+                <>
+                  <div className="text-right shrink-0 w-24">
+                    <p className="text-sm font-mono text-muted-foreground">
+                      {formatISK(item.buy_price)}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0 w-28">
+                    <p className="text-sm font-mono text-muted-foreground">
+                      {formatISK(getItemTotal(item))}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -164,4 +317,3 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
     </Card>
   )
 }
-

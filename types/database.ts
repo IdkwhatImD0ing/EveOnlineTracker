@@ -20,6 +20,7 @@ export interface RawMaterial {
   sell_price: number | null
   split_price: number | null
   volume: number | null
+  item_type: string | null
 }
 
 export interface Component {
@@ -33,6 +34,7 @@ export interface Component {
   sell_price: number | null
   split_price: number | null
   volume: number | null
+  item_type: string | null
 }
 
 export interface AdditionalCost {

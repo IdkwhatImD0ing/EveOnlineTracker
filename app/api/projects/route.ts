@@ -7,7 +7,7 @@ import type { CreateProjectRequest, Project } from '@/types/database'
 export async function GET() {
   try {
     const supabase = createClient()
-    
+
     const { data: projects, error } = await supabase
       .from('projects')
       .select('*')
@@ -44,11 +44,11 @@ export async function POST(request: NextRequest) {
 
     // Parse items through Janice API (in parallel)
     const [rawMaterialsResult, componentsResult] = await Promise.all([
-      rawMaterialsInput?.trim() 
-        ? createAppraisal(rawMaterialsInput) 
+      rawMaterialsInput?.trim()
+        ? createAppraisal(rawMaterialsInput)
         : Promise.resolve({ items: [], totals: { buyPrice: 0, sellPrice: 0, splitPrice: 0 }, failures: null }),
-      componentsInput?.trim() 
-        ? createAppraisal(componentsInput) 
+      componentsInput?.trim()
+        ? createAppraisal(componentsInput)
         : Promise.resolve({ items: [], totals: { buyPrice: 0, sellPrice: 0, splitPrice: 0 }, failures: null }),
     ])
 
@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
         sell_price: item.sellPrice,
         split_price: item.splitPrice,
         volume: item.volume,
+        item_type: item.itemType,
       }))
 
       const { error: rawError } = await supabase
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insert components
+    // Insert components (no prices - component exports don't have price columns)
     if (componentsResult.items.length > 0) {
       const componentsData = componentsResult.items.map((item) => ({
         project_id: project.id,
@@ -100,10 +101,11 @@ export async function POST(request: NextRequest) {
         type_id: item.typeId,
         quantity: item.quantity,
         collected: false,
-        buy_price: item.buyPrice,
-        sell_price: item.sellPrice,
-        split_price: item.splitPrice,
+        buy_price: null,
+        sell_price: null,
+        split_price: null,
         volume: item.volume,
+        item_type: item.itemType,
       }))
 
       const { error: compError } = await supabase
@@ -120,9 +122,9 @@ export async function POST(request: NextRequest) {
     if (insertionErrors.length > 0) {
       await supabase.from('projects').delete().eq('id', project.id)
       return NextResponse.json(
-        { 
-          error: 'Failed to save project items', 
-          details: insertionErrors 
+        {
+          error: 'Failed to save project items',
+          details: insertionErrors
         },
         { status: 500 }
       )

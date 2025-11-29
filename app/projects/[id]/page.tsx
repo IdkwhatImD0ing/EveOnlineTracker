@@ -164,8 +164,8 @@ export default function ProjectDetailPage() {
           </Button>
         </header>
 
-        {/* Item Lists */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* Item Lists - Stacked vertically for better table view */}
+        <div className="space-y-6">
           <ItemList
             title="Raw Materials"
             items={project.raw_materials}
@@ -199,7 +199,6 @@ export default function ProjectDetailPage() {
         {/* Total Cost */}
         <TotalCost
           rawMaterials={project.raw_materials}
-          components={project.components}
           additionalCosts={project.additional_costs}
         />
       </div>
