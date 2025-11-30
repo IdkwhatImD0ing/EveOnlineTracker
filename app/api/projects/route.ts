@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAppraisal } from '@/lib/janice'
+import { getGroupNamesBatch } from '@/lib/sde'
 import type { CreateProjectRequest, Project } from '@/types/database'
 
 // GET /api/projects - List all projects
@@ -52,6 +53,16 @@ export async function POST(request: NextRequest) {
         : Promise.resolve({ items: [], totals: { buyPrice: 0, sellPrice: 0, splitPrice: 0 }, failures: null }),
     ])
 
+    // Look up group names from EVE SDE for all items
+    const allTypeIds = [
+      ...rawMaterialsResult.items.map(i => i.typeId),
+      ...componentsResult.items.map(i => i.typeId),
+    ].filter(id => id > 0)
+    
+    const groupNames = allTypeIds.length > 0 
+      ? getGroupNamesBatch(allTypeIds) 
+      : new Map<number, string>()
+
     // Create the project
     const { data: project, error: projectError } = await supabase
       .from('projects')
@@ -80,7 +91,7 @@ export async function POST(request: NextRequest) {
         sell_price: item.sellPrice,
         split_price: item.splitPrice,
         volume: item.volume,
-        item_type: item.itemType,
+        item_type: groupNames.get(item.typeId) || null,
       }))
 
       const { error: rawError } = await supabase
@@ -105,7 +116,7 @@ export async function POST(request: NextRequest) {
         sell_price: null,
         split_price: null,
         volume: item.volume,
-        item_type: item.itemType,
+        item_type: groupNames.get(item.typeId) || null,
       }))
 
       const { error: compError } = await supabase
