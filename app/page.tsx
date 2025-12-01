@@ -45,7 +45,7 @@ export default function Home() {
                 New Project
               </Link>
             </Button>
-            <LogoutButton />
+          <LogoutButton />
           </div>
         </header>
 
@@ -74,17 +74,17 @@ export default function Home() {
             {projects.map((project) => (
               <Link key={project.id} href={`/projects/${project.id}`}>
                 <Card className="h-full transition-colors hover:bg-muted/50 cursor-pointer">
-                  <CardHeader>
+            <CardHeader>
                     <CardTitle className="line-clamp-1">{project.name}</CardTitle>
                     <CardDescription className="flex items-center gap-1">
                       <Calendar className="size-3" />
                       {new Date(project.created_at).toLocaleDateString()}
                     </CardDescription>
-                  </CardHeader>
-                </Card>
+            </CardHeader>
+          </Card>
               </Link>
             ))}
-          </div>
+        </div>
         )}
       </div>
     </div>

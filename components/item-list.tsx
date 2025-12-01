@@ -14,7 +14,7 @@ import { Copy, ChevronDown, Check, ArrowUp, ArrowDown } from "lucide-react"
 import type { RawMaterial, Component } from "@/types/database"
 
 type Item = RawMaterial | Component
-type SortField = "name" | "type" | "quantity" | "unit" | "total"
+type SortField = "name" | "type" | "quantity" | "total"
 type SortDirection = "asc" | "desc"
 
 interface ItemListProps {
@@ -110,9 +110,6 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
           break
         case "quantity":
           comparison = a.quantity - b.quantity
-          break
-        case "unit":
-          comparison = (a.buy_price || 0) - (b.buy_price || 0)
           break
         case "total":
           comparison = getItemTotal(a) - getItemTotal(b)
@@ -225,7 +222,7 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
               onSort={handleSort}
             />
           </div>
-          <div className="shrink-0 w-28">
+          <div className="shrink-0 w-44">
             <SortHeader
               label="Type"
               field="type"
@@ -245,28 +242,16 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
             />
           </div>
           {hasPrices && (
-            <>
-              <div className="text-right shrink-0 w-24">
-                <SortHeader
-                  label="Unit"
-                  field="unit"
-                  currentField={sortField}
-                  direction={sortDirection}
-                  onSort={handleSort}
-                  className="justify-end"
-                />
-              </div>
-              <div className="text-right shrink-0 w-28">
-                <SortHeader
-                  label="Total"
-                  field="total"
-                  currentField={sortField}
-                  direction={sortDirection}
-                  onSort={handleSort}
-                  className="justify-end"
-                />
-              </div>
-            </>
+            <div className="text-right shrink-0 w-28">
+              <SortHeader
+                label="Total"
+                field="total"
+                currentField={sortField}
+                direction={sortDirection}
+                onSort={handleSort}
+                className="justify-end"
+              />
+            </div>
           )}
         </div>
 
@@ -288,8 +273,8 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
                   {item.item_name}
                 </p>
               </div>
-              <div className="shrink-0 w-28">
-                <p className="text-sm text-muted-foreground truncate">
+              <div className="shrink-0 w-44">
+                <p className="text-sm text-muted-foreground">
                   {item.item_type || "—"}
                 </p>
               </div>
@@ -297,18 +282,11 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
                 <p className="text-sm font-mono">{formatNumber(item.quantity)}</p>
               </div>
               {hasPrices && (
-                <>
-                  <div className="text-right shrink-0 w-24">
-                    <p className="text-sm font-mono text-muted-foreground">
-                      {formatISK(item.buy_price)}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0 w-28">
-                    <p className="text-sm font-mono text-muted-foreground">
-                      {formatISK(getItemTotal(item))}
-                    </p>
-                  </div>
-                </>
+                <div className="text-right shrink-0 w-28">
+                  <p className="text-sm font-mono text-muted-foreground">
+                    {formatISK(getItemTotal(item))}
+                  </p>
+                </div>
               )}
             </div>
           ))}

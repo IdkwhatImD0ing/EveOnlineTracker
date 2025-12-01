@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ItemList } from "@/components/item-list"
+import { GroupedItemList } from "@/components/grouped-item-list"
 import { PriceSummary } from "@/components/price-summary"
 import { AdditionalCosts } from "@/components/additional-costs"
 import { TotalCost } from "@/components/total-cost"
@@ -166,10 +167,9 @@ export default function ProjectDetailPage() {
 
         {/* Item Lists - Stacked vertically for better table view */}
         <div className="space-y-6">
-          <ItemList
+          <GroupedItemList
             title="Raw Materials"
             items={project.raw_materials}
-            type="raw"
             projectId={projectId}
             onItemUpdate={(itemId, collected) => handleItemUpdate(itemId, collected, "raw")}
           />
