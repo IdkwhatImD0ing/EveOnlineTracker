@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { Copy, ChevronDown, Check, ChevronRight, ArrowUp, ArrowDown } from "lucide-react"
+import { Copy, ChevronDown, Check, ChevronRight, ArrowUp, ArrowDown, AlertCircle, X } from "lucide-react"
 import type { RawMaterial } from "@/types/database"
 
 // Category order for display
@@ -156,9 +157,13 @@ function CategoryGroup({ category, items, projectId, onItemUpdate }: CategoryGro
   const [copied, setCopied] = useState(false)
   const [sortField, setSortField] = useState<SortField>("name")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
+  const [error, setError] = useState<string | null>(null)
+  const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set())
 
   const collectedCount = items.filter((item) => item.collected).length
   const totalCount = items.length
+  const allChecked = totalCount > 0 && collectedCount === totalCount
+  const someChecked = collectedCount > 0 && collectedCount < totalCount
 
   // Calculate totals for this category
   const totals = useMemo(() => {
@@ -198,8 +203,15 @@ function CategoryGroup({ category, items, projectId, onItemUpdate }: CategoryGro
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleToggle = async (item: RawMaterial) => {
+  const handleToggle = useCallback(async (item: RawMaterial) => {
     const newCollected = !item.collected
+    
+    // Clear any previous error
+    setError(null)
+    
+    // Optimistic update - update UI immediately
+    onItemUpdate(item.id, newCollected)
+    setPendingUpdates(prev => new Set(prev).add(item.id))
 
     try {
       const response = await fetch(
@@ -211,13 +223,74 @@ function CategoryGroup({ category, items, projectId, onItemUpdate }: CategoryGro
         }
       )
 
-      if (response.ok) {
-        onItemUpdate(item.id, newCollected)
+      if (!response.ok) {
+        // Revert on failure
+        onItemUpdate(item.id, !newCollected)
+        setError(`Failed to update "${item.item_name}"`)
       }
     } catch (err) {
+      // Revert on failure
+      onItemUpdate(item.id, !newCollected)
+      setError(`Failed to update "${item.item_name}"`)
       console.error("Failed to update item:", err)
+    } finally {
+      setPendingUpdates(prev => {
+        const next = new Set(prev)
+        next.delete(item.id)
+        return next
+      })
     }
-  }
+  }, [projectId, onItemUpdate])
+
+  const handleCheckAll = useCallback(async () => {
+    const newCollected = !allChecked
+    
+    // Clear any previous error
+    setError(null)
+    
+    // Get items that need to change
+    const itemsToUpdate = items.filter(item => item.collected !== newCollected)
+    if (itemsToUpdate.length === 0) return
+    
+    // Optimistic update - update UI immediately
+    itemsToUpdate.forEach(item => onItemUpdate(item.id, newCollected))
+    
+    // Track pending updates
+    const pendingIds = new Set(itemsToUpdate.map(item => item.id))
+    setPendingUpdates(prev => new Set([...prev, ...pendingIds]))
+    
+    // Make API calls in parallel
+    const results = await Promise.allSettled(
+      itemsToUpdate.map(item =>
+        fetch(`/api/projects/${projectId}/items/${item.id}?type=raw`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collected: newCollected }),
+        }).then(res => ({ item, ok: res.ok }))
+      )
+    )
+    
+    // Check for failures and revert them
+    const failures: RawMaterial[] = []
+    results.forEach((result, index) => {
+      if (result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.ok)) {
+        failures.push(itemsToUpdate[index])
+      }
+    })
+    
+    if (failures.length > 0) {
+      // Revert failed items
+      failures.forEach(item => onItemUpdate(item.id, !newCollected))
+      setError(`Failed to update ${failures.length} item(s)`)
+    }
+    
+    // Clear pending state
+    setPendingUpdates(prev => {
+      const next = new Set(prev)
+      pendingIds.forEach(id => next.delete(id))
+      return next
+    })
+  }, [items, allChecked, projectId, onItemUpdate])
 
   // Sort items based on current sort field and direction
   const sortedItems = useMemo(() => {
@@ -250,13 +323,22 @@ function CategoryGroup({ category, items, projectId, onItemUpdate }: CategoryGro
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border rounded-lg">
       <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-        <CollapsibleTrigger className="flex items-center gap-2 hover:text-foreground transition-colors">
-          <ChevronRight className={`size-4 transition-transform ${isOpen ? "rotate-90" : ""}`} />
-          <span className="font-semibold">{category}</span>
-          <span className="text-sm text-muted-foreground">
-            ({collectedCount}/{totalCount})
-          </span>
-        </CollapsibleTrigger>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            checked={someChecked ? "indeterminate" : allChecked}
+            onCheckedChange={handleCheckAll}
+            disabled={pendingUpdates.size > 0}
+            aria-label={`Select all items in ${category}`}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <CollapsibleTrigger className="flex items-center gap-2 hover:text-foreground transition-colors">
+            <ChevronRight className={`size-4 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+            <span className="font-semibold">{category}</span>
+            <span className="text-sm text-muted-foreground">
+              ({collectedCount}/{totalCount})
+            </span>
+          </CollapsibleTrigger>
+        </div>
         
         <div className="flex items-center gap-4">
           {/* Category Totals */}
@@ -306,6 +388,24 @@ function CategoryGroup({ category, items, projectId, onItemUpdate }: CategoryGro
       </div>
 
       <CollapsibleContent>
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive" className="m-3 mb-0">
+            <AlertCircle className="size-4" />
+            <AlertDescription className="flex items-center justify-between">
+              {error}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto p-1 hover:bg-transparent"
+                onClick={() => setError(null)}
+              >
+                <X className="size-4" />
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Mobile Totals */}
         <div className="sm:hidden px-4 py-2 bg-muted/20 border-t text-xs space-y-1">
           <div className="flex justify-between">

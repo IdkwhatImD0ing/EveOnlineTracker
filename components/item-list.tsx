@@ -1,16 +1,17 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Copy, ChevronDown, Check, ArrowUp, ArrowDown } from "lucide-react"
+import { Copy, ChevronDown, Check, ArrowUp, ArrowDown, AlertCircle, X } from "lucide-react"
 import type { RawMaterial, Component } from "@/types/database"
 
 type Item = RawMaterial | Component
@@ -23,6 +24,7 @@ interface ItemListProps {
   type: "raw" | "component"
   projectId: string
   onItemUpdate: (itemId: string, collected: boolean) => void
+  onBulkUpdate?: (updates: Array<{ itemId: string; collected: boolean }>) => void
 }
 
 function formatNumber(num: number): string {
@@ -75,10 +77,12 @@ function SortHeader({ label, field, currentField, direction, onSort, className =
   )
 }
 
-export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemListProps) {
+export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUpdate }: ItemListProps) {
   const [copied, setCopied] = useState(false)
   const [sortField, setSortField] = useState<SortField>("name")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
+  const [error, setError] = useState<string | null>(null)
+  const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set())
 
   // Check if any items have prices
   const hasPrices = useMemo(() => 
@@ -136,8 +140,15 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleToggle = async (item: Item) => {
+  const handleToggle = useCallback(async (item: Item) => {
     const newCollected = !item.collected
+    
+    // Clear any previous error
+    setError(null)
+    
+    // Optimistic update - update UI immediately
+    onItemUpdate(item.id, newCollected)
+    setPendingUpdates(prev => new Set(prev).add(item.id))
 
     try {
       const response = await fetch(
@@ -149,16 +160,89 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
         }
       )
 
-      if (response.ok) {
-        onItemUpdate(item.id, newCollected)
+      if (!response.ok) {
+        // Revert on failure
+        onItemUpdate(item.id, !newCollected)
+        setError(`Failed to update "${item.item_name}"`)
       }
     } catch (err) {
+      // Revert on failure
+      onItemUpdate(item.id, !newCollected)
+      setError(`Failed to update "${item.item_name}"`)
       console.error("Failed to update item:", err)
+    } finally {
+      setPendingUpdates(prev => {
+        const next = new Set(prev)
+        next.delete(item.id)
+        return next
+      })
     }
-  }
+  }, [projectId, type, onItemUpdate])
+
+  const handleCheckAll = useCallback(async () => {
+    const allCollected = items.every(item => item.collected)
+    const newCollected = !allCollected
+    
+    // Clear any previous error
+    setError(null)
+    
+    // Get items that need to change
+    const itemsToUpdate = items.filter(item => item.collected !== newCollected)
+    if (itemsToUpdate.length === 0) return
+    
+    // Optimistic update - update UI immediately
+    const updates = itemsToUpdate.map(item => ({ itemId: item.id, collected: newCollected }))
+    if (onBulkUpdate) {
+      onBulkUpdate(updates)
+    } else {
+      updates.forEach(({ itemId, collected }) => onItemUpdate(itemId, collected))
+    }
+    
+    // Track pending updates
+    const pendingIds = new Set(itemsToUpdate.map(item => item.id))
+    setPendingUpdates(prev => new Set([...prev, ...pendingIds]))
+    
+    // Make API calls in parallel
+    const results = await Promise.allSettled(
+      itemsToUpdate.map(item =>
+        fetch(`/api/projects/${projectId}/items/${item.id}?type=${type}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collected: newCollected }),
+        }).then(res => ({ item, ok: res.ok }))
+      )
+    )
+    
+    // Check for failures and revert them
+    const failures: Item[] = []
+    results.forEach((result, index) => {
+      if (result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.ok)) {
+        failures.push(itemsToUpdate[index])
+      }
+    })
+    
+    if (failures.length > 0) {
+      // Revert failed items
+      if (onBulkUpdate) {
+        onBulkUpdate(failures.map(item => ({ itemId: item.id, collected: !newCollected })))
+      } else {
+        failures.forEach(item => onItemUpdate(item.id, !newCollected))
+      }
+      setError(`Failed to update ${failures.length} item(s)`)
+    }
+    
+    // Clear pending state
+    setPendingUpdates(prev => {
+      const next = new Set(prev)
+      pendingIds.forEach(id => next.delete(id))
+      return next
+    })
+  }, [items, projectId, type, onItemUpdate, onBulkUpdate])
 
   const collectedCount = items.filter((item) => item.collected).length
   const totalCount = items.length
+  const allChecked = totalCount > 0 && collectedCount === totalCount
+  const someChecked = collectedCount > 0 && collectedCount < totalCount
 
   if (items.length === 0) {
     return (
@@ -210,9 +294,32 @@ export function ItemList({ title, items, type, projectId, onItemUpdate }: ItemLi
         </DropdownMenu>
       </CardHeader>
       <CardContent>
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="size-4" />
+            <AlertDescription className="flex items-center justify-between">
+              {error}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto p-1 hover:bg-transparent"
+                onClick={() => setError(null)}
+              >
+                <X className="size-4" />
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Column Headers */}
         <div className="flex items-center gap-3 px-3 py-2 border-b border-border/50 mb-2">
-          <div className="w-4" /> {/* Checkbox spacer */}
+          <Checkbox
+            checked={someChecked ? "indeterminate" : allChecked}
+            onCheckedChange={handleCheckAll}
+            disabled={pendingUpdates.size > 0}
+            aria-label="Select all items"
+          />
           <div className="flex-1 min-w-0">
             <SortHeader
               label="Name"
