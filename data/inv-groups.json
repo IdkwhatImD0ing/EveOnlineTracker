@@ -1,0 +1,6226 @@
+{
+  "0": {
+    "name": "#System",
+    "categoryId": 0
+  },
+  "1": {
+    "name": "Character",
+    "categoryId": 1
+  },
+  "2": {
+    "name": "Corporation",
+    "categoryId": 1
+  },
+  "3": {
+    "name": "Region",
+    "categoryId": 2
+  },
+  "4": {
+    "name": "Constellation",
+    "categoryId": 2
+  },
+  "5": {
+    "name": "Solar System",
+    "categoryId": 2
+  },
+  "6": {
+    "name": "Sun",
+    "categoryId": 2
+  },
+  "7": {
+    "name": "Planet",
+    "categoryId": 2
+  },
+  "8": {
+    "name": "Moon",
+    "categoryId": 2
+  },
+  "9": {
+    "name": "Asteroid Belt",
+    "categoryId": 2
+  },
+  "10": {
+    "name": "Stargate",
+    "categoryId": 2
+  },
+  "11": {
+    "name": "Asteroid OLD",
+    "categoryId": 2
+  },
+  "12": {
+    "name": "Cargo Container",
+    "categoryId": 2
+  },
+  "13": {
+    "name": "Ring",
+    "categoryId": 2
+  },
+  "14": {
+    "name": "Biomass",
+    "categoryId": 2
+  },
+  "15": {
+    "name": "Station",
+    "categoryId": 3
+  },
+  "16": {
+    "name": "Station Services",
+    "categoryId": 3
+  },
+  "17": {
+    "name": "Money",
+    "categoryId": 4
+  },
+  "18": {
+    "name": "Mineral",
+    "categoryId": 4
+  },
+  "19": {
+    "name": "Faction",
+    "categoryId": 1
+  },
+  "20": {
+    "name": "Drug",
+    "categoryId": 4
+  },
+  "23": {
+    "name": "Clone",
+    "categoryId": 5
+  },
+  "24": {
+    "name": "Voucher",
+    "categoryId": 5
+  },
+  "25": {
+    "name": "Frigate",
+    "categoryId": 6
+  },
+  "26": {
+    "name": "Cruiser",
+    "categoryId": 6
+  },
+  "27": {
+    "name": "Battleship",
+    "categoryId": 6
+  },
+  "28": {
+    "name": "Hauler",
+    "categoryId": 6
+  },
+  "29": {
+    "name": "Capsule",
+    "categoryId": 6
+  },
+  "30": {
+    "name": "Titan",
+    "categoryId": 6
+  },
+  "31": {
+    "name": "Shuttle",
+    "categoryId": 6
+  },
+  "32": {
+    "name": "Alliance",
+    "categoryId": 1
+  },
+  "38": {
+    "name": "Shield Extender",
+    "categoryId": 7
+  },
+  "39": {
+    "name": "Shield Recharger",
+    "categoryId": 7
+  },
+  "40": {
+    "name": "Shield Booster",
+    "categoryId": 7
+  },
+  "41": {
+    "name": "Remote Shield Booster",
+    "categoryId": 7
+  },
+  "43": {
+    "name": "Capacitor Recharger",
+    "categoryId": 7
+  },
+  "46": {
+    "name": "Propulsion Module",
+    "categoryId": 7
+  },
+  "47": {
+    "name": "Cargo Scanner",
+    "categoryId": 7
+  },
+  "48": {
+    "name": "Ship Scanner",
+    "categoryId": 7
+  },
+  "49": {
+    "name": "Survey Scanner",
+    "categoryId": 7
+  },
+  "52": {
+    "name": "Warp Scrambler",
+    "categoryId": 7
+  },
+  "53": {
+    "name": "Energy Weapon",
+    "categoryId": 7
+  },
+  "54": {
+    "name": "Mining Laser",
+    "categoryId": 7
+  },
+  "55": {
+    "name": "Projectile Weapon",
+    "categoryId": 7
+  },
+  "56": {
+    "name": "Missile Launcher",
+    "categoryId": 7
+  },
+  "57": {
+    "name": "Shield Power Relay",
+    "categoryId": 7
+  },
+  "59": {
+    "name": "Gyrostabilizer",
+    "categoryId": 7
+  },
+  "60": {
+    "name": "Damage Control",
+    "categoryId": 7
+  },
+  "61": {
+    "name": "Capacitor Battery",
+    "categoryId": 7
+  },
+  "62": {
+    "name": "Armor Repair Unit",
+    "categoryId": 7
+  },
+  "63": {
+    "name": "Hull Repair Unit",
+    "categoryId": 7
+  },
+  "65": {
+    "name": "Stasis Web",
+    "categoryId": 7
+  },
+  "67": {
+    "name": "Remote Capacitor Transmitter",
+    "categoryId": 7
+  },
+  "68": {
+    "name": "Energy Nosferatu",
+    "categoryId": 7
+  },
+  "71": {
+    "name": "Energy Neutralizer",
+    "categoryId": 7
+  },
+  "72": {
+    "name": "Smart Bomb",
+    "categoryId": 7
+  },
+  "74": {
+    "name": "Hybrid Weapon",
+    "categoryId": 7
+  },
+  "76": {
+    "name": "Capacitor Booster",
+    "categoryId": 7
+  },
+  "77": {
+    "name": "Shield Hardener",
+    "categoryId": 7
+  },
+  "78": {
+    "name": "Reinforced Bulkhead",
+    "categoryId": 7
+  },
+  "80": {
+    "name": "Burst Jammer",
+    "categoryId": 7
+  },
+  "82": {
+    "name": "Passive Targeting System",
+    "categoryId": 7
+  },
+  "83": {
+    "name": "Projectile Ammo",
+    "categoryId": 8
+  },
+  "85": {
+    "name": "Hybrid Charge",
+    "categoryId": 8
+  },
+  "86": {
+    "name": "Frequency Crystal",
+    "categoryId": 8
+  },
+  "87": {
+    "name": "Capacitor Booster Charge",
+    "categoryId": 8
+  },
+  "88": {
+    "name": "Defender Missiles",
+    "categoryId": 8
+  },
+  "89": {
+    "name": "Torpedo",
+    "categoryId": 8
+  },
+  "90": {
+    "name": "Bomb",
+    "categoryId": 8
+  },
+  "92": {
+    "name": "Mine",
+    "categoryId": 8
+  },
+  "94": {
+    "name": "Trading",
+    "categoryId": 10
+  },
+  "95": {
+    "name": "Trade Session",
+    "categoryId": 10
+  },
+  "96": {
+    "name": "Automated Targeting System",
+    "categoryId": 7
+  },
+  "97": {
+    "name": "Proximity Drone",
+    "categoryId": 18
+  },
+  "98": {
+    "name": "Armor Coating",
+    "categoryId": 7
+  },
+  "99": {
+    "name": "Sentry Gun",
+    "categoryId": 11
+  },
+  "100": {
+    "name": "Combat Drone",
+    "categoryId": 18
+  },
+  "101": {
+    "name": "Mining Drone",
+    "categoryId": 18
+  },
+  "104": {
+    "name": "Clone Blueprint",
+    "categoryId": 9
+  },
+  "105": {
+    "name": "Frigate Blueprint",
+    "categoryId": 9
+  },
+  "106": {
+    "name": "Cruiser Blueprint",
+    "categoryId": 9
+  },
+  "107": {
+    "name": "Battleship Blueprint",
+    "categoryId": 9
+  },
+  "108": {
+    "name": "Hauler Blueprint",
+    "categoryId": 9
+  },
+  "109": {
+    "name": "Capsule Blueprint",
+    "categoryId": 9
+  },
+  "110": {
+    "name": "Titan Blueprint",
+    "categoryId": 9
+  },
+  "111": {
+    "name": "Shuttle Blueprint",
+    "categoryId": 9
+  },
+  "118": {
+    "name": "Shield Extender Blueprint",
+    "categoryId": 9
+  },
+  "119": {
+    "name": "Shield Recharger Blueprint",
+    "categoryId": 9
+  },
+  "120": {
+    "name": "Shield Booster Blueprint",
+    "categoryId": 9
+  },
+  "121": {
+    "name": "Remote Shield Booster Blueprint",
+    "categoryId": 9
+  },
+  "123": {
+    "name": "Capacitor Recharger Blueprint",
+    "categoryId": 9
+  },
+  "126": {
+    "name": "Propulsion Module Blueprint",
+    "categoryId": 9
+  },
+  "127": {
+    "name": "Cargo Scanner Blueprint",
+    "categoryId": 9
+  },
+  "128": {
+    "name": "Ship Scanner Blueprint",
+    "categoryId": 9
+  },
+  "129": {
+    "name": "Survey Scanner Blueprint",
+    "categoryId": 9
+  },
+  "130": {
+    "name": "ECM Blueprint",
+    "categoryId": 9
+  },
+  "131": {
+    "name": "ECCM Blueprint",
+    "categoryId": 9
+  },
+  "132": {
+    "name": "Warp Scrambler Blueprint",
+    "categoryId": 9
+  },
+  "133": {
+    "name": "Energy Weapon Blueprint",
+    "categoryId": 9
+  },
+  "134": {
+    "name": "Mining Laser Blueprint",
+    "categoryId": 9
+  },
+  "135": {
+    "name": "Projectile Weapon Blueprint",
+    "categoryId": 9
+  },
+  "136": {
+    "name": "Missile Launcher Blueprint",
+    "categoryId": 9
+  },
+  "137": {
+    "name": "Power Manager Blueprint",
+    "categoryId": 9
+  },
+  "139": {
+    "name": "Gunnery Upgrade Blueprint",
+    "categoryId": 9
+  },
+  "140": {
+    "name": "Damage Control Blueprint",
+    "categoryId": 9
+  },
+  "141": {
+    "name": "Capacitor Battery Blueprint",
+    "categoryId": 9
+  },
+  "142": {
+    "name": "Armor Repair Unit Blueprint",
+    "categoryId": 9
+  },
+  "143": {
+    "name": "Hull Repair Unit Blueprint",
+    "categoryId": 9
+  },
+  "145": {
+    "name": "Stasis Web Blueprint",
+    "categoryId": 9
+  },
+  "147": {
+    "name": "Remote Capacitor Transmitter Blueprint",
+    "categoryId": 9
+  },
+  "148": {
+    "name": "Energy Nosferatu Blueprint",
+    "categoryId": 9
+  },
+  "151": {
+    "name": "Energy Neutralizer Blueprint",
+    "categoryId": 9
+  },
+  "152": {
+    "name": "Smart Bomb Blueprint",
+    "categoryId": 9
+  },
+  "154": {
+    "name": "Hybrid Weapon Blueprint",
+    "categoryId": 9
+  },
+  "156": {
+    "name": "Capacitor Booster Blueprint",
+    "categoryId": 9
+  },
+  "157": {
+    "name": "Shield Hardener Blueprint",
+    "categoryId": 9
+  },
+  "158": {
+    "name": "Hull Mods Blueprint",
+    "categoryId": 9
+  },
+  "160": {
+    "name": "Burst Jammer Blueprint",
+    "categoryId": 9
+  },
+  "161": {
+    "name": "Passive Targeting System Blueprint",
+    "categoryId": 9
+  },
+  "162": {
+    "name": "Automated Targeting System Blueprint",
+    "categoryId": 9
+  },
+  "163": {
+    "name": "Armor Coating Blueprint",
+    "categoryId": 9
+  },
+  "165": {
+    "name": "Projectile Ammo Blueprint",
+    "categoryId": 9
+  },
+  "166": {
+    "name": "Missile Blueprint",
+    "categoryId": 9
+  },
+  "167": {
+    "name": "Hybrid Charge Blueprint",
+    "categoryId": 9
+  },
+  "168": {
+    "name": "Frequency Crystal Blueprint",
+    "categoryId": 9
+  },
+  "169": {
+    "name": "Capacitor Booster Charge Blueprint",
+    "categoryId": 9
+  },
+  "170": {
+    "name": "Defender Missile Blueprint",
+    "categoryId": 9
+  },
+  "172": {
+    "name": "Bomb Blueprint",
+    "categoryId": 9
+  },
+  "174": {
+    "name": "Mine Blueprint",
+    "categoryId": 9
+  },
+  "175": {
+    "name": "Proximity Drone Blueprint",
+    "categoryId": 9
+  },
+  "176": {
+    "name": "Combat Drone Blueprint",
+    "categoryId": 9
+  },
+  "177": {
+    "name": "Mining Drone Blueprint",
+    "categoryId": 9
+  },
+  "178": {
+    "name": "Drug Blueprint",
+    "categoryId": 9
+  },
+  "180": {
+    "name": "Protective Sentry Gun",
+    "categoryId": 11
+  },
+  "182": {
+    "name": "Police Drone",
+    "categoryId": 11
+  },
+  "185": {
+    "name": "Pirate Drone",
+    "categoryId": 11
+  },
+  "186": {
+    "name": "Wreck",
+    "categoryId": 2
+  },
+  "190": {
+    "name": "Bloodline Bonus",
+    "categoryId": 14
+  },
+  "191": {
+    "name": "Physical Benefit",
+    "categoryId": 14
+  },
+  "192": {
+    "name": "Physical Handicap",
+    "categoryId": 14
+  },
+  "193": {
+    "name": "Phobia Handicap",
+    "categoryId": 14
+  },
+  "194": {
+    "name": "Social Handicap",
+    "categoryId": 14
+  },
+  "195": {
+    "name": "Amarr Education",
+    "categoryId": 14
+  },
+  "196": {
+    "name": "Caldari Education",
+    "categoryId": 14
+  },
+  "197": {
+    "name": "Gallente Education",
+    "categoryId": 14
+  },
+  "198": {
+    "name": "Minmatar Education",
+    "categoryId": 14
+  },
+  "199": {
+    "name": "Career Bonus",
+    "categoryId": 14
+  },
+  "201": {
+    "name": "ECM",
+    "categoryId": 7
+  },
+  "202": {
+    "name": "ECCM",
+    "categoryId": 7
+  },
+  "203": {
+    "name": "Sensor Backup Array",
+    "categoryId": 7
+  },
+  "205": {
+    "name": "Heat Sink",
+    "categoryId": 7
+  },
+  "208": {
+    "name": "Sensor Dampener",
+    "categoryId": 7
+  },
+  "209": {
+    "name": "Remote Tracking Computer",
+    "categoryId": 7
+  },
+  "210": {
+    "name": "Signal Amplifier",
+    "categoryId": 7
+  },
+  "211": {
+    "name": "Tracking Enhancer",
+    "categoryId": 7
+  },
+  "212": {
+    "name": "Sensor Booster",
+    "categoryId": 7
+  },
+  "213": {
+    "name": "Tracking Computer",
+    "categoryId": 7
+  },
+  "218": {
+    "name": "Heat Sink Blueprint",
+    "categoryId": 9
+  },
+  "223": {
+    "name": "Sensor Booster Blueprint",
+    "categoryId": 9
+  },
+  "224": {
+    "name": "Tracking Computer Blueprint",
+    "categoryId": 9
+  },
+  "225": {
+    "name": "Cheat Module Group",
+    "categoryId": 7
+  },
+  "226": {
+    "name": "Large Collidable Object",
+    "categoryId": 2
+  },
+  "227": {
+    "name": "Cloud",
+    "categoryId": 2
+  },
+  "237": {
+    "name": "Corvette",
+    "categoryId": 6
+  },
+  "255": {
+    "name": "Gunnery",
+    "categoryId": 16
+  },
+  "256": {
+    "name": "Missiles",
+    "categoryId": 16
+  },
+  "257": {
+    "name": "Spaceship Command",
+    "categoryId": 16
+  },
+  "258": {
+    "name": "Fleet Support",
+    "categoryId": 16
+  },
+  "266": {
+    "name": "Corporation Management",
+    "categoryId": 16
+  },
+  "267": {
+    "name": "Obsolete Books",
+    "categoryId": 17
+  },
+  "268": {
+    "name": "Production",
+    "categoryId": 16
+  },
+  "269": {
+    "name": "Rigging",
+    "categoryId": 16
+  },
+  "270": {
+    "name": "Science",
+    "categoryId": 16
+  },
+  "272": {
+    "name": "Electronic Systems",
+    "categoryId": 16
+  },
+  "273": {
+    "name": "Drones",
+    "categoryId": 16
+  },
+  "274": {
+    "name": "Trade",
+    "categoryId": 16
+  },
+  "275": {
+    "name": "Navigation",
+    "categoryId": 16
+  },
+  "278": {
+    "name": "Social",
+    "categoryId": 16
+  },
+  "279": {
+    "name": "LCO Drone",
+    "categoryId": 11
+  },
+  "280": {
+    "name": "General",
+    "categoryId": 17
+  },
+  "281": {
+    "name": "Frozen",
+    "categoryId": 17
+  },
+  "282": {
+    "name": "Radioactive",
+    "categoryId": 17
+  },
+  "283": {
+    "name": "Livestock",
+    "categoryId": 17
+  },
+  "284": {
+    "name": "Biohazard",
+    "categoryId": 17
+  },
+  "285": {
+    "name": "CPU Enhancer",
+    "categoryId": 7
+  },
+  "286": {
+    "name": "Minor Threat",
+    "categoryId": 11
+  },
+  "287": {
+    "name": "Rogue Drone",
+    "categoryId": 11
+  },
+  "288": {
+    "name": "Faction Drone",
+    "categoryId": 11
+  },
+  "289": {
+    "name": "Projected ECCM",
+    "categoryId": 7
+  },
+  "290": {
+    "name": "Remote Sensor Booster",
+    "categoryId": 7
+  },
+  "291": {
+    "name": "Weapon Disruptor",
+    "categoryId": 7
+  },
+  "295": {
+    "name": "Shield Resistance Amplifier",
+    "categoryId": 7
+  },
+  "296": {
+    "name": "Shield Resistance Amplifier Blueprint",
+    "categoryId": 9
+  },
+  "297": {
+    "name": "Convoy",
+    "categoryId": 11
+  },
+  "298": {
+    "name": "Convoy Drone",
+    "categoryId": 11
+  },
+  "299": {
+    "name": "Repair Drone",
+    "categoryId": 18
+  },
+  "300": {
+    "name": "Cyberimplant",
+    "categoryId": 20
+  },
+  "301": {
+    "name": "Concord Drone",
+    "categoryId": 11
+  },
+  "302": {
+    "name": "Magnetic Field Stabilizer",
+    "categoryId": 7
+  },
+  "303": {
+    "name": "Booster",
+    "categoryId": 20
+  },
+  "304": {
+    "name": "DNA Mutator",
+    "categoryId": 20
+  },
+  "305": {
+    "name": "Comet",
+    "categoryId": 2
+  },
+  "306": {
+    "name": "Spawn Container",
+    "categoryId": 11
+  },
+  "307": {
+    "name": "Construction Platform",
+    "categoryId": 2
+  },
+  "308": {
+    "name": "Countermeasure Launcher",
+    "categoryId": 7
+  },
+  "309": {
+    "name": "Autopilot",
+    "categoryId": 7
+  },
+  "310": {
+    "name": "Beacon",
+    "categoryId": 2
+  },
+  "311": {
+    "name": "Reprocessing Array",
+    "categoryId": 23
+  },
+  "312": {
+    "name": "Planetary Cloud",
+    "categoryId": 2
+  },
+  "313": {
+    "name": "Drugs",
+    "categoryId": 17
+  },
+  "314": {
+    "name": "Miscellaneous",
+    "categoryId": 17
+  },
+  "315": {
+    "name": "Warp Core Stabilizer",
+    "categoryId": 7
+  },
+  "316": {
+    "name": "Gang Coordinator",
+    "categoryId": 7
+  },
+  "317": {
+    "name": "Computer Interface Node",
+    "categoryId": 7
+  },
+  "318": {
+    "name": "Landmark",
+    "categoryId": 2
+  },
+  "319": {
+    "name": "Large Collidable Structure",
+    "categoryId": 11
+  },
+  "321": {
+    "name": "Shield Disruptor",
+    "categoryId": 7
+  },
+  "323": {
+    "name": "Billboard",
+    "categoryId": 11
+  },
+  "324": {
+    "name": "Assault Frigate",
+    "categoryId": 6
+  },
+  "325": {
+    "name": "Remote Armor Repairer",
+    "categoryId": 7
+  },
+  "326": {
+    "name": "Energized Armor Membrane",
+    "categoryId": 7
+  },
+  "328": {
+    "name": "Armor Hardener",
+    "categoryId": 7
+  },
+  "329": {
+    "name": "Armor Plate",
+    "categoryId": 7
+  },
+  "330": {
+    "name": "Cloaking Device",
+    "categoryId": 7
+  },
+  "332": {
+    "name": "Tool",
+    "categoryId": 17
+  },
+  "333": {
+    "name": "Datacores",
+    "categoryId": 17
+  },
+  "334": {
+    "name": "Construction Components",
+    "categoryId": 17
+  },
+  "335": {
+    "name": "Temporary Cloud",
+    "categoryId": 11
+  },
+  "336": {
+    "name": "Mobile Sentry Gun",
+    "categoryId": 2
+  },
+  "337": {
+    "name": "Mission Drone",
+    "categoryId": 11
+  },
+  "338": {
+    "name": "Shield Boost Amplifier",
+    "categoryId": 7
+  },
+  "339": {
+    "name": "Auxiliary Power Core",
+    "categoryId": 7
+  },
+  "340": {
+    "name": "Secure Cargo Container",
+    "categoryId": 2
+  },
+  "341": {
+    "name": "Signature Scrambling",
+    "categoryId": 7
+  },
+  "342": {
+    "name": "Anti Warp Scrambler Blueprint",
+    "categoryId": 9
+  },
+  "343": {
+    "name": "Weapon Disruptor Blueprint",
+    "categoryId": 9
+  },
+  "344": {
+    "name": "Tracking Enhancer Blueprint",
+    "categoryId": 9
+  },
+  "345": {
+    "name": "Remote Tracking Computer Blueprint",
+    "categoryId": 9
+  },
+  "346": {
+    "name": "Co-Processor Blueprint",
+    "categoryId": 9
+  },
+  "347": {
+    "name": "Signal Amplifier Blueprint",
+    "categoryId": 9
+  },
+  "348": {
+    "name": "Armor Hardener Blueprint",
+    "categoryId": 9
+  },
+  "349": {
+    "name": "Armor Plate Blueprint",
+    "categoryId": 9
+  },
+  "350": {
+    "name": "Remote Armor Repairer Blueprint",
+    "categoryId": 9
+  },
+  "352": {
+    "name": "Auxiliary Power Core Blueprint",
+    "categoryId": 9
+  },
+  "353": {
+    "name": "QA Module",
+    "categoryId": 7
+  },
+  "355": {
+    "name": "Refinables",
+    "categoryId": 17
+  },
+  "356": {
+    "name": "Tool Blueprint",
+    "categoryId": 9
+  },
+  "357": {
+    "name": "DroneBayExpander",
+    "categoryId": 7
+  },
+  "358": {
+    "name": "Heavy Assault Cruiser",
+    "categoryId": 6
+  },
+  "360": {
+    "name": "Shield Boost Amplifier Blueprint",
+    "categoryId": 9
+  },
+  "361": {
+    "name": "Mobile Warp Disruptor",
+    "categoryId": 22
+  },
+  "363": {
+    "name": "Ship Maintenance Array",
+    "categoryId": 23
+  },
+  "364": {
+    "name": "Mobile Storage",
+    "categoryId": 23
+  },
+  "365": {
+    "name": "Control Tower",
+    "categoryId": 23
+  },
+  "366": {
+    "name": "Warp Gate",
+    "categoryId": 2
+  },
+  "367": {
+    "name": "Ballistic Control System",
+    "categoryId": 7
+  },
+  "368": {
+    "name": "Global Warp Disruptor",
+    "categoryId": 2
+  },
+  "369": {
+    "name": "Ship Logs",
+    "categoryId": 17
+  },
+  "370": {
+    "name": "Criminal Tags",
+    "categoryId": 17
+  },
+  "371": {
+    "name": "Mobile Warp Disruptor Blueprint",
+    "categoryId": 9
+  },
+  "372": {
+    "name": "Advanced Autocannon Ammo",
+    "categoryId": 8
+  },
+  "373": {
+    "name": "Advanced Railgun Charge",
+    "categoryId": 8
+  },
+  "374": {
+    "name": "Advanced Beam Laser Crystal",
+    "categoryId": 8
+  },
+  "375": {
+    "name": "Advanced Pulse Laser Crystal",
+    "categoryId": 8
+  },
+  "376": {
+    "name": "Advanced Artillery Ammo",
+    "categoryId": 8
+  },
+  "377": {
+    "name": "Advanced Blaster Charge",
+    "categoryId": 8
+  },
+  "378": {
+    "name": "Cruise Control",
+    "categoryId": 7
+  },
+  "379": {
+    "name": "Target Painter",
+    "categoryId": 7
+  },
+  "380": {
+    "name": "Deep Space Transport",
+    "categoryId": 6
+  },
+  "381": {
+    "name": "Elite Battleship",
+    "categoryId": 6
+  },
+  "382": {
+    "name": "Shipping Crates",
+    "categoryId": 2
+  },
+  "383": {
+    "name": "Destructible Sentry Gun",
+    "categoryId": 11
+  },
+  "384": {
+    "name": "Light Missile",
+    "categoryId": 8
+  },
+  "385": {
+    "name": "Heavy Missile",
+    "categoryId": 8
+  },
+  "386": {
+    "name": "Cruise Missile",
+    "categoryId": 8
+  },
+  "387": {
+    "name": "Rocket",
+    "categoryId": 8
+  },
+  "394": {
+    "name": "Auto-Targeting Light Missile",
+    "categoryId": 8
+  },
+  "395": {
+    "name": "Auto-Targeting Heavy Missile",
+    "categoryId": 8
+  },
+  "396": {
+    "name": "Auto-Targeting Cruise Missile",
+    "categoryId": 8
+  },
+  "397": {
+    "name": "Assembly Array",
+    "categoryId": 23
+  },
+  "400": {
+    "name": "Ballistic Control System Blueprint",
+    "categoryId": 9
+  },
+  "401": {
+    "name": "Cloaking Device Blueprint",
+    "categoryId": 9
+  },
+  "404": {
+    "name": "Silo",
+    "categoryId": 23
+  },
+  "405": {
+    "name": "Anti Cloaking Pulse",
+    "categoryId": 7
+  },
+  "406": {
+    "name": "Smartbomb Supercharger",
+    "categoryId": 7
+  },
+  "407": {
+    "name": "Fighter Support Unit",
+    "categoryId": 7
+  },
+  "408": {
+    "name": "Drone Upgrade Blueprint",
+    "categoryId": 9
+  },
+  "409": {
+    "name": "Empire Insignia Drops",
+    "categoryId": 17
+  },
+  "410": {
+    "name": "Anti Cloaking Pulse Blueprint",
+    "categoryId": 9
+  },
+  "411": {
+    "name": "Force Field",
+    "categoryId": 2
+  },
+  "413": {
+    "name": "Laboratory",
+    "categoryId": 23
+  },
+  "414": {
+    "name": "Mobile Power Core",
+    "categoryId": 23
+  },
+  "416": {
+    "name": "Moon Mining",
+    "categoryId": 23
+  },
+  "417": {
+    "name": "Mobile Missile Sentry",
+    "categoryId": 23
+  },
+  "418": {
+    "name": "Mobile Shield Generator",
+    "categoryId": 23
+  },
+  "419": {
+    "name": "Combat Battlecruiser",
+    "categoryId": 6
+  },
+  "420": {
+    "name": "Destroyer",
+    "categoryId": 6
+  },
+  "422": {
+    "name": "Gas Isotopes",
+    "categoryId": 4
+  },
+  "423": {
+    "name": "Ice Product",
+    "categoryId": 4
+  },
+  "425": {
+    "name": "Orbital Assault Unit",
+    "categoryId": 8
+  },
+  "426": {
+    "name": "Mobile Projectile Sentry",
+    "categoryId": 23
+  },
+  "427": {
+    "name": "Moon Materials",
+    "categoryId": 4
+  },
+  "428": {
+    "name": "Intermediate Materials",
+    "categoryId": 4
+  },
+  "429": {
+    "name": "Composite",
+    "categoryId": 4
+  },
+  "430": {
+    "name": "Mobile Laser Sentry",
+    "categoryId": 23
+  },
+  "435": {
+    "name": "Deadspace Overseer",
+    "categoryId": 11
+  },
+  "436": {
+    "name": "Simple Reaction",
+    "categoryId": 24
+  },
+  "438": {
+    "name": "Mobile Reactor",
+    "categoryId": 23
+  },
+  "439": {
+    "name": "Electronic Warfare Battery",
+    "categoryId": 23
+  },
+  "440": {
+    "name": "Sensor Dampening Battery",
+    "categoryId": 23
+  },
+  "441": {
+    "name": "Stasis Webification Battery",
+    "categoryId": 23
+  },
+  "443": {
+    "name": "Warp Scrambling Battery",
+    "categoryId": 23
+  },
+  "444": {
+    "name": "Shield Hardening Array",
+    "categoryId": 23
+  },
+  "445": {
+    "name": "Force Field Array",
+    "categoryId": 23
+  },
+  "446": {
+    "name": "Customs Official",
+    "categoryId": 11
+  },
+  "447": {
+    "name": "Construction Component Blueprints",
+    "categoryId": 9
+  },
+  "448": {
+    "name": "Audit Log Secure Container",
+    "categoryId": 2
+  },
+  "449": {
+    "name": "Mobile Hybrid Sentry",
+    "categoryId": 23
+  },
+  "450": {
+    "name": "Arkonor",
+    "categoryId": 25
+  },
+  "451": {
+    "name": "Bistot",
+    "categoryId": 25
+  },
+  "452": {
+    "name": "Crokite",
+    "categoryId": 25
+  },
+  "453": {
+    "name": "Dark Ochre",
+    "categoryId": 25
+  },
+  "454": {
+    "name": "Hedbergite",
+    "categoryId": 25
+  },
+  "455": {
+    "name": "Hemorphite",
+    "categoryId": 25
+  },
+  "456": {
+    "name": "Jaspet",
+    "categoryId": 25
+  },
+  "457": {
+    "name": "Kernite",
+    "categoryId": 25
+  },
+  "458": {
+    "name": "Plagioclase",
+    "categoryId": 25
+  },
+  "459": {
+    "name": "Pyroxeres",
+    "categoryId": 25
+  },
+  "460": {
+    "name": "Scordite",
+    "categoryId": 25
+  },
+  "461": {
+    "name": "Spodumain",
+    "categoryId": 25
+  },
+  "462": {
+    "name": "Veldspar",
+    "categoryId": 25
+  },
+  "463": {
+    "name": "Mining Barge",
+    "categoryId": 6
+  },
+  "464": {
+    "name": "Strip Miner",
+    "categoryId": 7
+  },
+  "465": {
+    "name": "Ice",
+    "categoryId": 25
+  },
+  "467": {
+    "name": "Gneiss",
+    "categoryId": 25
+  },
+  "468": {
+    "name": "Mercoxit",
+    "categoryId": 25
+  },
+  "469": {
+    "name": "Omber",
+    "categoryId": 25
+  },
+  "470": {
+    "name": "Unanchoring Drone",
+    "categoryId": 18
+  },
+  "471": {
+    "name": "Corporate Hangar Array",
+    "categoryId": 23
+  },
+  "472": {
+    "name": "System Scanner",
+    "categoryId": 7
+  },
+  "473": {
+    "name": "Tracking Array",
+    "categoryId": 23
+  },
+  "474": {
+    "name": "Acceleration Gate Keys",
+    "categoryId": 17
+  },
+  "475": {
+    "name": "Microwarpdrive",
+    "categoryId": 7
+  },
+  "476": {
+    "name": "XL Torpedo",
+    "categoryId": 8
+  },
+  "477": {
+    "name": "Mining Barge Blueprint",
+    "categoryId": 9
+  },
+  "478": {
+    "name": "System Scanner Blueprint",
+    "categoryId": 9
+  },
+  "479": {
+    "name": "Scanner Probe",
+    "categoryId": 8
+  },
+  "480": {
+    "name": "Stealth Emitter Array",
+    "categoryId": 23
+  },
+  "481": {
+    "name": "Scan Probe Launcher",
+    "categoryId": 7
+  },
+  "482": {
+    "name": "Mining Crystal",
+    "categoryId": 8
+  },
+  "483": {
+    "name": "Frequency Mining Laser",
+    "categoryId": 7
+  },
+  "484": {
+    "name": "Complex Reactions",
+    "categoryId": 24
+  },
+  "485": {
+    "name": "Dreadnought",
+    "categoryId": 6
+  },
+  "486": {
+    "name": "Scan Probe Blueprint",
+    "categoryId": 9
+  },
+  "487": {
+    "name": "Destroyer Blueprint",
+    "categoryId": 9
+  },
+  "489": {
+    "name": "Battlecruiser Blueprint",
+    "categoryId": 9
+  },
+  "490": {
+    "name": "Strip Miner Blueprint",
+    "categoryId": 9
+  },
+  "492": {
+    "name": "Survey Probe",
+    "categoryId": 8
+  },
+  "493": {
+    "name": "Overseer Personal Effects",
+    "categoryId": 17
+  },
+  "494": {
+    "name": "Deadspace Overseer's Structure",
+    "categoryId": 11
+  },
+  "495": {
+    "name": "Deadspace Overseer's Sentry",
+    "categoryId": 11
+  },
+  "496": {
+    "name": "Deadspace Overseer's Belongings",
+    "categoryId": 11
+  },
+  "497": {
+    "name": "Fuel",
+    "categoryId": 8
+  },
+  "498": {
+    "name": "Modifications",
+    "categoryId": 8
+  },
+  "499": {
+    "name": "New EW Testing",
+    "categoryId": 7
+  },
+  "500": {
+    "name": "Festival Charges",
+    "categoryId": 8
+  },
+  "501": {
+    "name": "Festival Launcher",
+    "categoryId": 7
+  },
+  "502": {
+    "name": "Cosmic Signature",
+    "categoryId": 2
+  },
+  "503": {
+    "name": "Elite Hauler Blueprint",
+    "categoryId": 9
+  },
+  "504": {
+    "name": "Target Painter Blueprint",
+    "categoryId": 9
+  },
+  "505": {
+    "name": "Fake Skills",
+    "categoryId": 16
+  },
+  "506": {
+    "name": "Missile Launcher Cruise",
+    "categoryId": 7
+  },
+  "507": {
+    "name": "Missile Launcher Rocket",
+    "categoryId": 7
+  },
+  "508": {
+    "name": "Missile Launcher Torpedo",
+    "categoryId": 7
+  },
+  "509": {
+    "name": "Missile Launcher Light",
+    "categoryId": 7
+  },
+  "510": {
+    "name": "Missile Launcher Heavy",
+    "categoryId": 7
+  },
+  "511": {
+    "name": "Missile Launcher Rapid Light",
+    "categoryId": 7
+  },
+  "512": {
+    "name": "Missile Launcher Defender",
+    "categoryId": 7
+  },
+  "513": {
+    "name": "Freighter",
+    "categoryId": 6
+  },
+  "514": {
+    "name": "ECM Stabilizer",
+    "categoryId": 7
+  },
+  "515": {
+    "name": "Siege Module",
+    "categoryId": 7
+  },
+  "516": {
+    "name": "Siege Module Blueprint",
+    "categoryId": 9
+  },
+  "517": {
+    "name": "Agents in Space",
+    "categoryId": 2
+  },
+  "518": {
+    "name": "Anti Ballistic Defense System",
+    "categoryId": 7
+  },
+  "519": {
+    "name": "Terran Artifacts",
+    "categoryId": 25
+  },
+  "520": {
+    "name": "Storyline Frigate",
+    "categoryId": 11
+  },
+  "521": {
+    "name": "Identification",
+    "categoryId": 17
+  },
+  "522": {
+    "name": "Storyline Cruiser",
+    "categoryId": 11
+  },
+  "523": {
+    "name": "Storyline Battleship",
+    "categoryId": 11
+  },
+  "524": {
+    "name": "Missile Launcher XL Torpedo",
+    "categoryId": 7
+  },
+  "525": {
+    "name": "Freighter Blueprint",
+    "categoryId": 9
+  },
+  "526": {
+    "name": "Commodities",
+    "categoryId": 17
+  },
+  "527": {
+    "name": "Storyline Mission Frigate",
+    "categoryId": 11
+  },
+  "528": {
+    "name": "Artifacts and Prototypes",
+    "categoryId": 17
+  },
+  "530": {
+    "name": "Materials and Compounds",
+    "categoryId": 17
+  },
+  "532": {
+    "name": "Gang Coordinator Blueprint",
+    "categoryId": 9
+  },
+  "533": {
+    "name": "Storyline Mission Cruiser",
+    "categoryId": 11
+  },
+  "534": {
+    "name": "Storyline Mission Battleship",
+    "categoryId": 11
+  },
+  "535": {
+    "name": "Construction Platform Blueprint",
+    "categoryId": 9
+  },
+  "536": {
+    "name": "Structure Components",
+    "categoryId": 17
+  },
+  "537": {
+    "name": "Dreadnought Blueprint",
+    "categoryId": 9
+  },
+  "538": {
+    "name": "Data Miners",
+    "categoryId": 7
+  },
+  "540": {
+    "name": "Command Ship",
+    "categoryId": 6
+  },
+  "541": {
+    "name": "Interdictor",
+    "categoryId": 6
+  },
+  "543": {
+    "name": "Exhumer",
+    "categoryId": 6
+  },
+  "544": {
+    "name": "Energy Neutralizer Drone",
+    "categoryId": 18
+  },
+  "545": {
+    "name": "Warp Scrambling Drone",
+    "categoryId": 18
+  },
+  "546": {
+    "name": "Mining Upgrade",
+    "categoryId": 7
+  },
+  "547": {
+    "name": "Carrier",
+    "categoryId": 6
+  },
+  "548": {
+    "name": "Interdiction Probe",
+    "categoryId": 8
+  },
+  "549": {
+    "name": "Fighter Drone",
+    "categoryId": 18
+  },
+  "550": {
+    "name": "Asteroid Angel Cartel Frigate",
+    "categoryId": 11
+  },
+  "551": {
+    "name": "Asteroid Angel Cartel Cruiser",
+    "categoryId": 11
+  },
+  "552": {
+    "name": "Asteroid Angel Cartel Battleship",
+    "categoryId": 11
+  },
+  "553": {
+    "name": "Asteroid Angel Cartel Officer",
+    "categoryId": 11
+  },
+  "554": {
+    "name": "Asteroid Angel Cartel Hauler",
+    "categoryId": 11
+  },
+  "555": {
+    "name": "Asteroid Blood Raiders Cruiser",
+    "categoryId": 11
+  },
+  "556": {
+    "name": "Asteroid Blood Raiders Battleship",
+    "categoryId": 11
+  },
+  "557": {
+    "name": "Asteroid Blood Raiders Frigate",
+    "categoryId": 11
+  },
+  "558": {
+    "name": "Asteroid Blood Raiders Hauler",
+    "categoryId": 11
+  },
+  "559": {
+    "name": "Asteroid Blood Raiders Officer",
+    "categoryId": 11
+  },
+  "560": {
+    "name": "Asteroid Guristas Battleship",
+    "categoryId": 11
+  },
+  "561": {
+    "name": "Asteroid Guristas Cruiser",
+    "categoryId": 11
+  },
+  "562": {
+    "name": "Asteroid Guristas Frigate",
+    "categoryId": 11
+  },
+  "563": {
+    "name": "Asteroid Guristas Hauler",
+    "categoryId": 11
+  },
+  "564": {
+    "name": "Asteroid Guristas Officer",
+    "categoryId": 11
+  },
+  "565": {
+    "name": "Asteroid Sansha's Nation Battleship",
+    "categoryId": 11
+  },
+  "566": {
+    "name": "Asteroid Sansha's Nation Cruiser",
+    "categoryId": 11
+  },
+  "567": {
+    "name": "Asteroid Sansha's Nation Frigate",
+    "categoryId": 11
+  },
+  "568": {
+    "name": "Asteroid Sansha's Nation Hauler",
+    "categoryId": 11
+  },
+  "569": {
+    "name": "Asteroid Sansha's Nation Officer",
+    "categoryId": 11
+  },
+  "570": {
+    "name": "Asteroid Serpentis Battleship",
+    "categoryId": 11
+  },
+  "571": {
+    "name": "Asteroid Serpentis Cruiser",
+    "categoryId": 11
+  },
+  "572": {
+    "name": "Asteroid Serpentis Frigate",
+    "categoryId": 11
+  },
+  "573": {
+    "name": "Asteroid Serpentis Hauler",
+    "categoryId": 11
+  },
+  "574": {
+    "name": "Asteroid Serpentis Officer",
+    "categoryId": 11
+  },
+  "575": {
+    "name": "Asteroid Angel Cartel Destroyer",
+    "categoryId": 11
+  },
+  "576": {
+    "name": "Asteroid Angel Cartel BattleCruiser",
+    "categoryId": 11
+  },
+  "577": {
+    "name": "Asteroid Blood Raiders Destroyer",
+    "categoryId": 11
+  },
+  "578": {
+    "name": "Asteroid Blood Raiders BattleCruiser",
+    "categoryId": 11
+  },
+  "579": {
+    "name": "Asteroid Guristas Destroyer",
+    "categoryId": 11
+  },
+  "580": {
+    "name": "Asteroid Guristas BattleCruiser",
+    "categoryId": 11
+  },
+  "581": {
+    "name": "Asteroid Sansha's Nation Destroyer",
+    "categoryId": 11
+  },
+  "582": {
+    "name": "Asteroid Sansha's Nation BattleCruiser",
+    "categoryId": 11
+  },
+  "583": {
+    "name": "Asteroid Serpentis Destroyer",
+    "categoryId": 11
+  },
+  "584": {
+    "name": "Asteroid Serpentis BattleCruiser",
+    "categoryId": 11
+  },
+  "585": {
+    "name": "Remote Hull Repairer",
+    "categoryId": 7
+  },
+  "586": {
+    "name": "Drone Modules",
+    "categoryId": 7
+  },
+  "588": {
+    "name": "Super Weapon",
+    "categoryId": 7
+  },
+  "589": {
+    "name": "Interdiction Sphere Launcher",
+    "categoryId": 7
+  },
+  "590": {
+    "name": "Jump Portal Generator",
+    "categoryId": 7
+  },
+  "593": {
+    "name": "Deadspace Angel Cartel BattleCruiser",
+    "categoryId": 11
+  },
+  "594": {
+    "name": "Deadspace Angel Cartel Battleship",
+    "categoryId": 11
+  },
+  "595": {
+    "name": "Deadspace Angel Cartel Cruiser",
+    "categoryId": 11
+  },
+  "596": {
+    "name": "Deadspace Angel Cartel Destroyer",
+    "categoryId": 11
+  },
+  "597": {
+    "name": "Deadspace Angel Cartel Frigate",
+    "categoryId": 11
+  },
+  "602": {
+    "name": "Deadspace Blood Raiders BattleCruiser",
+    "categoryId": 11
+  },
+  "603": {
+    "name": "Deadspace Blood Raiders Battleship",
+    "categoryId": 11
+  },
+  "604": {
+    "name": "Deadspace Blood Raiders Cruiser",
+    "categoryId": 11
+  },
+  "605": {
+    "name": "Deadspace Blood Raiders Destroyer",
+    "categoryId": 11
+  },
+  "606": {
+    "name": "Deadspace Blood Raiders Frigate",
+    "categoryId": 11
+  },
+  "611": {
+    "name": "Deadspace Guristas BattleCruiser",
+    "categoryId": 11
+  },
+  "612": {
+    "name": "Deadspace Guristas Battleship",
+    "categoryId": 11
+  },
+  "613": {
+    "name": "Deadspace Guristas Cruiser",
+    "categoryId": 11
+  },
+  "614": {
+    "name": "Deadspace Guristas Destroyer",
+    "categoryId": 11
+  },
+  "615": {
+    "name": "Deadspace Guristas Frigate",
+    "categoryId": 11
+  },
+  "620": {
+    "name": "Deadspace Sansha's Nation BattleCruiser",
+    "categoryId": 11
+  },
+  "621": {
+    "name": "Deadspace Sansha's Nation Battleship",
+    "categoryId": 11
+  },
+  "622": {
+    "name": "Deadspace Sansha's Nation Cruiser",
+    "categoryId": 11
+  },
+  "623": {
+    "name": "Deadspace Sansha's Nation Destroyer",
+    "categoryId": 11
+  },
+  "624": {
+    "name": "Deadspace Sansha's Nation Frigate",
+    "categoryId": 11
+  },
+  "629": {
+    "name": "Deadspace Serpentis BattleCruiser",
+    "categoryId": 11
+  },
+  "630": {
+    "name": "Deadspace Serpentis Battleship",
+    "categoryId": 11
+  },
+  "631": {
+    "name": "Deadspace Serpentis Cruiser",
+    "categoryId": 11
+  },
+  "632": {
+    "name": "Deadspace Serpentis Destroyer",
+    "categoryId": 11
+  },
+  "633": {
+    "name": "Deadspace Serpentis Frigate",
+    "categoryId": 11
+  },
+  "638": {
+    "name": "Navigation Computer",
+    "categoryId": 7
+  },
+  "639": {
+    "name": "Electronic Warfare Drone",
+    "categoryId": 18
+  },
+  "640": {
+    "name": "Logistic Drone",
+    "categoryId": 18
+  },
+  "641": {
+    "name": "Stasis Webifying Drone",
+    "categoryId": 18
+  },
+  "642": {
+    "name": "Super Gang Enhancer",
+    "categoryId": 7
+  },
+  "643": {
+    "name": "Carrier Blueprint",
+    "categoryId": 9
+  },
+  "644": {
+    "name": "Drone Navigation Computer",
+    "categoryId": 7
+  },
+  "645": {
+    "name": "Drone Damage Modules",
+    "categoryId": 7
+  },
+  "646": {
+    "name": "Drone Tracking Modules",
+    "categoryId": 7
+  },
+  "647": {
+    "name": "Drone Control Range Module",
+    "categoryId": 7
+  },
+  "648": {
+    "name": "Advanced Rocket",
+    "categoryId": 8
+  },
+  "649": {
+    "name": "Freight Container",
+    "categoryId": 2
+  },
+  "650": {
+    "name": "Tractor Beam",
+    "categoryId": 7
+  },
+  "651": {
+    "name": "Super Weapon Blueprint",
+    "categoryId": 9
+  },
+  "652": {
+    "name": "Lease",
+    "categoryId": 17
+  },
+  "653": {
+    "name": "Advanced Light Missile",
+    "categoryId": 8
+  },
+  "654": {
+    "name": "Advanced Heavy Assault Missile",
+    "categoryId": 8
+  },
+  "655": {
+    "name": "Advanced Heavy Missile",
+    "categoryId": 8
+  },
+  "656": {
+    "name": "Advanced Cruise Missile",
+    "categoryId": 8
+  },
+  "657": {
+    "name": "Advanced Torpedo",
+    "categoryId": 8
+  },
+  "658": {
+    "name": "Cynosural Field Generator",
+    "categoryId": 7
+  },
+  "659": {
+    "name": "Supercarrier",
+    "categoryId": 6
+  },
+  "660": {
+    "name": "Energy Vampire Slayer",
+    "categoryId": 7
+  },
+  "661": {
+    "name": "Simple Biochemical Reactions",
+    "categoryId": 24
+  },
+  "662": {
+    "name": "Complex Biochemical Reactions",
+    "categoryId": 24
+  },
+  "663": {
+    "name": "Mercoxit Mining Crystal",
+    "categoryId": 8
+  },
+  "665": {
+    "name": "Mission Amarr Empire Frigate",
+    "categoryId": 11
+  },
+  "666": {
+    "name": "Mission Amarr Empire Battlecruiser",
+    "categoryId": 11
+  },
+  "667": {
+    "name": "Mission Amarr Empire Battleship",
+    "categoryId": 11
+  },
+  "668": {
+    "name": "Mission Amarr Empire Cruiser",
+    "categoryId": 11
+  },
+  "669": {
+    "name": "Mission Amarr Empire Destroyer",
+    "categoryId": 11
+  },
+  "670": {
+    "name": "Mission Amarr Empire Other",
+    "categoryId": 11
+  },
+  "671": {
+    "name": "Mission Caldari State Frigate",
+    "categoryId": 11
+  },
+  "672": {
+    "name": "Mission Caldari State Battlecruiser",
+    "categoryId": 11
+  },
+  "673": {
+    "name": "Mission Caldari State Cruiser",
+    "categoryId": 11
+  },
+  "674": {
+    "name": "Mission Caldari State Battleship",
+    "categoryId": 11
+  },
+  "675": {
+    "name": "Mission Caldari State Other",
+    "categoryId": 11
+  },
+  "676": {
+    "name": "Mission Caldari State Destroyer",
+    "categoryId": 11
+  },
+  "677": {
+    "name": "Mission Gallente Federation Frigate",
+    "categoryId": 11
+  },
+  "678": {
+    "name": "Mission Gallente Federation Cruiser",
+    "categoryId": 11
+  },
+  "679": {
+    "name": "Mission Gallente Federation Destroyer",
+    "categoryId": 11
+  },
+  "680": {
+    "name": "Mission Gallente Federation Battleship",
+    "categoryId": 11
+  },
+  "681": {
+    "name": "Mission Gallente Federation Battlecruiser",
+    "categoryId": 11
+  },
+  "682": {
+    "name": "Mission Gallente Federation Other",
+    "categoryId": 11
+  },
+  "683": {
+    "name": "Mission Minmatar Republic Frigate",
+    "categoryId": 11
+  },
+  "684": {
+    "name": "Mission Minmatar Republic Destroyer",
+    "categoryId": 11
+  },
+  "685": {
+    "name": "Mission Minmatar Republic Battlecruiser",
+    "categoryId": 11
+  },
+  "686": {
+    "name": "Mission Minmatar Republic Other",
+    "categoryId": 11
+  },
+  "687": {
+    "name": "Mission Khanid Frigate",
+    "categoryId": 11
+  },
+  "688": {
+    "name": "Mission Khanid Destroyer",
+    "categoryId": 11
+  },
+  "689": {
+    "name": "Mission Khanid Cruiser",
+    "categoryId": 11
+  },
+  "690": {
+    "name": "Mission Khanid Battlecruiser",
+    "categoryId": 11
+  },
+  "691": {
+    "name": "Mission Khanid Battleship",
+    "categoryId": 11
+  },
+  "692": {
+    "name": "Mission Khanid Other",
+    "categoryId": 11
+  },
+  "693": {
+    "name": "Mission CONCORD Frigate",
+    "categoryId": 11
+  },
+  "694": {
+    "name": "Mission CONCORD Destroyer",
+    "categoryId": 11
+  },
+  "695": {
+    "name": "Mission CONCORD Cruiser",
+    "categoryId": 11
+  },
+  "696": {
+    "name": "Mission CONCORD Battlecruiser",
+    "categoryId": 11
+  },
+  "697": {
+    "name": "Mission CONCORD Battleship",
+    "categoryId": 11
+  },
+  "698": {
+    "name": "Mission CONCORD Other",
+    "categoryId": 11
+  },
+  "699": {
+    "name": "Mission Mordu Frigate",
+    "categoryId": 11
+  },
+  "700": {
+    "name": "Mission Mordu Destroyer",
+    "categoryId": 11
+  },
+  "701": {
+    "name": "Mission Mordu Cruiser",
+    "categoryId": 11
+  },
+  "702": {
+    "name": "Mission Mordu Battlecruiser",
+    "categoryId": 11
+  },
+  "703": {
+    "name": "Mission Mordu Battleship",
+    "categoryId": 11
+  },
+  "704": {
+    "name": "Mission Mordu Other",
+    "categoryId": 11
+  },
+  "705": {
+    "name": "Mission Minmatar Republic Cruiser",
+    "categoryId": 11
+  },
+  "706": {
+    "name": "Mission Minmatar Republic Battleship",
+    "categoryId": 11
+  },
+  "707": {
+    "name": "Jump Portal Array",
+    "categoryId": 23
+  },
+  "709": {
+    "name": "Scanner Array",
+    "categoryId": 23
+  },
+  "710": {
+    "name": "Logistics Array",
+    "categoryId": 23
+  },
+  "711": {
+    "name": "Harvestable Cloud",
+    "categoryId": 2
+  },
+  "712": {
+    "name": "Biochemical Material",
+    "categoryId": 4
+  },
+  "715": {
+    "name": "Destructible Agents In Space",
+    "categoryId": 11
+  },
+  "716": {
+    "name": "Data Interfaces",
+    "categoryId": 17
+  },
+  "718": {
+    "name": "Booster Blueprints",
+    "categoryId": 9
+  },
+  "721": {
+    "name": "Temp",
+    "categoryId": 20
+  },
+  "722": {
+    "name": "Advanced Hybrid Charge Blueprint",
+    "categoryId": 9
+  },
+  "723": {
+    "name": "Tractor Beam Blueprint",
+    "categoryId": 9
+  },
+  "724": {
+    "name": "Implant Blueprints",
+    "categoryId": 9
+  },
+  "725": {
+    "name": "Advanced Projectile Ammo Blueprint",
+    "categoryId": 9
+  },
+  "726": {
+    "name": "Advanced Frequency Crystal Blueprint",
+    "categoryId": 9
+  },
+  "727": {
+    "name": "Mining Crystal Blueprint",
+    "categoryId": 9
+  },
+  "728": {
+    "name": "Decryptors - Amarr",
+    "categoryId": 35
+  },
+  "729": {
+    "name": "Decryptors - Minmatar",
+    "categoryId": 35
+  },
+  "730": {
+    "name": "Decryptors - Gallente",
+    "categoryId": 35
+  },
+  "731": {
+    "name": "Decryptors - Caldari",
+    "categoryId": 35
+  },
+  "732": {
+    "name": "Decryptors - Sleepers",
+    "categoryId": 17
+  },
+  "733": {
+    "name": "Decryptors - Yan Jung",
+    "categoryId": 17
+  },
+  "734": {
+    "name": "Decryptors - Takmahl",
+    "categoryId": 17
+  },
+  "735": {
+    "name": "Decryptors - Talocan",
+    "categoryId": 17
+  },
+  "737": {
+    "name": "Gas Cloud Scoops",
+    "categoryId": 7
+  },
+  "738": {
+    "name": "Cyber Armor",
+    "categoryId": 20
+  },
+  "739": {
+    "name": "Cyber Drones",
+    "categoryId": 20
+  },
+  "740": {
+    "name": "Cyber Electronic Systems",
+    "categoryId": 20
+  },
+  "741": {
+    "name": "Cyber Engineering",
+    "categoryId": 20
+  },
+  "742": {
+    "name": "Cyber Gunnery",
+    "categoryId": 20
+  },
+  "743": {
+    "name": "Cyber Production",
+    "categoryId": 20
+  },
+  "744": {
+    "name": "Cyber Leadership",
+    "categoryId": 20
+  },
+  "745": {
+    "name": "Cyber Learning",
+    "categoryId": 20
+  },
+  "746": {
+    "name": "Cyber Missile",
+    "categoryId": 20
+  },
+  "747": {
+    "name": "Cyber Navigation",
+    "categoryId": 20
+  },
+  "748": {
+    "name": "Cyber Science",
+    "categoryId": 20
+  },
+  "749": {
+    "name": "Cyber Shields",
+    "categoryId": 20
+  },
+  "750": {
+    "name": "Cyber Social",
+    "categoryId": 20
+  },
+  "751": {
+    "name": "Cyber Trade",
+    "categoryId": 20
+  },
+  "753": {
+    "name": "ECM Enhancer",
+    "categoryId": 7
+  },
+  "754": {
+    "name": "Salvaged Materials",
+    "categoryId": 4
+  },
+  "755": {
+    "name": "Asteroid Rogue Drone BattleCruiser",
+    "categoryId": 11
+  },
+  "756": {
+    "name": "Asteroid Rogue Drone Battleship",
+    "categoryId": 11
+  },
+  "757": {
+    "name": "Asteroid Rogue Drone Cruiser",
+    "categoryId": 11
+  },
+  "758": {
+    "name": "Asteroid Rogue Drone Destroyer",
+    "categoryId": 11
+  },
+  "759": {
+    "name": "Asteroid Rogue Drone Frigate",
+    "categoryId": 11
+  },
+  "760": {
+    "name": "Asteroid Rogue Drone Hauler",
+    "categoryId": 11
+  },
+  "761": {
+    "name": "Asteroid Rogue Drone Swarm",
+    "categoryId": 11
+  },
+  "762": {
+    "name": "Inertial Stabilizer",
+    "categoryId": 7
+  },
+  "763": {
+    "name": "Nanofiber Internal Structure",
+    "categoryId": 7
+  },
+  "764": {
+    "name": "Overdrive Injector System",
+    "categoryId": 7
+  },
+  "765": {
+    "name": "Expanded Cargohold",
+    "categoryId": 7
+  },
+  "766": {
+    "name": "Power Diagnostic System",
+    "categoryId": 7
+  },
+  "767": {
+    "name": "Capacitor Power Relay",
+    "categoryId": 7
+  },
+  "768": {
+    "name": "Capacitor Flux Coil",
+    "categoryId": 7
+  },
+  "769": {
+    "name": "Reactor Control Unit",
+    "categoryId": 7
+  },
+  "770": {
+    "name": "Shield Flux Coil",
+    "categoryId": 7
+  },
+  "771": {
+    "name": "Missile Launcher Heavy Assault",
+    "categoryId": 7
+  },
+  "772": {
+    "name": "Heavy Assault Missile",
+    "categoryId": 8
+  },
+  "773": {
+    "name": "Rig Armor",
+    "categoryId": 7
+  },
+  "774": {
+    "name": "Rig Shield",
+    "categoryId": 7
+  },
+  "775": {
+    "name": "Rig Energy Weapon",
+    "categoryId": 7
+  },
+  "776": {
+    "name": "Rig Hybrid Weapon",
+    "categoryId": 7
+  },
+  "777": {
+    "name": "Rig Projectile Weapon",
+    "categoryId": 7
+  },
+  "778": {
+    "name": "Rig Drones",
+    "categoryId": 7
+  },
+  "779": {
+    "name": "Rig Launcher",
+    "categoryId": 7
+  },
+  "781": {
+    "name": "Rig Core",
+    "categoryId": 7
+  },
+  "782": {
+    "name": "Rig Navigation",
+    "categoryId": 7
+  },
+  "783": {
+    "name": "Cyber X Specials",
+    "categoryId": 20
+  },
+  "784": {
+    "name": "Large Collidable Ship",
+    "categoryId": 11
+  },
+  "786": {
+    "name": "Rig Electronic Systems",
+    "categoryId": 7
+  },
+  "787": {
+    "name": "Rig Blueprint",
+    "categoryId": 9
+  },
+  "789": {
+    "name": "Asteroid Angel Cartel Commander Frigate",
+    "categoryId": 11
+  },
+  "790": {
+    "name": "Asteroid Angel Cartel Commander Cruiser",
+    "categoryId": 11
+  },
+  "791": {
+    "name": "Asteroid Blood Raiders Commander Cruiser",
+    "categoryId": 11
+  },
+  "792": {
+    "name": "Asteroid Blood Raiders Commander Frigate",
+    "categoryId": 11
+  },
+  "793": {
+    "name": "Asteroid Angel Cartel Commander BattleCruiser",
+    "categoryId": 11
+  },
+  "794": {
+    "name": "Asteroid Angel Cartel Commander Destroyer",
+    "categoryId": 11
+  },
+  "795": {
+    "name": "Asteroid Blood Raiders Commander BattleCruiser",
+    "categoryId": 11
+  },
+  "796": {
+    "name": "Asteroid Blood Raiders Commander Destroyer",
+    "categoryId": 11
+  },
+  "797": {
+    "name": "Asteroid Guristas Commander BattleCruiser",
+    "categoryId": 11
+  },
+  "798": {
+    "name": "Asteroid Guristas Commander Cruiser",
+    "categoryId": 11
+  },
+  "799": {
+    "name": "Asteroid Guristas Commander Destroyer",
+    "categoryId": 11
+  },
+  "800": {
+    "name": "Asteroid Guristas Commander Frigate",
+    "categoryId": 11
+  },
+  "801": {
+    "name": "Deadspace Rogue Drone BattleCruiser",
+    "categoryId": 11
+  },
+  "802": {
+    "name": "Deadspace Rogue Drone Battleship",
+    "categoryId": 11
+  },
+  "803": {
+    "name": "Deadspace Rogue Drone Cruiser",
+    "categoryId": 11
+  },
+  "804": {
+    "name": "Deadspace Rogue Drone Destroyer",
+    "categoryId": 11
+  },
+  "805": {
+    "name": "Deadspace Rogue Drone Frigate",
+    "categoryId": 11
+  },
+  "806": {
+    "name": "Deadspace Rogue Drone Swarm",
+    "categoryId": 11
+  },
+  "807": {
+    "name": "Asteroid Sansha's Nation Commander BattleCruiser",
+    "categoryId": 11
+  },
+  "808": {
+    "name": "Asteroid Sansha's Nation Commander Cruiser",
+    "categoryId": 11
+  },
+  "809": {
+    "name": "Asteroid Sansha's Nation Commander Destroyer",
+    "categoryId": 11
+  },
+  "810": {
+    "name": "Asteroid Sansha's Nation Commander Frigate",
+    "categoryId": 11
+  },
+  "811": {
+    "name": "Asteroid Serpentis Commander BattleCruiser",
+    "categoryId": 11
+  },
+  "812": {
+    "name": "Asteroid Serpentis Commander Cruiser",
+    "categoryId": 11
+  },
+  "813": {
+    "name": "Asteroid Serpentis Commander Destroyer",
+    "categoryId": 11
+  },
+  "814": {
+    "name": "Asteroid Serpentis Commander Frigate",
+    "categoryId": 11
+  },
+  "815": {
+    "name": "Clone Vat Bay",
+    "categoryId": 7
+  },
+  "816": {
+    "name": "Mission Generic Battleships",
+    "categoryId": 11
+  },
+  "817": {
+    "name": "Mission Generic Cruisers",
+    "categoryId": 11
+  },
+  "818": {
+    "name": "Mission Generic Frigates",
+    "categoryId": 11
+  },
+  "819": {
+    "name": "Deadspace Overseer Frigate",
+    "categoryId": 11
+  },
+  "820": {
+    "name": "Deadspace Overseer Cruiser",
+    "categoryId": 11
+  },
+  "821": {
+    "name": "Deadspace Overseer Battleship",
+    "categoryId": 11
+  },
+  "822": {
+    "name": "Mission Thukker Battlecruiser",
+    "categoryId": 11
+  },
+  "823": {
+    "name": "Mission Thukker Battleship",
+    "categoryId": 11
+  },
+  "824": {
+    "name": "Mission Thukker Cruiser",
+    "categoryId": 11
+  },
+  "825": {
+    "name": "Mission Thukker Destroyer",
+    "categoryId": 11
+  },
+  "826": {
+    "name": "Mission Thukker Frigate",
+    "categoryId": 11
+  },
+  "827": {
+    "name": "Mission Thukker Other",
+    "categoryId": 11
+  },
+  "828": {
+    "name": "Mission Generic Battle Cruisers",
+    "categoryId": 11
+  },
+  "829": {
+    "name": "Mission Generic Destroyers",
+    "categoryId": 11
+  },
+  "830": {
+    "name": "Covert Ops",
+    "categoryId": 6
+  },
+  "831": {
+    "name": "Interceptor",
+    "categoryId": 6
+  },
+  "832": {
+    "name": "Logistics",
+    "categoryId": 6
+  },
+  "833": {
+    "name": "Force Recon Ship",
+    "categoryId": 6
+  },
+  "834": {
+    "name": "Stealth Bomber",
+    "categoryId": 6
+  },
+  "835": {
+    "name": "Station Upgrade Platform",
+    "categoryId": 2
+  },
+  "836": {
+    "name": "Station Improvement Platform",
+    "categoryId": 2
+  },
+  "837": {
+    "name": "Energy Neutralizing Battery",
+    "categoryId": 23
+  },
+  "838": {
+    "name": "Cynosural Generator Array",
+    "categoryId": 23
+  },
+  "839": {
+    "name": "Cynosural System Jammer",
+    "categoryId": 23
+  },
+  "840": {
+    "name": "Structure Repair Array",
+    "categoryId": 23
+  },
+  "841": {
+    "name": "Starbase - Control Tower Blueprints",
+    "categoryId": 9
+  },
+  "842": {
+    "name": "Burst Projectors",
+    "categoryId": 7
+  },
+  "843": {
+    "name": "Asteroid Rogue Drone Commander BattleCruiser",
+    "categoryId": 11
+  },
+  "844": {
+    "name": "Asteroid Rogue Drone Commander Battleship",
+    "categoryId": 11
+  },
+  "845": {
+    "name": "Asteroid Rogue Drone Commander Cruiser",
+    "categoryId": 11
+  },
+  "846": {
+    "name": "Asteroid Rogue Drone Commander Destroyer",
+    "categoryId": 11
+  },
+  "847": {
+    "name": "Asteroid Rogue Drone Commander Frigate",
+    "categoryId": 11
+  },
+  "848": {
+    "name": "Asteroid Angel Cartel Commander Battleship",
+    "categoryId": 11
+  },
+  "849": {
+    "name": "Asteroid Blood Raiders Commander Battleship",
+    "categoryId": 11
+  },
+  "850": {
+    "name": "Asteroid Guristas Commander Battleship",
+    "categoryId": 11
+  },
+  "851": {
+    "name": "Asteroid Sansha's Nation Commander Battleship",
+    "categoryId": 11
+  },
+  "852": {
+    "name": "Asteroid Serpentis Commander Battleship",
+    "categoryId": 11
+  },
+  "853": {
+    "name": "Starbase - Laser Battery Blueprints",
+    "categoryId": 9
+  },
+  "854": {
+    "name": "Starbase - Projectile Battery Blueprints",
+    "categoryId": 9
+  },
+  "855": {
+    "name": "Starbase - Hybrid Battery Blueprints",
+    "categoryId": 9
+  },
+  "856": {
+    "name": "Starbase - ECM Jamming Array Blueprints",
+    "categoryId": 9
+  },
+  "857": {
+    "name": "Starbase - Warp Scrambling Battery Blueprints",
+    "categoryId": 9
+  },
+  "858": {
+    "name": "Starbase - Stasis Webification Battery Blueprints",
+    "categoryId": 9
+  },
+  "859": {
+    "name": "Starbase - Sensor Dampening Array Blueprints",
+    "categoryId": 9
+  },
+  "860": {
+    "name": "Starbase - Energy Neutralizing Battery Blueprints",
+    "categoryId": 9
+  },
+  "861": {
+    "name": "Mission Fighter Drone",
+    "categoryId": 11
+  },
+  "862": {
+    "name": "Missile Launcher Bomb",
+    "categoryId": 7
+  },
+  "863": {
+    "name": "Bomb ECM",
+    "categoryId": 8
+  },
+  "864": {
+    "name": "Bomb Energy",
+    "categoryId": 8
+  },
+  "865": {
+    "name": "Mission Amarr Empire Carrier",
+    "categoryId": 11
+  },
+  "866": {
+    "name": "Mission Caldari State Carrier",
+    "categoryId": 11
+  },
+  "867": {
+    "name": "Mission Gallente Federation Carrier",
+    "categoryId": 11
+  },
+  "868": {
+    "name": "Mission Minmatar Republic Carrier",
+    "categoryId": 11
+  },
+  "870": {
+    "name": "Remote Hull Repairer Blueprint",
+    "categoryId": 9
+  },
+  "871": {
+    "name": "Starbase - Missile Battery Blueprints",
+    "categoryId": 9
+  },
+  "872": {
+    "name": "Outpost Improvements",
+    "categoryId": 5
+  },
+  "873": {
+    "name": "Capital Construction Components",
+    "categoryId": 17
+  },
+  "874": {
+    "name": "Disruptable Station Services",
+    "categoryId": 2
+  },
+  "875": {
+    "name": "Mission Faction Transports",
+    "categoryId": 11
+  },
+  "876": {
+    "name": "Outpost Upgrades",
+    "categoryId": 5
+  },
+  "877": {
+    "name": "Target Painting Battery",
+    "categoryId": 23
+  },
+  "878": {
+    "name": "Cloak Enhancements",
+    "categoryId": 7
+  },
+  "879": {
+    "name": "Slave Reception",
+    "categoryId": 17
+  },
+  "880": {
+    "name": "Sleeper Components",
+    "categoryId": 17
+  },
+  "881": {
+    "name": "Freedom Programs",
+    "categoryId": 24
+  },
+  "882": {
+    "name": "Enslavement Programs",
+    "categoryId": 24
+  },
+  "883": {
+    "name": "Capital Industrial Ship",
+    "categoryId": 6
+  },
+  "884": {
+    "name": "Test Compressed Ore",
+    "categoryId": 17
+  },
+  "885": {
+    "name": "Cosmic Anomaly",
+    "categoryId": 2
+  },
+  "886": {
+    "name": "Rogue Drone Components",
+    "categoryId": 4
+  },
+  "888": {
+    "name": "Ore Compression Blueprints",
+    "categoryId": 9
+  },
+  "889": {
+    "name": "Ore Enhancement Blueprints",
+    "categoryId": 9
+  },
+  "890": {
+    "name": "Ice Compression Blueprints",
+    "categoryId": 9
+  },
+  "891": {
+    "name": "Starbase - Mobile Laboratory Blueprints",
+    "categoryId": 9
+  },
+  "892": {
+    "name": "Planet Satellites",
+    "categoryId": 8
+  },
+  "893": {
+    "name": "Electronic Attack Ship",
+    "categoryId": 6
+  },
+  "894": {
+    "name": "Heavy Interdiction Cruiser",
+    "categoryId": 6
+  },
+  "896": {
+    "name": "Rig Security Transponder",
+    "categoryId": 7
+  },
+  "897": {
+    "name": "Covert Cynosural Field",
+    "categoryId": 2
+  },
+  "898": {
+    "name": "Black Ops",
+    "categoryId": 6
+  },
+  "899": {
+    "name": "Warp Disrupt Field Generator",
+    "categoryId": 7
+  },
+  "900": {
+    "name": "Marauder",
+    "categoryId": 6
+  },
+  "901": {
+    "name": "Mining Enhancer",
+    "categoryId": 7
+  },
+  "902": {
+    "name": "Jump Freighter",
+    "categoryId": 6
+  },
+  "903": {
+    "name": "Ancient Compressed Ice",
+    "categoryId": 25
+  },
+  "904": {
+    "name": "Rig Mining",
+    "categoryId": 7
+  },
+  "905": {
+    "name": "Covert Cynosural Field Generator",
+    "categoryId": 7
+  },
+  "906": {
+    "name": "Combat Recon Ship",
+    "categoryId": 6
+  },
+  "907": {
+    "name": "Tracking Script",
+    "categoryId": 8
+  },
+  "908": {
+    "name": "Warp Disruption Script",
+    "categoryId": 8
+  },
+  "909": {
+    "name": "Tracking Disruption Script",
+    "categoryId": 8
+  },
+  "910": {
+    "name": "Sensor Booster Script",
+    "categoryId": 8
+  },
+  "911": {
+    "name": "Sensor Dampener Script",
+    "categoryId": 8
+  },
+  "912": {
+    "name": "Script Blueprint",
+    "categoryId": 9
+  },
+  "913": {
+    "name": "Advanced Capital Construction Components",
+    "categoryId": 17
+  },
+  "914": {
+    "name": "Advanced Capital Construction Component Blueprints",
+    "categoryId": 9
+  },
+  "915": {
+    "name": "Capital Construction Blueprints",
+    "categoryId": 9
+  },
+  "916": {
+    "name": "Nanite Repair Paste",
+    "categoryId": 8
+  },
+  "917": {
+    "name": "Data Miner Blueprint",
+    "categoryId": 9
+  },
+  "918": {
+    "name": "Scan Probe Launcher Blueprint",
+    "categoryId": 9
+  },
+  "920": {
+    "name": "Effect Beacon",
+    "categoryId": 2
+  },
+  "922": {
+    "name": "Capture Point",
+    "categoryId": 11
+  },
+  "924": {
+    "name": "Mission Faction Battleship",
+    "categoryId": 11
+  },
+  "925": {
+    "name": "FW Infrastructure Hub",
+    "categoryId": 11
+  },
+  "927": {
+    "name": "Mission Faction Haulers",
+    "categoryId": 11
+  },
+  "934": {
+    "name": "Zombie Entities",
+    "categoryId": 11
+  },
+  "935": {
+    "name": "WorldSpace",
+    "categoryId": 26
+  },
+  "937": {
+    "name": "Decorations",
+    "categoryId": 29
+  },
+  "940": {
+    "name": "Furniture",
+    "categoryId": 49
+  },
+  "941": {
+    "name": "Industrial Command Ship",
+    "categoryId": 6
+  },
+  "943": {
+    "name": "Legacy Currency",
+    "categoryId": 5
+  },
+  "944": {
+    "name": "Capital Industrial Ship Blueprint",
+    "categoryId": 9
+  },
+  "945": {
+    "name": "Industrial Command Ship Blueprint",
+    "categoryId": 9
+  },
+  "952": {
+    "name": "Mission Container",
+    "categoryId": 11
+  },
+  "954": {
+    "name": "Defensive Subsystem",
+    "categoryId": 32
+  },
+  "955": {
+    "name": "Depricated Subsystems",
+    "categoryId": 17
+  },
+  "956": {
+    "name": "Offensive Subsystem",
+    "categoryId": 32
+  },
+  "957": {
+    "name": "Propulsion Subsystem",
+    "categoryId": 32
+  },
+  "958": {
+    "name": "Core Subsystem",
+    "categoryId": 32
+  },
+  "959": {
+    "name": "Deadspace Sleeper Sleepless Sentinel",
+    "categoryId": 11
+  },
+  "960": {
+    "name": "Deadspace Sleeper Awakened Sentinel",
+    "categoryId": 11
+  },
+  "961": {
+    "name": "Deadspace Sleeper Emergent Sentinel",
+    "categoryId": 11
+  },
+  "963": {
+    "name": "Strategic Cruiser",
+    "categoryId": 6
+  },
+  "964": {
+    "name": "Hybrid Tech Components",
+    "categoryId": 17
+  },
+  "965": {
+    "name": "Hybrid Component Blueprints",
+    "categoryId": 9
+  },
+  "966": {
+    "name": "Ancient Salvage",
+    "categoryId": 4
+  },
+  "967": {
+    "name": "Wormhole Minerals",
+    "categoryId": 4
+  },
+  "971": {
+    "name": "Sleeper Propulsion Relics",
+    "categoryId": 34
+  },
+  "972": {
+    "name": "Obsolete Probes",
+    "categoryId": 8
+  },
+  "973": {
+    "name": "Subsystem Blueprints",
+    "categoryId": 9
+  },
+  "974": {
+    "name": "Hybrid Polymers",
+    "categoryId": 4
+  },
+  "976": {
+    "name": "Festival Charges Expired",
+    "categoryId": 63
+  },
+  "977": {
+    "name": "Hybrid Reactions",
+    "categoryId": 24
+  },
+  "979": {
+    "name": "Decryptors - Hybrid",
+    "categoryId": 35
+  },
+  "982": {
+    "name": "Deadspace Sleeper Sleepless Defender",
+    "categoryId": 11
+  },
+  "983": {
+    "name": "Deadspace Sleeper Sleepless Patroller",
+    "categoryId": 11
+  },
+  "984": {
+    "name": "Deadspace Sleeper Awakened Defender",
+    "categoryId": 11
+  },
+  "985": {
+    "name": "Deadspace Sleeper Awakened Patroller",
+    "categoryId": 11
+  },
+  "986": {
+    "name": "Deadspace Sleeper Emergent Defender",
+    "categoryId": 11
+  },
+  "987": {
+    "name": "Deadspace Sleeper Emergent Patroller",
+    "categoryId": 11
+  },
+  "988": {
+    "name": "Wormhole",
+    "categoryId": 2
+  },
+  "990": {
+    "name": "Sleeper Electronics Relics",
+    "categoryId": 34
+  },
+  "991": {
+    "name": "Sleeper Offensive Relics",
+    "categoryId": 34
+  },
+  "992": {
+    "name": "Sleeper Engineering Relics",
+    "categoryId": 34
+  },
+  "993": {
+    "name": "Sleeper Defensive Relics",
+    "categoryId": 34
+  },
+  "995": {
+    "name": "Secondary Sun",
+    "categoryId": 2
+  },
+  "996": {
+    "name": "Strategic Cruiser Blueprints",
+    "categoryId": 9
+  },
+  "997": {
+    "name": "Sleeper Hull Relics",
+    "categoryId": 34
+  },
+  "1003": {
+    "name": "Territorial Claim Unit",
+    "categoryId": 40
+  },
+  "1004": {
+    "name": "Defense Bunkers",
+    "categoryId": 40
+  },
+  "1005": {
+    "name": "Sovereignty Blockade Unit",
+    "categoryId": 40
+  },
+  "1006": {
+    "name": "Mission Faction Cruiser",
+    "categoryId": 11
+  },
+  "1007": {
+    "name": "Mission Faction Frigate",
+    "categoryId": 11
+  },
+  "1010": {
+    "name": "Compact XL Torpedo",
+    "categoryId": 8
+  },
+  "1012": {
+    "name": "Sovereignty Hub",
+    "categoryId": 40
+  },
+  "1013": {
+    "name": "Supercarrier Blueprints",
+    "categoryId": 9
+  },
+  "1016": {
+    "name": "Infrastructure Hub Strategic Upgrades",
+    "categoryId": 39
+  },
+  "1019": {
+    "name": "XL Cruise Missile",
+    "categoryId": 8
+  },
+  "1020": {
+    "name": "Infrastructure Hub Industrial Upgrades",
+    "categoryId": 39
+  },
+  "1021": {
+    "name": "Infrastructure Hub Military Upgrades",
+    "categoryId": 39
+  },
+  "1022": {
+    "name": "Prototype Exploration Ship",
+    "categoryId": 6
+  },
+  "1023": {
+    "name": "Fighter Bomber",
+    "categoryId": 18
+  },
+  "1025": {
+    "name": "Orbital Infrastructure",
+    "categoryId": 46
+  },
+  "1026": {
+    "name": "Extractors",
+    "categoryId": 41
+  },
+  "1027": {
+    "name": "Command Centers",
+    "categoryId": 41
+  },
+  "1028": {
+    "name": "Processors",
+    "categoryId": 41
+  },
+  "1029": {
+    "name": "Storage Facilities",
+    "categoryId": 41
+  },
+  "1030": {
+    "name": "Spaceports",
+    "categoryId": 41
+  },
+  "1031": {
+    "name": "Planetary Resources",
+    "categoryId": 17
+  },
+  "1032": {
+    "name": "Planet Solid - Raw Resource",
+    "categoryId": 42
+  },
+  "1033": {
+    "name": "Planet Liquid-Gas - Raw Resource",
+    "categoryId": 42
+  },
+  "1034": {
+    "name": "Refined Commodities - Tier 2",
+    "categoryId": 43
+  },
+  "1035": {
+    "name": "Planet Organic - Raw Resource",
+    "categoryId": 42
+  },
+  "1036": {
+    "name": "Planetary Links",
+    "categoryId": 41
+  },
+  "1040": {
+    "name": "Specialized Commodities - Tier 3",
+    "categoryId": 43
+  },
+  "1041": {
+    "name": "Advanced Commodities - Tier 4",
+    "categoryId": 43
+  },
+  "1042": {
+    "name": "Basic Commodities - Tier 1",
+    "categoryId": 43
+  },
+  "1045": {
+    "name": "Sovereignty Structure Blueprint",
+    "categoryId": 9
+  },
+  "1046": {
+    "name": "Nanite Repair Paste Blueprint",
+    "categoryId": 9
+  },
+  "1048": {
+    "name": "Starbase Blueprint",
+    "categoryId": 9
+  },
+  "1051": {
+    "name": "Incursion Sansha's Nation Industrial",
+    "categoryId": 11
+  },
+  "1052": {
+    "name": "Incursion Sansha's Nation Capital",
+    "categoryId": 11
+  },
+  "1053": {
+    "name": "Incursion Sansha's Nation Frigate",
+    "categoryId": 11
+  },
+  "1054": {
+    "name": "Incursion Sansha's Nation Cruiser",
+    "categoryId": 11
+  },
+  "1056": {
+    "name": "Incursion Sansha's Nation Battleship",
+    "categoryId": 11
+  },
+  "1063": {
+    "name": "Extractor Control Units",
+    "categoryId": 41
+  },
+  "1067": {
+    "name": "MaterialZone",
+    "categoryId": 26
+  },
+  "1068": {
+    "name": "DetailMesh",
+    "categoryId": 26
+  },
+  "1071": {
+    "name": "Flashpoint",
+    "categoryId": 2
+  },
+  "1073": {
+    "name": "Test Orbitals",
+    "categoryId": 46
+  },
+  "1079": {
+    "name": "Generic",
+    "categoryId": 49
+  },
+  "1081": {
+    "name": "Mercenary Bases",
+    "categoryId": 41
+  },
+  "1082": {
+    "name": "Capsuleer Bases",
+    "categoryId": 41
+  },
+  "1083": {
+    "name": "Eyewear",
+    "categoryId": 30
+  },
+  "1084": {
+    "name": "Tattoos",
+    "categoryId": 30
+  },
+  "1085": {
+    "name": "Piercings",
+    "categoryId": 30
+  },
+  "1086": {
+    "name": "Scars",
+    "categoryId": 30
+  },
+  "1087": {
+    "name": "Mid Layer",
+    "categoryId": 30
+  },
+  "1088": {
+    "name": "Outer",
+    "categoryId": 30
+  },
+  "1089": {
+    "name": "Tops",
+    "categoryId": 30
+  },
+  "1090": {
+    "name": "Bottoms",
+    "categoryId": 30
+  },
+  "1091": {
+    "name": "Footwear",
+    "categoryId": 30
+  },
+  "1092": {
+    "name": "Headwear",
+    "categoryId": 30
+  },
+  "1093": {
+    "name": "Makeup",
+    "categoryId": 30
+  },
+  "1105": {
+    "name": "Lens Flares",
+    "categoryId": 53
+  },
+  "1106": {
+    "name": "Orbital Construction Platform",
+    "categoryId": 46
+  },
+  "1107": {
+    "name": "Particle Systems",
+    "categoryId": 53
+  },
+  "1108": {
+    "name": "Animated Lights",
+    "categoryId": 53
+  },
+  "1109": {
+    "name": "Audio",
+    "categoryId": 29
+  },
+  "1110": {
+    "name": "Point Lights",
+    "categoryId": 54
+  },
+  "1111": {
+    "name": "Box Lights",
+    "categoryId": 54
+  },
+  "1112": {
+    "name": "Spot Lights",
+    "categoryId": 54
+  },
+  "1118": {
+    "name": "Surface Infrastructure Prefab Units",
+    "categoryId": 17
+  },
+  "1121": {
+    "name": "Perception Points",
+    "categoryId": 29
+  },
+  "1122": {
+    "name": "Salvager",
+    "categoryId": 7
+  },
+  "1123": {
+    "name": "Salvager Blueprint",
+    "categoryId": 9
+  },
+  "1126": {
+    "name": "PhysicalPortals",
+    "categoryId": 59
+  },
+  "1136": {
+    "name": "Fuel Block",
+    "categoryId": 4
+  },
+  "1137": {
+    "name": "Fuel Block Blueprint",
+    "categoryId": 9
+  },
+  "1139": {
+    "name": "Mining Laser Upgrade Blueprint",
+    "categoryId": 9
+  },
+  "1141": {
+    "name": "Research Data",
+    "categoryId": 17
+  },
+  "1142": {
+    "name": "Energy Neutralizer Drone Blueprint",
+    "categoryId": 9
+  },
+  "1143": {
+    "name": "Electronic Warfare Drone Blueprint",
+    "categoryId": 9
+  },
+  "1144": {
+    "name": "Logistic Drone Blueprint",
+    "categoryId": 9
+  },
+  "1145": {
+    "name": "Heavy Fighter Blueprint",
+    "categoryId": 9
+  },
+  "1146": {
+    "name": "Light Fighter Blueprint",
+    "categoryId": 9
+  },
+  "1147": {
+    "name": "Stasis Webifying Drone Blueprint",
+    "categoryId": 9
+  },
+  "1149": {
+    "name": "Mobile Jump Disruptor",
+    "categoryId": 22
+  },
+  "1150": {
+    "name": "Armor Resistance Shift Hardener",
+    "categoryId": 7
+  },
+  "1151": {
+    "name": "Armor Resistance Shift Hardener Blueprint",
+    "categoryId": 9
+  },
+  "1152": {
+    "name": "Drone Damage Module Blueprint",
+    "categoryId": 9
+  },
+  "1153": {
+    "name": "Shield Booster Script",
+    "categoryId": 8
+  },
+  "1154": {
+    "name": "Signature Suppressor",
+    "categoryId": 7
+  },
+  "1155": {
+    "name": "Signature Suppressor Blueprint",
+    "categoryId": 9
+  },
+  "1156": {
+    "name": "Ancillary Shield Booster",
+    "categoryId": 7
+  },
+  "1157": {
+    "name": "Fueled Shield Booster Blueprint",
+    "categoryId": 9
+  },
+  "1158": {
+    "name": "Heavy Defender Missile",
+    "categoryId": 8
+  },
+  "1159": {
+    "name": "Salvage Drone",
+    "categoryId": 18
+  },
+  "1160": {
+    "name": "Survey Probe Blueprints",
+    "categoryId": 9
+  },
+  "1162": {
+    "name": "Container Blueprints",
+    "categoryId": 9
+  },
+  "1165": {
+    "name": "Satellite",
+    "categoryId": 2
+  },
+  "1166": {
+    "name": "FW Minmatar Republic Frigate",
+    "categoryId": 11
+  },
+  "1167": {
+    "name": "FW Caldari State Frigate",
+    "categoryId": 11
+  },
+  "1168": {
+    "name": "FW Gallente Federation Frigate",
+    "categoryId": 11
+  },
+  "1169": {
+    "name": "FW Amarr Empire Frigate",
+    "categoryId": 11
+  },
+  "1174": {
+    "name": "Asteroid Rogue Drone Officer",
+    "categoryId": 11
+  },
+  "1175": {
+    "name": "FW Amarr Empire Destroyer",
+    "categoryId": 11
+  },
+  "1176": {
+    "name": "FW Caldari State Destroyer",
+    "categoryId": 11
+  },
+  "1177": {
+    "name": "FW Gallente Federation Destroyer",
+    "categoryId": 11
+  },
+  "1178": {
+    "name": "FW Minmatar Republic Destroyer",
+    "categoryId": 11
+  },
+  "1179": {
+    "name": "FW Amarr Empire Cruiser",
+    "categoryId": 11
+  },
+  "1180": {
+    "name": "FW Caldari State Cruiser",
+    "categoryId": 11
+  },
+  "1181": {
+    "name": "FW Gallente Federation Cruiser",
+    "categoryId": 11
+  },
+  "1182": {
+    "name": "FW Minmatar Republic Cruiser",
+    "categoryId": 11
+  },
+  "1183": {
+    "name": "FW Amarr Empire Battlecruiser",
+    "categoryId": 11
+  },
+  "1184": {
+    "name": "FW Caldari State Battlecruiser",
+    "categoryId": 11
+  },
+  "1185": {
+    "name": "FW Gallente Federation Battlecruiser",
+    "categoryId": 11
+  },
+  "1186": {
+    "name": "FW Minmatar Republic Battlecruiser",
+    "categoryId": 11
+  },
+  "1189": {
+    "name": "Micro Jump Drive",
+    "categoryId": 7
+  },
+  "1190": {
+    "name": "Salvage Drone Blueprint",
+    "categoryId": 9
+  },
+  "1191": {
+    "name": "Micro Jump Drive Blueprint",
+    "categoryId": 9
+  },
+  "1194": {
+    "name": "Special Edition Commodities",
+    "categoryId": 63
+  },
+  "1195": {
+    "name": "Tournament Cards: New Eden Open YC 114",
+    "categoryId": 63
+  },
+  "1197": {
+    "name": "Special Edition Commodity Blueprints",
+    "categoryId": 9
+  },
+  "1198": {
+    "name": "Orbital Target",
+    "categoryId": 2
+  },
+  "1199": {
+    "name": "Ancillary Armor Repairer",
+    "categoryId": 7
+  },
+  "1200": {
+    "name": "Fueled Armor Repairer Blueprint",
+    "categoryId": 9
+  },
+  "1201": {
+    "name": "Attack Battlecruiser",
+    "categoryId": 6
+  },
+  "1202": {
+    "name": "Blockade Runner",
+    "categoryId": 6
+  },
+  "1206": {
+    "name": "Security Tags",
+    "categoryId": 17
+  },
+  "1207": {
+    "name": "Scatter Container",
+    "categoryId": 11
+  },
+  "1209": {
+    "name": "Shields",
+    "categoryId": 16
+  },
+  "1210": {
+    "name": "Armor",
+    "categoryId": 16
+  },
+  "1212": {
+    "name": "Personal Hangar",
+    "categoryId": 23
+  },
+  "1213": {
+    "name": "Targeting",
+    "categoryId": 16
+  },
+  "1216": {
+    "name": "Engineering",
+    "categoryId": 16
+  },
+  "1217": {
+    "name": "Scanning",
+    "categoryId": 16
+  },
+  "1218": {
+    "name": "Resource Processing",
+    "categoryId": 16
+  },
+  "1220": {
+    "name": "Neural Enhancement",
+    "categoryId": 16
+  },
+  "1222": {
+    "name": "ECM Stabilizer Blueprint",
+    "categoryId": 9
+  },
+  "1223": {
+    "name": "Scanning Upgrade",
+    "categoryId": 7
+  },
+  "1224": {
+    "name": "Scanning Upgrade Blueprint",
+    "categoryId": 9
+  },
+  "1225": {
+    "name": "Tournament Cards: Alliance Tournament All Stars",
+    "categoryId": 63
+  },
+  "1226": {
+    "name": "Survey Probe Launcher",
+    "categoryId": 7
+  },
+  "1227": {
+    "name": "Survey Probe Launcher Blueprint",
+    "categoryId": 9
+  },
+  "1228": {
+    "name": "Cyber Targeting",
+    "categoryId": 20
+  },
+  "1229": {
+    "name": "Cyber Resource Processing",
+    "categoryId": 20
+  },
+  "1230": {
+    "name": "Cyber Scanning",
+    "categoryId": 20
+  },
+  "1231": {
+    "name": "Cyber Biology",
+    "categoryId": 20
+  },
+  "1232": {
+    "name": "Rig Resource Processing",
+    "categoryId": 7
+  },
+  "1233": {
+    "name": "Rig Scanning",
+    "categoryId": 7
+  },
+  "1234": {
+    "name": "Rig Targeting",
+    "categoryId": 7
+  },
+  "1238": {
+    "name": "Scanning Upgrade Time",
+    "categoryId": 7
+  },
+  "1239": {
+    "name": "Scanning Upgrade Time Blueprint",
+    "categoryId": 9
+  },
+  "1240": {
+    "name": "Subsystems",
+    "categoryId": 16
+  },
+  "1241": {
+    "name": "Planet Management",
+    "categoryId": 16
+  },
+  "1245": {
+    "name": "Missile Launcher Rapid Heavy",
+    "categoryId": 7
+  },
+  "1246": {
+    "name": "Mobile Depot",
+    "categoryId": 22
+  },
+  "1247": {
+    "name": "Mobile Siphon Unit",
+    "categoryId": 22
+  },
+  "1248": {
+    "name": "Bounty Encrypted Bonds",
+    "categoryId": 17
+  },
+  "1249": {
+    "name": "Mobile Cyno Inhibitor",
+    "categoryId": 22
+  },
+  "1250": {
+    "name": "Mobile Tractor Unit",
+    "categoryId": 22
+  },
+  "1252": {
+    "name": "Ghost Sites Angel Cartel Cruiser",
+    "categoryId": 11
+  },
+  "1255": {
+    "name": "Ghost Sites Blood Raiders Cruiser",
+    "categoryId": 11
+  },
+  "1259": {
+    "name": "Ghost Sites Guristas Cruiser",
+    "categoryId": 11
+  },
+  "1262": {
+    "name": "Ghost Sites Serpentis Cruiser",
+    "categoryId": 11
+  },
+  "1265": {
+    "name": "Ghost Sites Sanshas Cruiser",
+    "categoryId": 11
+  },
+  "1267": {
+    "name": "Mobile Siphon Unit Blueprint",
+    "categoryId": 9
+  },
+  "1268": {
+    "name": "Mobile Cynosural Inhibitor Blueprint",
+    "categoryId": 9
+  },
+  "1269": {
+    "name": "Mobile Depot Blueprint",
+    "categoryId": 9
+  },
+  "1270": {
+    "name": "Mobile Tractor Unit Blueprint",
+    "categoryId": 9
+  },
+  "1271": {
+    "name": "Prosthetics",
+    "categoryId": 30
+  },
+  "1273": {
+    "name": "Encounter Surveillance System",
+    "categoryId": 22
+  },
+  "1274": {
+    "name": "Mobile Decoy Unit",
+    "categoryId": 22
+  },
+  "1275": {
+    "name": "Mobile Scan Inhibitor",
+    "categoryId": 22
+  },
+  "1276": {
+    "name": "Mobile Micro Jump Unit",
+    "categoryId": 22
+  },
+  "1277": {
+    "name": "Encounter Surveillance System Blueprint",
+    "categoryId": 9
+  },
+  "1282": {
+    "name": "Compression Array",
+    "categoryId": 23
+  },
+  "1283": {
+    "name": "Expedition Frigate",
+    "categoryId": 6
+  },
+  "1285": {
+    "name": "Asteroid Mordus Legion Commander Frigate",
+    "categoryId": 11
+  },
+  "1286": {
+    "name": "Asteroid Mordus Legion Commander Cruiser",
+    "categoryId": 11
+  },
+  "1287": {
+    "name": "Asteroid Mordus Legion Commander Battleship",
+    "categoryId": 11
+  },
+  "1288": {
+    "name": "Ghost Sites Mordu's Legion",
+    "categoryId": 11
+  },
+  "1289": {
+    "name": "Warp Accelerator",
+    "categoryId": 7
+  },
+  "1292": {
+    "name": "Drone Tracking Enhancer",
+    "categoryId": 7
+  },
+  "1293": {
+    "name": "Mobile Scan Inhibitor Blueprint",
+    "categoryId": 9
+  },
+  "1294": {
+    "name": "Mobile Micro Jump Unit Blueprint",
+    "categoryId": 9
+  },
+  "1295": {
+    "name": "Mobile Decoy Unit Blueprint",
+    "categoryId": 9
+  },
+  "1297": {
+    "name": "Mobile Vault",
+    "categoryId": 22
+  },
+  "1299": {
+    "name": "Jump Drive Economizer",
+    "categoryId": 7
+  },
+  "1301": {
+    "name": "Services",
+    "categoryId": 5
+  },
+  "1304": {
+    "name": "Generic Decryptor",
+    "categoryId": 35
+  },
+  "1305": {
+    "name": "Tactical Destroyer",
+    "categoryId": 6
+  },
+  "1306": {
+    "name": "Ship Modifiers",
+    "categoryId": 7
+  },
+  "1307": {
+    "name": "Roaming Sleepers Cruiser",
+    "categoryId": 11
+  },
+  "1308": {
+    "name": "Rig Anchor",
+    "categoryId": 7
+  },
+  "1309": {
+    "name": "Tactical Destroyer Blueprint",
+    "categoryId": 9
+  },
+  "1310": {
+    "name": "Drifter Battleship",
+    "categoryId": 11
+  },
+  "1311": {
+    "name": "Super Kerr-Induced Nanocoatings",
+    "categoryId": 5
+  },
+  "1312": {
+    "name": "Observatory Structures",
+    "categoryId": 22
+  },
+  "1313": {
+    "name": "Entosis Link",
+    "categoryId": 7
+  },
+  "1314": {
+    "name": "Unknown Components",
+    "categoryId": 17
+  },
+  "1316": {
+    "name": "Entosis Command Node",
+    "categoryId": 2
+  },
+  "1317": {
+    "name": "Infrastructure Upgrade Blueprint",
+    "categoryId": 9
+  },
+  "1318": {
+    "name": "Entosis Link Blueprint",
+    "categoryId": 9
+  },
+  "1319": {
+    "name": "Miscellaneous",
+    "categoryId": 29
+  },
+  "1321": {
+    "name": "Structure Citadel Service Module",
+    "categoryId": 66
+  },
+  "1322": {
+    "name": "Structure Resource Processing Service Module",
+    "categoryId": 66
+  },
+  "1323": {
+    "name": "Structure Observatory Service Module",
+    "categoryId": 66
+  },
+  "1324": {
+    "name": "Structure FLEX Service Module",
+    "categoryId": 66
+  },
+  "1325": {
+    "name": "Structure Administration Service Module",
+    "categoryId": 66
+  },
+  "1326": {
+    "name": "Structure Advertisement Service Module",
+    "categoryId": 66
+  },
+  "1327": {
+    "name": "Structure XL Missile Launcher",
+    "categoryId": 66
+  },
+  "1328": {
+    "name": "Structure Guided Bomb Launcher",
+    "categoryId": 66
+  },
+  "1329": {
+    "name": "Structure Energy Neutralizer",
+    "categoryId": 66
+  },
+  "1330": {
+    "name": "Structure Area Denial Module",
+    "categoryId": 66
+  },
+  "1331": {
+    "name": "Structure Burst Projector",
+    "categoryId": 66
+  },
+  "1332": {
+    "name": "Structure ECM Battery",
+    "categoryId": 66
+  },
+  "1333": {
+    "name": "Structure Doomsday Weapon",
+    "categoryId": 66
+  },
+  "1395": {
+    "name": "Missile Guidance Enhancer",
+    "categoryId": 7
+  },
+  "1396": {
+    "name": "Missile Guidance Computer",
+    "categoryId": 7
+  },
+  "1397": {
+    "name": "Missile Guidance Enhancer Blueprint",
+    "categoryId": 9
+  },
+  "1399": {
+    "name": "Missile Guidance Computer Blueprint",
+    "categoryId": 9
+  },
+  "1400": {
+    "name": "Missile Guidance Script",
+    "categoryId": 8
+  },
+  "1402": {
+    "name": "Amarr Navy Roaming Battleship",
+    "categoryId": 11
+  },
+  "1404": {
+    "name": "Engineering Complex",
+    "categoryId": 65
+  },
+  "1405": {
+    "name": "Laboratory",
+    "categoryId": 65
+  },
+  "1406": {
+    "name": "Refinery",
+    "categoryId": 65
+  },
+  "1407": {
+    "name": "Observatory Array",
+    "categoryId": 65
+  },
+  "1408": {
+    "name": "Upwell Jump Bridge",
+    "categoryId": 65
+  },
+  "1409": {
+    "name": "Administration Hub",
+    "categoryId": 65
+  },
+  "1410": {
+    "name": "Advertisement Center",
+    "categoryId": 65
+  },
+  "1411": {
+    "name": "Amarr Navy Roaming Cruiser",
+    "categoryId": 11
+  },
+  "1412": {
+    "name": "Amarr Navy Roaming Capital",
+    "categoryId": 11
+  },
+  "1413": {
+    "name": "Amarr Navy Roaming Logistics",
+    "categoryId": 11
+  },
+  "1414": {
+    "name": "Amarr Navy Roaming Frigate",
+    "categoryId": 11
+  },
+  "1415": {
+    "name": "Structure Engineering Service Module",
+    "categoryId": 66
+  },
+  "1416": {
+    "name": "Structure Research Service Module",
+    "categoryId": 66
+  },
+  "1429": {
+    "name": "Structure Weapon Upgrade",
+    "categoryId": 66
+  },
+  "1430": {
+    "name": "Structure Fitting Module",
+    "categoryId": 66
+  },
+  "1441": {
+    "name": "Structure Stasis Webifier",
+    "categoryId": 66
+  },
+  "1442": {
+    "name": "Structure Warp Scrambler",
+    "categoryId": 66
+  },
+  "1452": {
+    "name": "Irregular Drone",
+    "categoryId": 11
+  },
+  "1453": {
+    "name": "Irregular EW Drone",
+    "categoryId": 11
+  },
+  "1454": {
+    "name": "Irregular Fighter",
+    "categoryId": 11
+  },
+  "1455": {
+    "name": "Irregular Fighter Squadron",
+    "categoryId": 11
+  },
+  "1461": {
+    "name": "Unknown Blueprint",
+    "categoryId": 9
+  },
+  "1462": {
+    "name": "Structure Blueprints",
+    "categoryId": 9
+  },
+  "1465": {
+    "name": "Mission Generic Supercarrier",
+    "categoryId": 11
+  },
+  "1527": {
+    "name": "Logistics Frigate",
+    "categoryId": 6
+  },
+  "1529": {
+    "name": "Deadspace Sleeper Upgraded Avenger",
+    "categoryId": 11
+  },
+  "1530": {
+    "name": "Drifter Response Battleship",
+    "categoryId": 11
+  },
+  "1533": {
+    "name": "Micro Jump Field Generators",
+    "categoryId": 7
+  },
+  "1534": {
+    "name": "Command Destroyer",
+    "categoryId": 6
+  },
+  "1535": {
+    "name": "Structure Signal Amplifier",
+    "categoryId": 66
+  },
+  "1537": {
+    "name": "Support Fighter",
+    "categoryId": 87
+  },
+  "1538": {
+    "name": "Force Auxiliary",
+    "categoryId": 6
+  },
+  "1542": {
+    "name": "Command Destroyer Blueprint",
+    "categoryId": 9
+  },
+  "1543": {
+    "name": "Micro Jump Field Generator Blueprint",
+    "categoryId": 9
+  },
+  "1545": {
+    "name": "Structure Management",
+    "categoryId": 16
+  },
+  "1546": {
+    "name": "Structure Anti-Capital Missile",
+    "categoryId": 8
+  },
+  "1547": {
+    "name": "Structure Anti-Subcapital Missile",
+    "categoryId": 8
+  },
+  "1548": {
+    "name": "Guided Bomb",
+    "categoryId": 8
+  },
+  "1549": {
+    "name": "Structure ECM script",
+    "categoryId": 8
+  },
+  "1550": {
+    "name": "Structure Stasis Webifier Script",
+    "categoryId": 8
+  },
+  "1551": {
+    "name": "Structure Warp Disruptor Script",
+    "categoryId": 8
+  },
+  "1559": {
+    "name": "Structure Resistance Switcher Script",
+    "categoryId": 8
+  },
+  "1562": {
+    "name": "Structure Multirole Missile Launcher",
+    "categoryId": 66
+  },
+  "1566": {
+    "name": "Irregular Shuttle",
+    "categoryId": 11
+  },
+  "1567": {
+    "name": "Irregular Corvette",
+    "categoryId": 11
+  },
+  "1568": {
+    "name": "Irregular Frigate",
+    "categoryId": 11
+  },
+  "1569": {
+    "name": "Guidance Disruption Script",
+    "categoryId": 8
+  },
+  "1570": {
+    "name": "Structure Assembly Rig M - Small Tech I Ship",
+    "categoryId": 66
+  },
+  "1579": {
+    "name": "Structure Assembly Rig M - Medium Tech I Ship",
+    "categoryId": 66
+  },
+  "1580": {
+    "name": "Structure Assembly Rig M - Large Tech I Ship",
+    "categoryId": 66
+  },
+  "1581": {
+    "name": "Structure Assembly Rig M - Small Tech II Ship",
+    "categoryId": 66
+  },
+  "1582": {
+    "name": "Structure Assembly Rig M - Medium Tech II Ship",
+    "categoryId": 66
+  },
+  "1583": {
+    "name": "Structure Assembly Rig M - Large Tech II Ship",
+    "categoryId": 66
+  },
+  "1584": {
+    "name": "Structure Assembly Rig M - Drone",
+    "categoryId": 66
+  },
+  "1585": {
+    "name": "Structure Assembly Rig M - Consumable",
+    "categoryId": 66
+  },
+  "1586": {
+    "name": "Structure Assembly Rig M - Module",
+    "categoryId": 66
+  },
+  "1587": {
+    "name": "Structure Assembly Rig L - Module, Consumable, Drone",
+    "categoryId": 66
+  },
+  "1588": {
+    "name": "Structure Assembly Rig L - Tech I Ship",
+    "categoryId": 66
+  },
+  "1589": {
+    "name": "Structure Assembly Rig L - Tech II Ship",
+    "categoryId": 66
+  },
+  "1590": {
+    "name": "Structure Assembly Rig L - Tech II Component",
+    "categoryId": 66
+  },
+  "1591": {
+    "name": "Structure Assembly Rig L - Tech I Capital Component",
+    "categoryId": 66
+  },
+  "1592": {
+    "name": "Structure Assembly Rig L - Structure Component",
+    "categoryId": 66
+  },
+  "1593": {
+    "name": "Structure Assembly Rig L - Subsystem",
+    "categoryId": 66
+  },
+  "1594": {
+    "name": "Structure Assembly Rig XL - Equipment",
+    "categoryId": 66
+  },
+  "1595": {
+    "name": "Structure Assembly Rig XL - Ship",
+    "categoryId": 66
+  },
+  "1596": {
+    "name": "Structure Assembly Rig XL - All Components",
+    "categoryId": 66
+  },
+  "1598": {
+    "name": "Structure Laboratory Rig M - Small Ship",
+    "categoryId": 66
+  },
+  "1599": {
+    "name": "Structure Laboratory Rig M - Medium Ship",
+    "categoryId": 66
+  },
+  "1600": {
+    "name": "Structure Laboratory Rig M - Large Ship",
+    "categoryId": 66
+  },
+  "1601": {
+    "name": "Structure Laboratory Rig M - Drone",
+    "categoryId": 66
+  },
+  "1602": {
+    "name": "Structure Laboratory Rig M - Consumable",
+    "categoryId": 66
+  },
+  "1603": {
+    "name": "Structure Laboratory Rig M - Module",
+    "categoryId": 66
+  },
+  "1604": {
+    "name": "Structure Laboratory Rig L - Module, Consumable, Drone",
+    "categoryId": 66
+  },
+  "1605": {
+    "name": "Structure Laboratory Rig L - Ship",
+    "categoryId": 66
+  },
+  "1606": {
+    "name": "Structure Laboratory Rig L - Component",
+    "categoryId": 66
+  },
+  "1607": {
+    "name": "Structure Laboratory Rig L - Capital Component",
+    "categoryId": 66
+  },
+  "1608": {
+    "name": "Structure Laboratory Rig L - Structure Component",
+    "categoryId": 66
+  },
+  "1609": {
+    "name": "Structure Laboratory Rig L - Subsystem",
+    "categoryId": 66
+  },
+  "1610": {
+    "name": "Structure Laboratory Rig XL - Equipment",
+    "categoryId": 66
+  },
+  "1611": {
+    "name": "Structure Laboratory Rig XL - Ship",
+    "categoryId": 66
+  },
+  "1612": {
+    "name": "Structure Laboratory Rig XL - All Components",
+    "categoryId": 66
+  },
+  "1613": {
+    "name": "Structure Combat Rig M - Missile Application",
+    "categoryId": 66
+  },
+  "1614": {
+    "name": "Structure Combat Rig M - Missile Projection",
+    "categoryId": 66
+  },
+  "1615": {
+    "name": "Structure Combat Rig M - Energy Neutralizer Projection",
+    "categoryId": 66
+  },
+  "1616": {
+    "name": "Structure Combat Rig M - Energy Neutralizer Cap Reduction",
+    "categoryId": 66
+  },
+  "1617": {
+    "name": "Structure Citadel Rig M - Drone Hitpoints",
+    "categoryId": 66
+  },
+  "1618": {
+    "name": "Structure Citadel Rig M - Drone Speed",
+    "categoryId": 66
+  },
+  "1619": {
+    "name": "Structure Combat Rig M - EW projection",
+    "categoryId": 66
+  },
+  "1620": {
+    "name": "Structure Combat Rig M - EW Cap Reduction",
+    "categoryId": 66
+  },
+  "1621": {
+    "name": "Structure Combat Rig M - Max Targets",
+    "categoryId": 66
+  },
+  "1622": {
+    "name": "Structure Combat Rig M - Boosted Sensors",
+    "categoryId": 66
+  },
+  "1629": {
+    "name": "Structure Combat Rig L - Missile Application and Projection",
+    "categoryId": 66
+  },
+  "1630": {
+    "name": "Structure Combat Rig L - Energy Neutralizer Projection and Cap Reduction",
+    "categoryId": 66
+  },
+  "1631": {
+    "name": "Structure Citadel Rig L - Drone Hitpoints and Speed",
+    "categoryId": 66
+  },
+  "1632": {
+    "name": "Structure Combat Rig L - EW Projection and Cap Reduction",
+    "categoryId": 66
+  },
+  "1633": {
+    "name": "Structure Combat Rig L - AoE Launcher Application and Projection",
+    "categoryId": 66
+  },
+  "1634": {
+    "name": "Structure Combat Rig L - Point Defense Battery Application and Projection",
+    "categoryId": 66
+  },
+  "1635": {
+    "name": "Structure Combat Rig L - Max Targets and Sensor Boosting",
+    "categoryId": 66
+  },
+  "1639": {
+    "name": "Structure Combat Rig XL - Missile and AoE Missile",
+    "categoryId": 66
+  },
+  "1640": {
+    "name": "Structure Citadel Rig XL - Drone and PDB",
+    "categoryId": 66
+  },
+  "1641": {
+    "name": "Structure Combat Rig XL - Energy Neutralizer and EW",
+    "categoryId": 66
+  },
+  "1642": {
+    "name": "Structure Combat Rig XL - Doomsday and Targeting",
+    "categoryId": 66
+  },
+  "1647": {
+    "name": "OLD Structure Resource Rig M - HS Ore Reprocessing",
+    "categoryId": 66
+  },
+  "1648": {
+    "name": "OLD Structure Resource Rig L - Ore Reprocessing",
+    "categoryId": 66
+  },
+  "1649": {
+    "name": "OLD Structure Resource Rig XL - Reprocessing",
+    "categoryId": 66
+  },
+  "1652": {
+    "name": "Light Fighter",
+    "categoryId": 87
+  },
+  "1653": {
+    "name": "Heavy Fighter",
+    "categoryId": 87
+  },
+  "1657": {
+    "name": "Citadel",
+    "categoryId": 65
+  },
+  "1664": {
+    "name": "Irregular Destroyer",
+    "categoryId": 11
+  },
+  "1665": {
+    "name": "Irregular Cruiser",
+    "categoryId": 11
+  },
+  "1666": {
+    "name": "Irregular Battlecruiser",
+    "categoryId": 11
+  },
+  "1667": {
+    "name": "Irregular Battleship",
+    "categoryId": 11
+  },
+  "1670": {
+    "name": "Augmentations",
+    "categoryId": 30
+  },
+  "1672": {
+    "name": "Stasis Grappler",
+    "categoryId": 7
+  },
+  "1673": {
+    "name": "Missile Launcher Rapid Torpedo",
+    "categoryId": 7
+  },
+  "1674": {
+    "name": "Missile Launcher XL Cruise",
+    "categoryId": 7
+  },
+  "1676": {
+    "name": "Named Components",
+    "categoryId": 4
+  },
+  "1677": {
+    "name": "Advanced XL Torpedo",
+    "categoryId": 8
+  },
+  "1678": {
+    "name": "Advanced XL Cruise Missile",
+    "categoryId": 8
+  },
+  "1679": {
+    "name": "Support Fighter Blueprint",
+    "categoryId": 9
+  },
+  "1681": {
+    "name": "Asteroid Angel Cartel Dreadnought",
+    "categoryId": 11
+  },
+  "1682": {
+    "name": "Asteroid Angel Cartel Titan",
+    "categoryId": 11
+  },
+  "1683": {
+    "name": "Asteroid Blood Raider Dreadnought",
+    "categoryId": 11
+  },
+  "1684": {
+    "name": "Asteroid Blood Raider Titan",
+    "categoryId": 11
+  },
+  "1685": {
+    "name": "Asteroid Guristas Dreadnought",
+    "categoryId": 11
+  },
+  "1686": {
+    "name": "Asteroid Guristas Titan",
+    "categoryId": 11
+  },
+  "1687": {
+    "name": "Asteroid Sansha's Nation Dreadnought",
+    "categoryId": 11
+  },
+  "1688": {
+    "name": "Asteroid Sansha's Nation Supercarrier",
+    "categoryId": 11
+  },
+  "1689": {
+    "name": "Asteroid Serpentis Dreadnought",
+    "categoryId": 11
+  },
+  "1690": {
+    "name": "Asteroid Serpentis Titan",
+    "categoryId": 11
+  },
+  "1691": {
+    "name": "Asteroid Rogue Drone Carrier",
+    "categoryId": 11
+  },
+  "1692": {
+    "name": "Asteroid Rogue Drone Supercarrier",
+    "categoryId": 11
+  },
+  "1693": {
+    "name": "OLD Structure Resource Rig M - LNS Ore Reprocessing",
+    "categoryId": 66
+  },
+  "1694": {
+    "name": "OLD Structure Resource Rig M - Ice 1 Reprocessing",
+    "categoryId": 66
+  },
+  "1695": {
+    "name": "OLD Structure Resource Rig M - Ice 2 Reprocessing",
+    "categoryId": 66
+  },
+  "1696": {
+    "name": "OLD Structure Resource Rig L - Ice Reprocessing",
+    "categoryId": 66
+  },
+  "1697": {
+    "name": "Ancillary Remote Shield Booster",
+    "categoryId": 7
+  },
+  "1698": {
+    "name": "Ancillary Remote Armor Repairer",
+    "categoryId": 7
+  },
+  "1699": {
+    "name": "Flex Armor Hardener",
+    "categoryId": 7
+  },
+  "1700": {
+    "name": "Flex Shield Hardener",
+    "categoryId": 7
+  },
+  "1701": {
+    "name": "Flex Armor Hardener Script",
+    "categoryId": 8
+  },
+  "1702": {
+    "name": "Flex Shield Hardener Script",
+    "categoryId": 8
+  },
+  "1703": {
+    "name": "Burst Projector Blueprint",
+    "categoryId": 9
+  },
+  "1704": {
+    "name": "Super Weapon Beacon",
+    "categoryId": 2
+  },
+  "1706": {
+    "name": "Capital Sensor Array",
+    "categoryId": 7
+  },
+  "1707": {
+    "name": "Structure Module Blueprint",
+    "categoryId": 9
+  },
+  "1708": {
+    "name": "Structure Rig Blueprint",
+    "categoryId": 9
+  },
+  "1709": {
+    "name": "Unpublished Structure Module and Rig Blueprints",
+    "categoryId": 9
+  },
+  "1717": {
+    "name": "Unpublished Structure Modules",
+    "categoryId": 66
+  },
+  "1718": {
+    "name": "Force Auxiliary Blueprint",
+    "categoryId": 9
+  },
+  "1719": {
+    "name": "Structure Disruption Battery",
+    "categoryId": 66
+  },
+  "1720": {
+    "name": "Roaming Serpentis Battleship",
+    "categoryId": 11
+  },
+  "1721": {
+    "name": "Roaming Serpentis Cruiser",
+    "categoryId": 11
+  },
+  "1722": {
+    "name": "Roaming Serpentis Frigate",
+    "categoryId": 11
+  },
+  "1723": {
+    "name": "Shield Resistance Shift Hardener Blueprint",
+    "categoryId": 9
+  },
+  "1724": {
+    "name": "Irregular Dreadnought",
+    "categoryId": 11
+  },
+  "1725": {
+    "name": "Irregular Force Auxiliary",
+    "categoryId": 11
+  },
+  "1726": {
+    "name": "Irregular Carrier",
+    "categoryId": 11
+  },
+  "1727": {
+    "name": "Roaming Angel Cartel Battleship",
+    "categoryId": 11
+  },
+  "1728": {
+    "name": "Roaming Angel Cartel Cruiser",
+    "categoryId": 11
+  },
+  "1729": {
+    "name": "Roaming Angel Cartel Frigate",
+    "categoryId": 11
+  },
+  "1730": {
+    "name": "Special Edition Implant",
+    "categoryId": 20
+  },
+  "1731": {
+    "name": "Irregular Super Carrier",
+    "categoryId": 11
+  },
+  "1734": {
+    "name": "Roaming Blood Raider Frigate",
+    "categoryId": 11
+  },
+  "1735": {
+    "name": "Roaming Blood Raider Cruiser",
+    "categoryId": 11
+  },
+  "1736": {
+    "name": "Roaming Blood Raider Battlecruiser",
+    "categoryId": 11
+  },
+  "1737": {
+    "name": "Roaming Blood Raider Battleship",
+    "categoryId": 11
+  },
+  "1739": {
+    "name": "Skill Injectors",
+    "categoryId": 5
+  },
+  "1759": {
+    "name": "Irregular Titan",
+    "categoryId": 11
+  },
+  "1761": {
+    "name": "Irregular Mining Frigate",
+    "categoryId": 11
+  },
+  "1762": {
+    "name": "Irregular Mining Barge",
+    "categoryId": 11
+  },
+  "1764": {
+    "name": "♦ Mining Frigate",
+    "categoryId": 11
+  },
+  "1765": {
+    "name": "♦ Mining Barge",
+    "categoryId": 11
+  },
+  "1766": {
+    "name": "♦ Mining Exhumer",
+    "categoryId": 11
+  },
+  "1767": {
+    "name": "♦ Mining Hauler",
+    "categoryId": 11
+  },
+  "1768": {
+    "name": "Seeker Scouts",
+    "categoryId": 11
+  },
+  "1769": {
+    "name": "Shield Command Burst Charges",
+    "categoryId": 8
+  },
+  "1770": {
+    "name": "Command Burst",
+    "categoryId": 7
+  },
+  "1771": {
+    "name": "Mining Foreman Burst Charges",
+    "categoryId": 8
+  },
+  "1772": {
+    "name": "Skirmish Command Burst Charges",
+    "categoryId": 8
+  },
+  "1773": {
+    "name": "Information Command Burst Charges",
+    "categoryId": 8
+  },
+  "1774": {
+    "name": "Armor Command Burst Charges",
+    "categoryId": 8
+  },
+  "1788": {
+    "name": "Hidden Zenith Drifters",
+    "categoryId": 11
+  },
+  "1789": {
+    "name": "Hidden Zenith Amarr Battleship",
+    "categoryId": 11
+  },
+  "1790": {
+    "name": "Hidden Zenith Amarr Cruiser",
+    "categoryId": 11
+  },
+  "1791": {
+    "name": "Hidden Zenith Amarr Frigate",
+    "categoryId": 11
+  },
+  "1792": {
+    "name": "Hidden Zenith Caldari Battleship",
+    "categoryId": 11
+  },
+  "1793": {
+    "name": "Hidden Zenith Caldari Cruiser",
+    "categoryId": 11
+  },
+  "1794": {
+    "name": "Hidden Zenith Caldari Frigate",
+    "categoryId": 11
+  },
+  "1795": {
+    "name": "Hidden Zenith Gallente Battleship",
+    "categoryId": 11
+  },
+  "1796": {
+    "name": "Hidden Zenith Gallente Cruiser",
+    "categoryId": 11
+  },
+  "1797": {
+    "name": "Hidden Zenith Gallente Frigate",
+    "categoryId": 11
+  },
+  "1798": {
+    "name": "Hidden Zenith Minmatar Battleship",
+    "categoryId": 11
+  },
+  "1799": {
+    "name": "Hidden Zenith Minmatar Cruiser",
+    "categoryId": 11
+  },
+  "1800": {
+    "name": "Hidden Zenith Minmatar Frigate",
+    "categoryId": 11
+  },
+  "1803": {
+    "name": "♦ Frigate",
+    "categoryId": 11
+  },
+  "1804": {
+    "name": "Hidden Zenith Amarr Capital",
+    "categoryId": 11
+  },
+  "1805": {
+    "name": "Hidden Zenith Caldari Capital",
+    "categoryId": 11
+  },
+  "1806": {
+    "name": "Hidden Zenith Gallente Capital",
+    "categoryId": 11
+  },
+  "1807": {
+    "name": "Hidden Zenith Minmatar Capital",
+    "categoryId": 11
+  },
+  "1810": {
+    "name": "Command Burst Charge Blueprint",
+    "categoryId": 9
+  },
+  "1812": {
+    "name": "Command Burst Blueprint",
+    "categoryId": 9
+  },
+  "1813": {
+    "name": "♦ Cruiser",
+    "categoryId": 11
+  },
+  "1814": {
+    "name": "♦ Battleship",
+    "categoryId": 11
+  },
+  "1815": {
+    "name": "Titan Phenomena Generator",
+    "categoryId": 7
+  },
+  "1816": {
+    "name": "Structure Engineering Rig M - Equipment ME",
+    "categoryId": 66
+  },
+  "1818": {
+    "name": "Strong Boxes",
+    "categoryId": 17
+  },
+  "1819": {
+    "name": "Structure Engineering Rig M - Equipment TE",
+    "categoryId": 66
+  },
+  "1820": {
+    "name": "Structure Engineering Rig M - Ammunition ME",
+    "categoryId": 66
+  },
+  "1821": {
+    "name": "Structure Engineering Rig M - Ammunition TE",
+    "categoryId": 66
+  },
+  "1822": {
+    "name": "Structure Engineering Rig M - Drone and Fighter ME",
+    "categoryId": 66
+  },
+  "1823": {
+    "name": "Structure Engineering Rig M - Drone and Fighter TE",
+    "categoryId": 66
+  },
+  "1824": {
+    "name": "Structure Engineering Rig M - Basic Small Ship ME",
+    "categoryId": 66
+  },
+  "1825": {
+    "name": "Structure Engineering Rig M - Basic Small Ship TE",
+    "categoryId": 66
+  },
+  "1826": {
+    "name": "Structure Engineering Rig M - Basic Medium Ship ME",
+    "categoryId": 66
+  },
+  "1827": {
+    "name": "Structure Engineering Rig M - Basic Medium Ship TE",
+    "categoryId": 66
+  },
+  "1828": {
+    "name": "Structure Engineering Rig M - Basic Large Ship ME",
+    "categoryId": 66
+  },
+  "1829": {
+    "name": "Structure Engineering Rig M - Basic Large Ship TE",
+    "categoryId": 66
+  },
+  "1830": {
+    "name": "Structure Engineering Rig M - Advanced Small Ship ME",
+    "categoryId": 66
+  },
+  "1831": {
+    "name": "Structure Engineering Rig M - Advanced Small Ship TE",
+    "categoryId": 66
+  },
+  "1832": {
+    "name": "Structure Engineering Rig M - Advanced Medium Ship ME",
+    "categoryId": 66
+  },
+  "1833": {
+    "name": "Structure Engineering Rig M - Advanced Medium Ship TE",
+    "categoryId": 66
+  },
+  "1834": {
+    "name": "Structure Engineering Rig M - Advanced Large Ship ME",
+    "categoryId": 66
+  },
+  "1835": {
+    "name": "Structure Engineering Rig M - Advanced Large Ship TE",
+    "categoryId": 66
+  },
+  "1836": {
+    "name": "Structure Engineering Rig M - Advanced Component ME",
+    "categoryId": 66
+  },
+  "1837": {
+    "name": "Structure Engineering Rig M - Advanced Component TE",
+    "categoryId": 66
+  },
+  "1838": {
+    "name": "Structure Engineering Rig M - Basic Capital Component TE",
+    "categoryId": 66
+  },
+  "1839": {
+    "name": "Structure Engineering Rig M - Basic Capital Component ME",
+    "categoryId": 66
+  },
+  "1840": {
+    "name": "Structure Engineering Rig M - Structure ME",
+    "categoryId": 66
+  },
+  "1841": {
+    "name": "Structure Engineering Rig M - Structure TE",
+    "categoryId": 66
+  },
+  "1842": {
+    "name": "Structure Engineering Rig M - Invention Cost Optimization",
+    "categoryId": 66
+  },
+  "1843": {
+    "name": "Structure Engineering Rig M - Invention Accelerator",
+    "categoryId": 66
+  },
+  "1844": {
+    "name": "Structure Engineering Rig M - ME Research Cost Optimization",
+    "categoryId": 66
+  },
+  "1845": {
+    "name": "Structure Engineering Rig M - ME Research Accelerator",
+    "categoryId": 66
+  },
+  "1846": {
+    "name": "Structure Engineering Rig M - TE Research Cost Optimization",
+    "categoryId": 66
+  },
+  "1847": {
+    "name": "Structure Engineering Rig M - TE Research Accelerator",
+    "categoryId": 66
+  },
+  "1848": {
+    "name": "Structure Engineering Rig M - Blueprint Copy Cost Optimization",
+    "categoryId": 66
+  },
+  "1849": {
+    "name": "Structure Engineering Rig M - Blueprint Copy Accelerator",
+    "categoryId": 66
+  },
+  "1850": {
+    "name": "Structure Engineering Rig L - Equipment Efficiency",
+    "categoryId": 66
+  },
+  "1851": {
+    "name": "Structure Engineering Rig L - Ammunition Efficiency",
+    "categoryId": 66
+  },
+  "1852": {
+    "name": "Structure Engineering Rig L - Drone and Fighter Efficiency",
+    "categoryId": 66
+  },
+  "1853": {
+    "name": "Structure Engineering Rig L - Basic Small Ship Efficiency",
+    "categoryId": 66
+  },
+  "1854": {
+    "name": "Structure Engineering Rig L - Basic Medium Ship Efficiency",
+    "categoryId": 66
+  },
+  "1855": {
+    "name": "Structure Engineering Rig L - Basic Large Ship Efficiency",
+    "categoryId": 66
+  },
+  "1856": {
+    "name": "Structure Engineering Rig L - Advanced Small Ship Efficiency",
+    "categoryId": 66
+  },
+  "1857": {
+    "name": "Structure Engineering Rig L - Advanced Medium Ship Efficiency",
+    "categoryId": 66
+  },
+  "1858": {
+    "name": "Structure Engineering Rig L - Advanced Large Ship Efficiency",
+    "categoryId": 66
+  },
+  "1859": {
+    "name": "Structure Engineering Rig L - Capital Ship Efficiency",
+    "categoryId": 66
+  },
+  "1860": {
+    "name": "Structure Engineering Rig L - Advanced Component Efficiency",
+    "categoryId": 66
+  },
+  "1861": {
+    "name": "Structure Engineering Rig L - Basic Capital Component Efficiency",
+    "categoryId": 66
+  },
+  "1862": {
+    "name": "Structure Engineering Rig L - Structure Efficiency",
+    "categoryId": 66
+  },
+  "1863": {
+    "name": "Structure Engineering Rig L - Invention Optimization",
+    "categoryId": 66
+  },
+  "1864": {
+    "name": "Structure Engineering Rig L - ME Research Optimization",
+    "categoryId": 66
+  },
+  "1865": {
+    "name": "Structure Engineering Rig L - TE Research Optimization",
+    "categoryId": 66
+  },
+  "1866": {
+    "name": "Structure Engineering Rig L - Blueprint Copy Optimization",
+    "categoryId": 66
+  },
+  "1867": {
+    "name": "Structure Engineering Rig XL - Equipment and Consumable Efficiency",
+    "categoryId": 66
+  },
+  "1868": {
+    "name": "Structure Engineering Rig XL - Ship Efficiency",
+    "categoryId": 66
+  },
+  "1869": {
+    "name": "Structure Engineering Rig XL - Structure and Component Efficiency",
+    "categoryId": 66
+  },
+  "1870": {
+    "name": "Structure Engineering Rig XL - Laboratory Optimization",
+    "categoryId": 66
+  },
+  "1872": {
+    "name": "Structure Entities",
+    "categoryId": 11
+  },
+  "1875": {
+    "name": "PLEX",
+    "categoryId": 5
+  },
+  "1876": {
+    "name": "♦ Engineering Complex",
+    "categoryId": 65
+  },
+  "1878": {
+    "name": "♦ Titan",
+    "categoryId": 11
+  },
+  "1879": {
+    "name": "♦ Force Auxiliary",
+    "categoryId": 11
+  },
+  "1880": {
+    "name": "♦ Dreadnought",
+    "categoryId": 11
+  },
+  "1882": {
+    "name": "MassiveEnvironments",
+    "categoryId": 2
+  },
+  "1884": {
+    "name": "Ubiquitous Moon Asteroids",
+    "categoryId": 25
+  },
+  "1886": {
+    "name": "Technical Data Chips",
+    "categoryId": 17
+  },
+  "1887": {
+    "name": "Structure Moon Drilling Service Module",
+    "categoryId": 66
+  },
+  "1888": {
+    "name": "Composite Reaction Formulas",
+    "categoryId": 9
+  },
+  "1889": {
+    "name": "Polymer Reaction Formulas",
+    "categoryId": 9
+  },
+  "1890": {
+    "name": "Biochemical Reaction Formulas",
+    "categoryId": 9
+  },
+  "1891": {
+    "name": "Depricated Subsystem Blueprints",
+    "categoryId": 9
+  },
+  "1894": {
+    "name": "Non-Repeating Hardeners",
+    "categoryId": 7
+  },
+  "1895": {
+    "name": "Irregular Industrial",
+    "categoryId": 11
+  },
+  "1896": {
+    "name": "♦ Industrial Command",
+    "categoryId": 11
+  },
+  "1909": {
+    "name": "♦ Battlecruiser",
+    "categoryId": 11
+  },
+  "1911": {
+    "name": "Empire Asteroids",
+    "categoryId": 25
+  },
+  "1912": {
+    "name": "Structure Drilling Rig M - Efficiency",
+    "categoryId": 66
+  },
+  "1913": {
+    "name": "Structure Drilling Rig M - Stability",
+    "categoryId": 66
+  },
+  "1914": {
+    "name": "Structure Drilling Rig L - Proficiency",
+    "categoryId": 66
+  },
+  "1915": {
+    "name": "Moon Mining Beacon",
+    "categoryId": 2
+  },
+  "1920": {
+    "name": "Common Moon Asteroids",
+    "categoryId": 25
+  },
+  "1921": {
+    "name": "Uncommon Moon Asteroids",
+    "categoryId": 25
+  },
+  "1922": {
+    "name": "Rare Moon Asteroids",
+    "categoryId": 25
+  },
+  "1923": {
+    "name": "Exceptional Moon Asteroids",
+    "categoryId": 25
+  },
+  "1924": {
+    "name": "♦ Stronghold",
+    "categoryId": 65
+  },
+  "1925": {
+    "name": "Irregular Industrial Command Ship",
+    "categoryId": 11
+  },
+  "1926": {
+    "name": "Irregular Freighter",
+    "categoryId": 11
+  },
+  "1927": {
+    "name": "Irregular Structure",
+    "categoryId": 11
+  },
+  "1928": {
+    "name": "Irregular Container",
+    "categoryId": 11
+  },
+  "1929": {
+    "name": "Irregular - Unidentified",
+    "categoryId": 11
+  },
+  "1933": {
+    "name": "Structure Composite Reactor Rig M - TE",
+    "categoryId": 66
+  },
+  "1934": {
+    "name": "Structure Composite Reactor Rig M - ME",
+    "categoryId": 66
+  },
+  "1935": {
+    "name": "Structure Hybrid Reactor Rig M - TE",
+    "categoryId": 66
+  },
+  "1936": {
+    "name": "Structure Hybrid Reactor Rig M - ME",
+    "categoryId": 66
+  },
+  "1937": {
+    "name": "Structure Biochemical Reactor Rig M - TE",
+    "categoryId": 66
+  },
+  "1938": {
+    "name": "Structure Biochemical Reactor Rig M - ME",
+    "categoryId": 66
+  },
+  "1939": {
+    "name": "Structure Reactor Rig L - Efficiency",
+    "categoryId": 66
+  },
+  "1940": {
+    "name": "Moon Chunk",
+    "categoryId": 2
+  },
+  "1941": {
+    "name": "Structure Resource Rig M - Asteroid Ore Reprocessing",
+    "categoryId": 66
+  },
+  "1942": {
+    "name": "Structure Resource Rig M - Ice Reprocessing",
+    "categoryId": 66
+  },
+  "1943": {
+    "name": "Structure Resource Rig M - Moon Ore Reprocessing",
+    "categoryId": 66
+  },
+  "1944": {
+    "name": "Structure Resource Rig L - Reprocessing",
+    "categoryId": 66
+  },
+  "1945": {
+    "name": "Structure Resource Rig XL - Reprocessing",
+    "categoryId": 66
+  },
+  "1948": {
+    "name": "Cyber Scanning Implant Blueprints",
+    "categoryId": 9
+  },
+  "1950": {
+    "name": "Permanent SKIN",
+    "categoryId": 91
+  },
+  "1951": {
+    "name": "Volatile SKIN",
+    "categoryId": 91
+  },
+  "1952": {
+    "name": "7-Day SKIN",
+    "categoryId": 91
+  },
+  "1953": {
+    "name": "30-Day SKIN",
+    "categoryId": 91
+  },
+  "1954": {
+    "name": "90-Day SKIN",
+    "categoryId": 91
+  },
+  "1955": {
+    "name": "1-Year SKIN",
+    "categoryId": 91
+  },
+  "1956": {
+    "name": "Drifter Reinforcements",
+    "categoryId": 11
+  },
+  "1962": {
+    "name": "Structure QA Modules",
+    "categoryId": 66
+  },
+  "1964": {
+    "name": "Mutaplasmids",
+    "categoryId": 17
+  },
+  "1966": {
+    "name": "Structure Capacitor Battery",
+    "categoryId": 66
+  },
+  "1967": {
+    "name": "Structure Capacitor Power Relay",
+    "categoryId": 66
+  },
+  "1968": {
+    "name": "Structure Armor Reinforcer",
+    "categoryId": 66
+  },
+  "1969": {
+    "name": "Abyssal Modules",
+    "categoryId": 7
+  },
+  "1971": {
+    "name": "Abyssal Hazards",
+    "categoryId": 2
+  },
+  "1972": {
+    "name": "Flag Cruiser",
+    "categoryId": 6
+  },
+  "1973": {
+    "name": "Locators",
+    "categoryId": 2
+  },
+  "1974": {
+    "name": "Structure Festival Launcher",
+    "categoryId": 66
+  },
+  "1975": {
+    "name": "Non-Interactable Object",
+    "categoryId": 2
+  },
+  "1976": {
+    "name": "Structure Festival Charges",
+    "categoryId": 8
+  },
+  "1977": {
+    "name": "Trinary Data Vaults",
+    "categoryId": 17
+  },
+  "1978": {
+    "name": "Industrial Support Facility",
+    "categoryId": 2
+  },
+  "1979": {
+    "name": "Abyssal Filaments",
+    "categoryId": 17
+  },
+  "1980": {
+    "name": "Non-Scalable Clouds",
+    "categoryId": 2
+  },
+  "1981": {
+    "name": "Triglavian Support Pylons",
+    "categoryId": 2
+  },
+  "1982": {
+    "name": "Abyssal Spaceship Entities",
+    "categoryId": 11
+  },
+  "1983": {
+    "name": "Abyssal Environment",
+    "categoryId": 2
+  },
+  "1984": {
+    "name": "Outpost Conversion Rigs",
+    "categoryId": 66
+  },
+  "1986": {
+    "name": "Precursor Weapon",
+    "categoryId": 7
+  },
+  "1987": {
+    "name": "Exotic Plasma Charge",
+    "categoryId": 8
+  },
+  "1988": {
+    "name": "Entropic Radiation Sink",
+    "categoryId": 7
+  },
+  "1989": {
+    "name": "Advanced Exotic Plasma Charge",
+    "categoryId": 8
+  },
+  "1990": {
+    "name": "Precursor Weapon Blueprint",
+    "categoryId": 9
+  },
+  "1991": {
+    "name": "Filament Trace",
+    "categoryId": 2
+  },
+  "1992": {
+    "name": "Entropic Radiation Sink Blueprint",
+    "categoryId": 9
+  },
+  "1993": {
+    "name": "Exotic Plasma Charge Blueprint",
+    "categoryId": 9
+  },
+  "1994": {
+    "name": "Advanced Exotic Plasma Charge Blueprint",
+    "categoryId": 9
+  },
+  "1995": {
+    "name": "Triglavian Data",
+    "categoryId": 17
+  },
+  "1996": {
+    "name": "Abyssal Materials",
+    "categoryId": 4
+  },
+  "1997": {
+    "name": "Abyssal Drone Entities",
+    "categoryId": 11
+  },
+  "1998": {
+    "name": "Station Conversion Monuments",
+    "categoryId": 2
+  },
+  "2001": {
+    "name": "Citizen Ships",
+    "categoryId": 6
+  },
+  "2002": {
+    "name": "Triglavian Datastreams",
+    "categoryId": 17
+  },
+  "2003": {
+    "name": "Citizen Modules",
+    "categoryId": 7
+  },
+  "2004": {
+    "name": "Citizen Mining Laser",
+    "categoryId": 7
+  },
+  "2005": {
+    "name": "Deployable Advertisement",
+    "categoryId": 22
+  },
+  "2006": {
+    "name": "Deadspace Asteroids",
+    "categoryId": 25
+  },
+  "2008": {
+    "name": "Mass Entanglers",
+    "categoryId": 7
+  },
+  "2009": {
+    "name": "Precursor Cache",
+    "categoryId": 11
+  },
+  "2010": {
+    "name": "Mass Entangler Blueprints",
+    "categoryId": 9
+  },
+  "2013": {
+    "name": "Stasis Nullifiers",
+    "categoryId": 7
+  },
+  "2015": {
+    "name": "Upwell Monument",
+    "categoryId": 65
+  },
+  "2016": {
+    "name": "Upwell Cyno Jammer",
+    "categoryId": 65
+  },
+  "2017": {
+    "name": "Upwell Cyno Beacon",
+    "categoryId": 65
+  },
+  "2018": {
+    "name": "Mutadaptive Remote Armor Repairer",
+    "categoryId": 7
+  },
+  "2019": {
+    "name": "Mutadaptive Remote Armor Repairer Blueprint",
+    "categoryId": 9
+  },
+  "2020": {
+    "name": "Cynosural Fields",
+    "categoryId": 2
+  },
+  "2022": {
+    "name": "Temporal Resources",
+    "categoryId": 25
+  },
+  "2023": {
+    "name": "Cyber Electronics Implant Blueprints",
+    "categoryId": 9
+  },
+  "2024": {
+    "name": "Fluorite",
+    "categoryId": 25
+  },
+  "2026": {
+    "name": "Triglavian Artifacts",
+    "categoryId": 17
+  },
+  "4028": {
+    "name": "Triglavian Entities",
+    "categoryId": 11
+  },
+  "4029": {
+    "name": "Talassonite",
+    "categoryId": 25
+  },
+  "4030": {
+    "name": "Rakovene",
+    "categoryId": 25
+  },
+  "4031": {
+    "name": "Bezdnacine",
+    "categoryId": 25
+  },
+  "4033": {
+    "name": "Destructible Effect Beacon",
+    "categoryId": 2
+  },
+  "4034": {
+    "name": "EDENCOM Entities",
+    "categoryId": 11
+  },
+  "4035": {
+    "name": "Drifter Entities",
+    "categoryId": 11
+  },
+  "4036": {
+    "name": "Sleeper Entities",
+    "categoryId": 11
+  },
+  "4037": {
+    "name": "Rogue Drone Entities",
+    "categoryId": 11
+  },
+  "4040": {
+    "name": "180-Day SKIN",
+    "categoryId": 91
+  },
+  "4041": {
+    "name": "Jump Filaments",
+    "categoryId": 17
+  },
+  "4050": {
+    "name": "Abyssal Proving Filaments",
+    "categoryId": 17
+  },
+  "4052": {
+    "name": "Jump Filament Blueprint",
+    "categoryId": 9
+  },
+  "4053": {
+    "name": "Irregular Capsule",
+    "categoryId": 11
+  },
+  "4055": {
+    "name": "Invisible Beacon",
+    "categoryId": 2
+  },
+  "4057": {
+    "name": "Masks",
+    "categoryId": 30
+  },
+  "4060": {
+    "name": "Vorton Projector",
+    "categoryId": 7
+  },
+  "4061": {
+    "name": "Advanced Condenser Pack",
+    "categoryId": 8
+  },
+  "4062": {
+    "name": "Condenser Pack",
+    "categoryId": 8
+  },
+  "4064": {
+    "name": "Vorton Projector Blueprint",
+    "categoryId": 9
+  },
+  "4065": {
+    "name": "Condenser Pack Blueprint",
+    "categoryId": 9
+  },
+  "4066": {
+    "name": "Advanced Condenser Pack Blueprint",
+    "categoryId": 9
+  },
+  "4067": {
+    "name": "Vorton Projector Upgrade",
+    "categoryId": 7
+  },
+  "4069": {
+    "name": "Vorton Projector Upgrade Blueprints",
+    "categoryId": 9
+  },
+  "4070": {
+    "name": "Exotic Artefact",
+    "categoryId": 2
+  },
+  "4071": {
+    "name": "Type Graveyard",
+    "categoryId": 29
+  },
+  "4072": {
+    "name": "Expired Jump Filaments",
+    "categoryId": 17
+  },
+  "4073": {
+    "name": "Temporary Collidable Structure",
+    "categoryId": 11
+  },
+  "4079": {
+    "name": "Encounter Surveillance System",
+    "categoryId": 2
+  },
+  "4081": {
+    "name": "Disrupted Gate",
+    "categoryId": 2
+  },
+  "4086": {
+    "name": "Quantum Cores",
+    "categoryId": 66
+  },
+  "4087": {
+    "name": "Triglavian Space Filaments",
+    "categoryId": 17
+  },
+  "4088": {
+    "name": "Interdiction Burst Probes",
+    "categoryId": 8
+  },
+  "4090": {
+    "name": "QA Expert Systems",
+    "categoryId": 2100
+  },
+  "4091": {
+    "name": "Standard Expert Systems",
+    "categoryId": 2100
+  },
+  "4093": {
+    "name": "Mobile Cynosural Beacon",
+    "categoryId": 22
+  },
+  "4094": {
+    "name": "Scalable Decorative Asteroid",
+    "categoryId": 25
+  },
+  "4095": {
+    "name": "Mobile Cynosural Beacon Blueprint",
+    "categoryId": 9
+  },
+  "4096": {
+    "name": "Molecular-Forged Materials",
+    "categoryId": 4
+  },
+  "4097": {
+    "name": "Molecular-Forged Reaction Formulas",
+    "categoryId": 9
+  },
+  "4098": {
+    "name": "Promotional Expert Systems",
+    "categoryId": 2100
+  },
+  "4100": {
+    "name": "Logo Display Monument",
+    "categoryId": 2
+  },
+  "4102": {
+    "name": "ESS Reserve Bank Keys",
+    "categoryId": 17
+  },
+  "4105": {
+    "name": "Unidentified Entities",
+    "categoryId": 11
+  },
+  "4106": {
+    "name": "AIR Entities I",
+    "categoryId": 11
+  },
+  "4107": {
+    "name": "Mobile Observatory",
+    "categoryId": 22
+  },
+  "4108": {
+    "name": "Mobile Observatory Blueprint",
+    "categoryId": 9
+  },
+  "4117": {
+    "name": "Interdiction Nullifier",
+    "categoryId": 7
+  },
+  "4118": {
+    "name": "Interdiction Nullifier Blueprint",
+    "categoryId": 9
+  },
+  "4127": {
+    "name": "Covert Jump Portal Generator",
+    "categoryId": 7
+  },
+  "4128": {
+    "name": "AIR Entities II",
+    "categoryId": 11
+  },
+  "4130": {
+    "name": "Unidentified Entities II",
+    "categoryId": 11
+  },
+  "4137": {
+    "name": "Mobile Analysis Beacon",
+    "categoryId": 22
+  },
+  "4138": {
+    "name": "Gas Cloud Harvesters",
+    "categoryId": 7
+  },
+  "4139": {
+    "name": "Gas Harvester Blueprint",
+    "categoryId": 9
+  },
+  "4141": {
+    "name": "Mobile Analysis Beacon Blueprint",
+    "categoryId": 9
+  },
+  "4142": {
+    "name": "Rogue Drone Analysis Data",
+    "categoryId": 17
+  },
+  "4145": {
+    "name": "Warp Matrix Filaments",
+    "categoryId": 17
+  },
+  "4161": {
+    "name": "AIR Ore Asteroid Resources",
+    "categoryId": 25
+  },
+  "4165": {
+    "name": "Peculiar Materials",
+    "categoryId": 17
+  },
+  "4168": {
+    "name": "Compressed Gas",
+    "categoryId": 2
+  },
+  "4174": {
+    "name": "Compressors",
+    "categoryId": 7
+  },
+  "4175": {
+    "name": "Compressors Blueprints",
+    "categoryId": 9
+  },
+  "4184": {
+    "name": "Industrial Jump Portal Generator",
+    "categoryId": 7
+  },
+  "4186": {
+    "name": "Structure Area Denial Ammunition",
+    "categoryId": 8
+  },
+  "4188": {
+    "name": "Structure Area Denial Ammo Blueprint",
+    "categoryId": 9
+  },
+  "4430": {
+    "name": "Asteroid Belt",
+    "categoryId": 2
+  },
+  "4431": {
+    "name": "FW Amarr Empire Battleship",
+    "categoryId": 11
+  },
+  "4432": {
+    "name": "FW Caldari State Battleship",
+    "categoryId": 11
+  },
+  "4433": {
+    "name": "FW Gallente Federation Battleship",
+    "categoryId": 11
+  },
+  "4434": {
+    "name": "FW Minmatar Republic Battleship",
+    "categoryId": 11
+  },
+  "4471": {
+    "name": "Ship Emblems",
+    "categoryId": 2118
+  },
+  "4477": {
+    "name": "FW Propaganda Broadcast Structure",
+    "categoryId": 22
+  },
+  "4493": {
+    "name": "Mobile Objective Blueprint",
+    "categoryId": 9
+  },
+  "4494": {
+    "name": "Control Point",
+    "categoryId": 11
+  },
+  "4499": {
+    "name": "FW Listening Outpost",
+    "categoryId": 22
+  },
+  "4501": {
+    "name": "Mission Generic Capsules",
+    "categoryId": 11
+  },
+  "4513": {
+    "name": "Mordunium",
+    "categoryId": 25
+  },
+  "4514": {
+    "name": "Ytirium",
+    "categoryId": 25
+  },
+  "4515": {
+    "name": "Eifyrium",
+    "categoryId": 25
+  },
+  "4516": {
+    "name": "Ducinium",
+    "categoryId": 25
+  },
+  "4547": {
+    "name": "Interstellar Shipcaster Beacon",
+    "categoryId": 2
+  },
+  "4548": {
+    "name": "Shipcaster Beacon Constructor",
+    "categoryId": 2
+  },
+  "4549": {
+    "name": "Interstellar Shipcaster",
+    "categoryId": 2
+  },
+  "4568": {
+    "name": "Mutanite",
+    "categoryId": 25
+  },
+  "4569": {
+    "name": "Homefront Operations Enemy Frigate",
+    "categoryId": 11
+  },
+  "4570": {
+    "name": "Homefront Operations Enemy Destroyer",
+    "categoryId": 11
+  },
+  "4571": {
+    "name": "Homefront Operations Enemy Cruiser",
+    "categoryId": 11
+  },
+  "4572": {
+    "name": "Homefront Operations Allied Dreadnought",
+    "categoryId": 11
+  },
+  "4573": {
+    "name": "Homefront Operations Enemy Battlecruiser",
+    "categoryId": 11
+  },
+  "4574": {
+    "name": "Homefront Operations Enemy Battleship",
+    "categoryId": 11
+  },
+  "4575": {
+    "name": "Homefront Operations Commodity",
+    "categoryId": 17
+  },
+  "4576": {
+    "name": "Homefront Operations Structure",
+    "categoryId": 11
+  },
+  "4577": {
+    "name": "Homefront Operations Hauler",
+    "categoryId": 11
+  },
+  "4579": {
+    "name": "Scalable Non-Interactable Object",
+    "categoryId": 2
+  },
+  "4594": {
+    "name": "Lancer Dreadnought",
+    "categoryId": 6
+  },
+  "4599": {
+    "name": "Warp Vector Data",
+    "categoryId": 17
+  },
+  "4603": {
+    "name": "FOB services",
+    "categoryId": 66
+  },
+  "4636": {
+    "name": "Pirate Entities",
+    "categoryId": 11
+  },
+  "4637": {
+    "name": "Insurgency Roaming Pirates",
+    "categoryId": 11
+  },
+  "4638": {
+    "name": "Insurgency Roaming Enforcers",
+    "categoryId": 11
+  },
+  "4644": {
+    "name": "Pirate Forward Operating Base",
+    "categoryId": 65
+  },
+  "4647": {
+    "name": "Insurgency Pirate Frigate",
+    "categoryId": 11
+  },
+  "4648": {
+    "name": "Insurgency Pirate Destroyer",
+    "categoryId": 11
+  },
+  "4649": {
+    "name": "Insurgency Pirate Cruiser",
+    "categoryId": 11
+  },
+  "4650": {
+    "name": "Insurgency Pirate Battlecruiser",
+    "categoryId": 11
+  },
+  "4651": {
+    "name": "Insurgency Pirate Battleship",
+    "categoryId": 11
+  },
+  "4652": {
+    "name": "Insurgency Mordu Frigate",
+    "categoryId": 11
+  },
+  "4653": {
+    "name": "Insurgency Mordu Destroyer",
+    "categoryId": 11
+  },
+  "4654": {
+    "name": "Insurgency Mordu Cruiser",
+    "categoryId": 11
+  },
+  "4655": {
+    "name": "Insurgency Mordu Battlecruiser",
+    "categoryId": 11
+  },
+  "4656": {
+    "name": "Insurgency Mordu Battleship",
+    "categoryId": 11
+  },
+  "4673": {
+    "name": "Insurgency Mining Ship",
+    "categoryId": 11
+  },
+  "4712": {
+    "name": "Guided Entities",
+    "categoryId": 11
+  },
+  "4713": {
+    "name": "Guidance Objectives",
+    "categoryId": 2
+  },
+  "4714": {
+    "name": "Non-Interactable Asteroids",
+    "categoryId": 25
+  },
+  "4716": {
+    "name": "Abyssal Battlefield Filament Materials",
+    "categoryId": 17
+  },
+  "4717": {
+    "name": "CD Filaments",
+    "categoryId": 17
+  },
+  "4719": {
+    "name": "Rift",
+    "categoryId": 2
+  },
+  "4725": {
+    "name": "Sequence Binders",
+    "categoryId": 2118
+  },
+  "4726": {
+    "name": "Ship SKIN Design Element",
+    "categoryId": 2118
+  },
+  "4729": {
+    "name": "Colony Reagents",
+    "categoryId": 2143
+  },
+  "4734": {
+    "name": "Sequencing",
+    "categoryId": 16
+  },
+  "4736": {
+    "name": "Skyhook",
+    "categoryId": 46
+  },
+  "4737": {
+    "name": "Homefront Operations Shuttle",
+    "categoryId": 11
+  },
+  "4743": {
+    "name": "Abyssal Battlefield Filaments",
+    "categoryId": 17
+  },
+  "4744": {
+    "name": "Upwell Moon Drill",
+    "categoryId": 65
+  },
+  "4745": {
+    "name": "Skyhook Reagent Silo",
+    "categoryId": 2
+  },
+  "4755": {
+    "name": "Kylixium",
+    "categoryId": 25
+  },
+  "4756": {
+    "name": "Nocxite",
+    "categoryId": 25
+  },
+  "4757": {
+    "name": "Ueganite",
+    "categoryId": 25
+  },
+  "4758": {
+    "name": "Hezorime",
+    "categoryId": 25
+  },
+  "4759": {
+    "name": "Griemeer",
+    "categoryId": 25
+  },
+  "4768": {
+    "name": "Sovereignty Hub Site Detection Upgrades",
+    "categoryId": 39
+  },
+  "4769": {
+    "name": "Capital Mobility Modules",
+    "categoryId": 7
+  },
+  "4771": {
+    "name": "Homefront Operations Noncombatant",
+    "categoryId": 11
+  },
+  "4772": {
+    "name": "Sovereignty Hub Service Infrastructure Upgrade",
+    "categoryId": 39
+  },
+  "4776": {
+    "name": "Expired Abyssal Battlefields Filaments",
+    "categoryId": 17
+  },
+  "4777": {
+    "name": "Structure Light Fighter",
+    "categoryId": 87
+  },
+  "4778": {
+    "name": "Structure Support Fighter",
+    "categoryId": 87
+  },
+  "4779": {
+    "name": "Structure Heavy Fighter",
+    "categoryId": 87
+  },
+  "4795": {
+    "name": "Asteroid Angel Cartel Officer Cruiser",
+    "categoryId": 11
+  },
+  "4796": {
+    "name": "Asteroid Angel Cartel Officer Frigate",
+    "categoryId": 11
+  },
+  "4797": {
+    "name": "Asteroid Blood Raiders Officer Cruiser",
+    "categoryId": 11
+  },
+  "4798": {
+    "name": "Asteroid Blood Raiders Officer Frigate",
+    "categoryId": 11
+  },
+  "4799": {
+    "name": "Asteroid Guristas Officer Cruiser",
+    "categoryId": 11
+  },
+  "4800": {
+    "name": "Asteroid Guristas Officer Frigate",
+    "categoryId": 11
+  },
+  "4801": {
+    "name": "Asteroid Sansha's Nation Officer Cruiser",
+    "categoryId": 11
+  },
+  "4802": {
+    "name": "Asteroid Sansha's Nation Officer Frigate",
+    "categoryId": 11
+  },
+  "4803": {
+    "name": "Asteroid Serpentis Officer Cruiser",
+    "categoryId": 11
+  },
+  "4804": {
+    "name": "Asteroid Serpentis Officer Frigate",
+    "categoryId": 11
+  },
+  "4807": {
+    "name": "Breacher Pod Launchers",
+    "categoryId": 7
+  },
+  "4808": {
+    "name": "SCARAB Breacher Pods",
+    "categoryId": 8
+  },
+  "4810": {
+    "name": "Mercenary Den",
+    "categoryId": 22
+  },
+  "4811": {
+    "name": "Mercenary Den Blueprint",
+    "categoryId": 9
+  },
+  "4820": {
+    "name": "Mutaplasmid Blueprint",
+    "categoryId": 9
+  },
+  "4821": {
+    "name": "Atavum",
+    "categoryId": 17
+  },
+  "4824": {
+    "name": "Infomorph Systems",
+    "categoryId": 17
+  },
+  "4825": {
+    "name": "Local Beacon",
+    "categoryId": 2
+  },
+  "4827": {
+    "name": "EDENCOM Data",
+    "categoryId": 17
+  },
+  "4828": {
+    "name": "Pirate Spawners",
+    "categoryId": 2
+  },
+  "4838": {
+    "name": "Sovereignty Hub Colony Resources Management Upgrades",
+    "categoryId": 39
+  },
+  "4839": {
+    "name": "Sovereignty Hub System Effect Generator Upgrades",
+    "categoryId": 39
+  },
+  "4843": {
+    "name": "Limited Rarities",
+    "categoryId": 17
+  },
+  "4857": {
+    "name": "Tyranite",
+    "categoryId": 25
+  },
+  "4900": {
+    "name": "Stability Telemetry",
+    "categoryId": 17
+  },
+  "350858": {
+    "name": "Infantry Weapons",
+    "categoryId": 350001
+  },
+  "351064": {
+    "name": "Infantry Dropsuits",
+    "categoryId": 350001
+  },
+  "351121": {
+    "name": "Infantry Modules",
+    "categoryId": 350001
+  },
+  "351210": {
+    "name": "Infantry Vehicles",
+    "categoryId": 350001
+  },
+  "351648": {
+    "name": "Infantry Skills",
+    "categoryId": 350001
+  },
+  "351844": {
+    "name": "Infantry Equipment",
+    "categoryId": 350001
+  },
+  "354641": {
+    "name": "Infantry Skill Enhancers",
+    "categoryId": 350001
+  },
+  "354753": {
+    "name": "Infantry Installations",
+    "categoryId": 350001
+  },
+  "364204": {
+    "name": "Surface Infrastructure",
+    "categoryId": 350001
+  },
+  "367487": {
+    "name": "Services",
+    "categoryId": 350001
+  },
+  "367580": {
+    "name": "Agents",
+    "categoryId": 350001
+  },
+  "367594": {
+    "name": "Visual Customization",
+    "categoryId": 350001
+  },
+  "367774": {
+    "name": "Salvage Containers",
+    "categoryId": 350001
+  },
+  "367776": {
+    "name": "Salvage Decryptors",
+    "categoryId": 350001
+  },
+  "368656": {
+    "name": "Battle Salvage",
+    "categoryId": 350001
+  },
+  "368666": {
+    "name": "Warbarge",
+    "categoryId": 350001
+  },
+  "368726": {
+    "name": "Infantry Color Skin",
+    "categoryId": 350001
+  }
+}

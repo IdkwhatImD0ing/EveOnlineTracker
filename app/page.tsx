@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LogoutButton } from "@/components/logout-button"
-import { Plus, Loader2, FolderOpen, Calendar } from "lucide-react"
+import { Plus, Loader2, FolderOpen, Calendar, Calculator } from "lucide-react"
 import type { Project } from "@/types/database"
 
 export default function Home() {
@@ -39,13 +39,19 @@ export default function Home() {
             <p className="text-muted-foreground">Track your manufacturing projects</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/industry">
+                <Calculator className="size-4" />
+                Industry Calculator
+              </Link>
+            </Button>
             <Button asChild>
               <Link href="/projects/new">
                 <Plus className="size-4" />
                 New Project
               </Link>
             </Button>
-          <LogoutButton />
+            <LogoutButton />
           </div>
         </header>
 

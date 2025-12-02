@@ -1,0 +1,66 @@
+{
+  "industryStructures": {
+    "npc_station": {
+      "name": "NPC Station",
+      "meBonus": 0,
+      "teBonus": 0,
+      "jobCostBonus": 0
+    },
+    "raitaru": {
+      "name": "Raitaru",
+      "meBonus": 0.01,
+      "teBonus": 0.15,
+      "jobCostBonus": 0.03
+    },
+    "azbel": {
+      "name": "Azbel",
+      "meBonus": 0.01,
+      "teBonus": 0.20,
+      "jobCostBonus": 0.04
+    },
+    "sotiyo": {
+      "name": "Sotiyo",
+      "meBonus": 0.01,
+      "teBonus": 0.30,
+      "jobCostBonus": 0.05
+    }
+  },
+  "reactionStructures": {
+    "athanor": {
+      "name": "Athanor",
+      "teBonus": 0,
+      "jobCostBonus": 0.02
+    },
+    "tatara": {
+      "name": "Tatara",
+      "teBonus": 0.25,
+      "jobCostBonus": 0.04
+    }
+  },
+  "rigs": {
+    "none": {
+      "name": "None",
+      "meBonus": 0,
+      "teBonus": 0
+    },
+    "t1": {
+      "name": "T1 Rig",
+      "meBonus": 0.02,
+      "teBonus": 0.20
+    },
+    "t2": {
+      "name": "T2 Rig",
+      "meBonus": 0.024,
+      "teBonus": 0.24
+    }
+  },
+  "securityMultipliers": {
+    "highsec": 1.0,
+    "lowsec": 1.9,
+    "nullsec": 2.1,
+    "wormhole": 2.1
+  },
+  "defaultComponentME": 10,
+  "defaultComponentTE": 20
+}
+
