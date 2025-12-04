@@ -4,11 +4,10 @@ import { useState } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Copy, Check } from "lucide-react"
-import type { RawMaterial, Component } from "@/types/database"
+import type { RawMaterial } from "@/types/database"
 
 interface PriceSummaryProps {
   rawMaterials: RawMaterial[]
-  components: Component[]
 }
 
 function formatISKFull(amount: number): string {
@@ -74,11 +73,9 @@ function CopyablePrice({
   )
 }
 
-export function PriceSummary({ rawMaterials, components }: PriceSummaryProps) {
-  const allItems = [...rawMaterials, ...components]
-
+export function PriceSummary({ rawMaterials }: PriceSummaryProps) {
   const calculateTotal = (priceType: PriceType): number => {
-    return allItems.reduce((sum, item) => {
+    return rawMaterials.reduce((sum, item) => {
       const price = item[`${priceType}_price`]
       if (price === null) return sum
       return sum + price * item.quantity

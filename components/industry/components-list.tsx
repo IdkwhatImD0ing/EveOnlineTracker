@@ -83,14 +83,12 @@ interface ComponentsListProps {
   title: string
   components: ComponentItem[]
   showBuyRecommendations?: boolean
-  onToggleBuyRecommendations?: () => void
 }
 
 export function ComponentsList({ 
   title, 
   components, 
-  showBuyRecommendations = false,
-  onToggleBuyRecommendations 
+  showBuyRecommendations = false
 }: ComponentsListProps) {
   const [copied, setCopied] = useState(false)
   const [sortField, setSortField] = useState<SortField>(showBuyRecommendations ? "savings" : "name")
@@ -177,26 +175,6 @@ export function ComponentsList({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {stats.buyRecommendations > 0 && onToggleBuyRecommendations && (
-              <Button
-                variant={showBuyRecommendations ? "default" : "outline"}
-                size="sm"
-                onClick={onToggleBuyRecommendations}
-                className="h-8"
-              >
-                {showBuyRecommendations ? (
-                  <>
-                    <ShoppingCart className="size-3.5 mr-1.5" />
-                    Buy Mode
-                  </>
-                ) : (
-                  <>
-                    <Hammer className="size-3.5 mr-1.5" />
-                    Build Mode
-                  </>
-                )}
-              </Button>
-            )}
             <div className="text-right text-sm">
               {showBuyRecommendations ? (
                 <>

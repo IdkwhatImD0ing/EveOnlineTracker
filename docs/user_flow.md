@@ -30,7 +30,49 @@ This is a personal Eve Online industry tracker built with Next.js and Supabase. 
   - Parsed items are stored in Supabase with current Jita prices
   - Redirects to project detail page
 
-### 3. Project Detail (`/projects/[id]`)
+### 3. Industry Calculator (`/industry`)
+
+The industry calculator helps you plan manufacturing by calculating material requirements and costs for any blueprint.
+
+#### Blueprint Configuration
+- Search and select any manufacturing blueprint or reaction formula
+- Configure quantity to build
+- Set blueprint ME (Material Efficiency) and TE (Time Efficiency)
+- Choose manufacturing location (system) for cost index calculations
+- Select structure type and rig for bonuses
+
+#### Results Display
+- **Output Products**: Shows the final product with quantity, prices, and build duration
+- **Cost Summary**: Displays total material costs, job costs, and estimated profit
+- **Raw Materials**: Lists all base materials needed that cannot be built
+- **Components**: Intermediate items that need to be manufactured
+- **Build Steps**: Detailed breakdown of each manufacturing step
+
+#### Buy Mode Toggle
+Located at the top of results when components are available:
+
+- **Build All Mode** (default): Shows all raw materials needed to build everything from scratch
+- **Buy Mode**: When enabled, the calculator identifies components that are cheaper to buy than build and:
+  - Highlights components with shopping cart icons (buy) vs hammer icons (build)
+  - **Adjusts the Raw Materials list** by subtracting materials needed for components you'll buy
+  - Shows potential savings from buying vs building each component
+  - Raw Materials section shows a "Buy Mode" badge indicating adjusted quantities
+
+This allows you to see exactly what materials to purchase for components you'll build, while buying other components directly from the market.
+
+### 4. Project Detail (`/projects/[id]`)
+
+#### Buy Mode Toggle
+For projects created from the Industry Calculator, a Buy Mode toggle appears in the header when components have buy recommendations:
+
+- **Build All Mode** (default): Shows all raw materials needed to build everything
+- **Buy Mode**: When enabled:
+  - Shows which components are cheaper to buy (shopping cart icon) vs build (hammer icon)
+  - **Adjusts the Raw Materials list** by subtracting materials needed for purchased components
+  - Updates price summaries to reflect adjusted material costs
+  - Components marked for buying are highlighted with a green background
+
+This feature is only available for projects created from the Industry Calculator, as it requires material breakdown data that's calculated during the manufacturing analysis.
 
 #### Item Lists
 
@@ -47,8 +89,9 @@ This is a personal Eve Online industry tracker built with Next.js and Supabase. 
 
 #### Jita Prices Summary
 
-- Jita Buy total (what you'd pay to buy all items)
-- Jita Sell total (what you'd get selling all items)
+- Based on **raw materials only** (not components, since you build those)
+- Jita Buy total (what you'd pay to buy all raw materials)
+- Jita Sell total (what you'd get selling all raw materials)
 - Jita Split total (average of buy/sell)
 - Click any value to copy to clipboard
 
@@ -61,7 +104,7 @@ This is a personal Eve Online industry tracker built with Next.js and Supabase. 
 
 #### Total Project Cost
 
-- Grand total = Jita Buy (all items) + Additional Costs
+- Grand total = Jita Buy (raw materials) + Additional Costs
 - Displays both abbreviated (e.g., "1.5B ISK") and full value
 - Copy button for the total
 

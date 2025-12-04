@@ -45,7 +45,8 @@ Stores components parsed from the second text input via Janice API.
 | item_name | text | NOT NULL | Eve item name |
 | type_id | bigint | NOT NULL | Eve type ID (from Janice) |
 | quantity | bigint | NOT NULL, default 1 | Required quantity |
-| collected | boolean | NOT NULL, default false | Whether item has been collected |
+| collected | boolean | NOT NULL, default false | Whether item has been fully collected |
+| quantity_made | bigint | NOT NULL, default 0 | Tracks partial progress (units completed so far) |
 | buy_price | numeric | | Jita buy price per unit |
 | sell_price | numeric | | Jita sell price per unit |
 | split_price | numeric | | Jita split price per unit |
@@ -99,6 +100,7 @@ CREATE TABLE components (
   type_id bigint NOT NULL,
   quantity bigint NOT NULL DEFAULT 1,
   collected boolean NOT NULL DEFAULT false,
+  quantity_made bigint NOT NULL DEFAULT 0,
   buy_price numeric,
   sell_price numeric,
   split_price numeric,
@@ -154,6 +156,8 @@ projects
 
 - All monetary values are stored as `numeric` to avoid floating-point precision issues with ISK amounts
 - Prices are stored per-unit; total values are calculated at query time
-- The `collected` boolean tracks whether an item has been obtained (for progress tracking)
+- The `collected` boolean tracks whether an item has been fully obtained (for progress tracking)
+- The `quantity_made` field on components tracks partial progress (e.g., 50 of 100 units completed)
+- When `quantity_made` equals `quantity`, the item is automatically marked as `collected`
 - Cascade deletes ensure all related data is removed when a project is deleted
 

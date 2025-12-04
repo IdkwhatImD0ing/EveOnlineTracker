@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,8 +14,8 @@ import { GroupedMaterials } from "@/components/industry/grouped-materials"
 import { ComponentsList } from "@/components/industry/components-list"
 import { BuildSteps } from "@/components/industry/build-steps"
 import { CostSummary } from "@/components/industry/cost-summary"
-import { ArrowLeft, Calculator, Loader2, Factory, FlaskConical } from "lucide-react"
-import type { CalculateResponse } from "@/app/api/industry/calculate/route"
+import { ArrowLeft, Calculator, Loader2, Factory, FlaskConical, FolderPlus, ShoppingCart, Hammer } from "lucide-react"
+import type { CalculateResponse, MaterialWithPrice } from "@/app/api/industry/calculate/route"
 
 interface BlueprintResult {
   blueprintTypeId: number
@@ -60,21 +61,23 @@ function getSecurityLabel(security: number | null): string {
 }
 
 export default function IndustryCalculatorPage() {
+  const router = useRouter()
   const [selectedBlueprint, setSelectedBlueprint] = useState<BlueprintResult | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [runs, setRuns] = useState(1)
   const [blueprintMe, setBlueprintMe] = useState(0)
   const [blueprintTe, setBlueprintTe] = useState(0)
-  const [systemName, setSystemName] = useState("Jita")
-  const [systemSecurity, setSystemSecurity] = useState<number | null>(1.0)
+  const [systemName, setSystemName] = useState("3t7-m8")
+  const [systemSecurity, setSystemSecurity] = useState<number | null>(-0.5)
   const [facilityTax, setFacilityTax] = useState(0)
-  const [structureType, setStructureType] = useState("raitaru")
+  const [structureType, setStructureType] = useState("sotiyo")
   const [rigType, setRigType] = useState("t1")
   const [reactionStructure, setReactionStructure] = useState("tatara")
   const [reactionRig, setReactionRig] = useState("t1")
   const [showBuyRecommendations, setShowBuyRecommendations] = useState(false)
   
   const [isCalculating, setIsCalculating] = useState(false)
+  const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [result, setResult] = useState<CalculateResponse | null>(null)
   const [error, setError] = useState("")
 
@@ -117,7 +120,81 @@ export default function IndustryCalculatorPage() {
     }
   }
 
+  const handleCreateProject = async () => {
+    if (!result) return
+
+    setIsCreatingProject(true)
+    setError("")
+
+    try {
+      const response = await fetch("/api/projects/from-calculation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          calculation: result,
+          quantity,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to create project")
+      }
+
+      const data = await response.json()
+      router.push(`/projects/${data.project.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create project")
+    } finally {
+      setIsCreatingProject(false)
+    }
+  }
+
   const isReaction = selectedBlueprint?.isReaction || false
+
+  // Check if there are any buy recommendations available
+  const hasBuyRecommendations = useMemo(() => {
+    if (!result?.components) return false
+    return result.components.some(c => c.shouldBuy)
+  }, [result?.components])
+
+  // Calculate adjusted materials when buy mode is active
+  // Subtracts materials needed for components that should be bought
+  const adjustedMaterials = useMemo((): MaterialWithPrice[] => {
+    if (!result?.materials || !showBuyRecommendations || !result.components) {
+      return result?.materials || []
+    }
+
+    // Create a map of material adjustments from components that should be bought
+    const materialsToSubtract = new Map<number, number>()
+    
+    for (const component of result.components) {
+      if (component.shouldBuy && component.materialsBreakdown) {
+        for (const mat of component.materialsBreakdown) {
+          const current = materialsToSubtract.get(mat.typeId) || 0
+          materialsToSubtract.set(mat.typeId, current + mat.quantity)
+        }
+      }
+    }
+
+    // Subtract from raw materials
+    return result.materials
+      .map(mat => {
+        const subtractQty = materialsToSubtract.get(mat.typeId) || 0
+        const newQty = Math.max(0, mat.quantity - subtractQty)
+        
+        if (newQty === 0) return null
+        
+        return {
+          ...mat,
+          quantity: newQty,
+          volume: (mat.volume / mat.quantity) * newQty,
+          totalBuyPrice: mat.buyPrice * newQty,
+          totalSellPrice: mat.sellPrice * newQty,
+        }
+      })
+      .filter((mat): mat is MaterialWithPrice => mat !== null)
+  }, [result?.materials, result?.components, showBuyRecommendations])
 
   return (
     <div className="min-h-screen bg-background">
@@ -337,6 +414,53 @@ export default function IndustryCalculatorPage() {
           <div className="space-y-4">
             {result ? (
               <>
+                {/* Action Bar */}
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-lg font-semibold">
+                    {quantity === 1 ? result.blueprint.productName : `${quantity}x ${result.blueprint.productName}`}
+                  </h2>
+                  <div className="flex items-center gap-3">
+                    {/* Buy Mode Toggle - only show if there are buy recommendations */}
+                    {hasBuyRecommendations && (
+                      <Button
+                        variant={showBuyRecommendations ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowBuyRecommendations(!showBuyRecommendations)}
+                        className="gap-2"
+                      >
+                        {showBuyRecommendations ? (
+                          <>
+                            <ShoppingCart className="size-4" />
+                            Buy Mode
+                          </>
+                        ) : (
+                          <>
+                            <Hammer className="size-4" />
+                            Build All
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleCreateProject}
+                      disabled={isCreatingProject}
+                      className="gap-2"
+                    >
+                      {isCreatingProject ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <FolderPlus className="size-4" />
+                          Create Project
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
                 {/* Cost Summary */}
                 <CostSummary
                   costs={result.costs}
@@ -392,7 +516,8 @@ export default function IndustryCalculatorPage() {
                 {/* Raw Materials (cannot be built) */}
                 <GroupedMaterials
                   title="Raw Materials"
-                  materials={result.materials}
+                  materials={adjustedMaterials}
+                  isAdjusted={showBuyRecommendations && hasBuyRecommendations}
                 />
 
                 {/* Components (intermediate items that are built) */}
@@ -401,7 +526,6 @@ export default function IndustryCalculatorPage() {
                     title="Components"
                     components={result.components}
                     showBuyRecommendations={showBuyRecommendations}
-                    onToggleBuyRecommendations={() => setShowBuyRecommendations(!showBuyRecommendations)}
                   />
                 )}
 

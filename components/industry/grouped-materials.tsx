@@ -8,7 +8,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { Copy, Check, ChevronRight, ArrowUp, ArrowDown } from "lucide-react"
+import { Copy, Check, ChevronRight, ArrowUp, ArrowDown, ShoppingCart } from "lucide-react"
 
 // Category order for display - same as projects page
 const CATEGORY_ORDER = ["Minerals", "Planetary Industry", "Reactions", "Exploration", "Other"]
@@ -339,9 +339,10 @@ function CategoryGroup({ category, materials }: CategoryGroupProps) {
 interface GroupedMaterialsProps {
   title: string
   materials: Material[]
+  isAdjusted?: boolean
 }
 
-export function GroupedMaterials({ title, materials }: GroupedMaterialsProps) {
+export function GroupedMaterials({ title, materials, isAdjusted = false }: GroupedMaterialsProps) {
   // Group materials by category
   const groupedMaterials = useMemo(() => {
     const groups: Record<string, Material[]> = {}
@@ -391,9 +392,22 @@ export function GroupedMaterials({ title, materials }: GroupedMaterialsProps) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>{title}</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle>{title}</CardTitle>
+              {isAdjusted && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-500/10 text-green-600 border border-green-500/20">
+                  <ShoppingCart className="size-3" />
+                  Buy Mode
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {materials.length} items across {groupedMaterials.length} categories
+              {isAdjusted && (
+                <span className="ml-1 text-green-600">
+                  (adjusted for purchased components)
+                </span>
+              )}
             </p>
           </div>
           <div className="text-right text-sm">

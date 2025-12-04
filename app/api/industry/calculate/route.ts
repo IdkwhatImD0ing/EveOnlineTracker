@@ -39,6 +39,12 @@ export interface MaterialWithPrice {
   groupName?: string
 }
 
+export interface ComponentMaterial {
+  typeId: number
+  name: string
+  quantity: number
+}
+
 export interface ComponentItem {
   typeId: number
   name: string
@@ -52,6 +58,7 @@ export interface ComponentItem {
   buildCost?: number        // Cost to build this component (materials + job cost)
   shouldBuy?: boolean       // True if buying is cheaper than building
   savings?: number          // Amount saved by choosing the cheaper option
+  materialsBreakdown?: ComponentMaterial[]  // Materials required to build this component
 }
 
 
@@ -265,12 +272,13 @@ export async function POST(request: NextRequest) {
     
     // Extract components from build steps (intermediate items that are built)
     // Exclude the main product and aggregate duplicates
-    // Also calculate build cost for each component
+    // Also calculate build cost for each component and track materials breakdown
     const componentMap = new Map<number, { 
       name: string; 
       quantity: number; 
       groupName?: string;
       buildCost: number;  // Material cost + job cost to build
+      materialsBreakdown: Map<number, { typeId: number; name: string; quantity: number }>;
     }>()
     
     for (const step of result.buildSteps) {
@@ -288,12 +296,39 @@ export async function POST(request: NextRequest) {
       if (existing) {
         existing.quantity += step.producedQuantity
         existing.buildCost += stepBuildCost
+        // Aggregate materials
+        for (const mat of step.materials) {
+          const existingMat = existing.materialsBreakdown.get(mat.typeId)
+          if (existingMat) {
+            existingMat.quantity += mat.adjustedQuantity
+          } else {
+            existing.materialsBreakdown.set(mat.typeId, {
+              typeId: mat.typeId,
+              name: mat.name,
+              quantity: mat.adjustedQuantity
+            })
+          }
+        }
       } else {
+        const materialsBreakdown = new Map<number, { typeId: number; name: string; quantity: number }>()
+        for (const mat of step.materials) {
+          const existingMat = materialsBreakdown.get(mat.typeId)
+          if (existingMat) {
+            existingMat.quantity += mat.adjustedQuantity
+          } else {
+            materialsBreakdown.set(mat.typeId, {
+              typeId: mat.typeId,
+              name: mat.name,
+              quantity: mat.adjustedQuantity
+            })
+          }
+        }
         componentMap.set(step.productTypeId, {
           name: step.productName,
           quantity: step.producedQuantity,
           groupName: getGroupName(step.productTypeId) || undefined,
-          buildCost: stepBuildCost
+          buildCost: stepBuildCost,
+          materialsBreakdown
         })
       }
     }
@@ -323,7 +358,8 @@ export async function POST(request: NextRequest) {
         groupName: data.groupName,
         buildCost: data.buildCost,
         shouldBuy,
-        savings: Math.abs(savings)
+        savings: Math.abs(savings),
+        materialsBreakdown: Array.from(data.materialsBreakdown.values())
       }
     })
     

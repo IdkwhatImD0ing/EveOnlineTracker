@@ -23,6 +23,12 @@ export interface RawMaterial {
   item_type: string | null
 }
 
+export interface ComponentMaterialBreakdown {
+  typeId: number
+  name: string
+  quantity: number
+}
+
 export interface Component {
   id: string
   project_id: string
@@ -30,11 +36,14 @@ export interface Component {
   type_id: number
   quantity: number
   collected: boolean
+  quantity_made: number
   buy_price: number | null
   sell_price: number | null
   split_price: number | null
   volume: number | null
   item_type: string | null
+  materials_breakdown: ComponentMaterialBreakdown[] | null
+  build_cost: number | null
 }
 
 export interface AdditionalCost {
@@ -59,7 +68,8 @@ export interface CreateProjectRequest {
 }
 
 export interface UpdateItemRequest {
-  collected: boolean
+  collected?: boolean
+  quantity_made?: number
 }
 
 export interface CreateAdditionalCostRequest {

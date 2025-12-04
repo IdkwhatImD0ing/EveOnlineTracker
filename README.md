@@ -20,11 +20,14 @@
 
 - **📦 Project Management** — Create, view, and delete manufacturing projects
 - **✅ Progress Tracking** — Mark items as collected with persistent checkboxes
+- **📈 Partial Progress** — Track quantity made for components (e.g., 50/100 built)
 - **💰 Real-time Jita Prices** — Automatic market price fetching via Janice API
 - **📊 Price Summaries** — View Buy, Sell, and Split price totals at a glance
 - **💸 Additional Costs** — Track manufacturing fees, transport costs, and more
 - **📋 Clipboard Integration** — Copy item lists back to Eve Online with one click
 - **🔒 Password Protection** — Simple authentication to keep your data private
+- **🧮 Industry Calculator** — Calculate material requirements and costs for any blueprint
+- **🛒 Buy Mode** — Automatically adjust materials based on buy vs build recommendations
 
 ---
 
@@ -122,6 +125,7 @@
      type_id bigint NOT NULL,
      quantity bigint NOT NULL DEFAULT 1,
      collected boolean NOT NULL DEFAULT false,
+     quantity_made bigint NOT NULL DEFAULT 0,
      buy_price numeric,
      sell_price numeric,
      split_price numeric,
@@ -205,14 +209,26 @@ Pyerite
 ### Tracking Progress
 
 - ✅ Check items as you collect them
+- 📊 For components, click the progress (e.g., "0/100") to enter partial quantities
+- Auto-completes when quantity made reaches the required amount
 - Progress persists automatically to the database
 - Use **"Copy Remaining"** to copy only unchecked items
 
+### Buy Mode on Projects
+
+For projects created from the Industry Calculator, a **Buy Mode** toggle is available:
+
+- Located in the project header when buy recommendations exist
+- Shows 🛒 (buy) or 🔨 (build) icons next to each component
+- **Adjusts Raw Materials** to show only what's needed for components you'll build
+- Price summaries update automatically to reflect adjusted costs
+
 ### Price Information
 
-- **Jita Buy** — Cost to buy all items at Jita buy orders
-- **Jita Sell** — Value if selling at Jita sell orders
+- **Jita Buy** — Cost to buy all raw materials at Jita buy orders
+- **Jita Sell** — Value if selling all raw materials at Jita sell orders
 - **Jita Split** — Average of buy and sell prices
+- Note: Prices are based on raw materials only (not components, since you build those)
 - Click any price to copy to clipboard
 
 ### Additional Costs
@@ -223,6 +239,32 @@ Track extra expenses like:
 - Transport/hauling costs
 - Broker fees
 - Research costs
+
+### Industry Calculator
+
+Calculate material requirements and costs for any blueprint:
+
+1. Navigate to **Industry Calculator** from the home page
+2. Search and select a blueprint
+3. Configure build settings:
+   - Quantity to manufacture
+   - Blueprint ME/TE values
+   - Manufacturing system (affects cost index)
+   - Structure and rig bonuses
+4. Click **Calculate Recipe** to see the full breakdown
+
+#### Buy Mode
+
+When components are present, a **Buy Mode** toggle appears at the top of results:
+
+- **Build All** (default) — Shows materials needed to build everything from scratch
+- **Buy Mode** — Optimizes your shopping list:
+  - Identifies components cheaper to buy than build
+  - **Adjusts Raw Materials** by removing materials for purchased components
+  - Shows savings potential for each component
+  - Components marked with 🛒 (buy) or 🔨 (build) icons
+
+This helps you optimize between building and buying intermediate components.
 
 ---
 
@@ -237,6 +279,7 @@ Track extra expenses like:
 | `PATCH`  | `/api/projects/[id]/items/[itemId]`   | Update item (collected status) |
 | `POST`   | `/api/projects/[id]/costs`            | Add additional cost            |
 | `DELETE` | `/api/projects/[id]/costs?costId=xxx` | Remove additional cost         |
+| `POST`   | `/api/industry/calculate`             | Calculate blueprint materials  |
 
 ### Create Project Request
 
@@ -256,7 +299,9 @@ Track extra expenses like:
 EveOnlineTracker/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
-│   │   └── projects/      # Project CRUD endpoints
+│   │   ├── projects/      # Project CRUD endpoints
+│   │   └── industry/      # Industry calculator API
+│   ├── industry/          # Industry calculator page
 │   ├── projects/          # Project pages
 │   │   ├── [id]/         # Project detail view
 │   │   └── new/          # Create project form
@@ -265,6 +310,11 @@ EveOnlineTracker/
 │
 ├── components/            # React components
 │   ├── ui/               # shadcn/ui components
+│   ├── industry/         # Industry calculator components
+│   │   ├── blueprint-search.tsx
+│   │   ├── components-list.tsx
+│   │   ├── grouped-materials.tsx
+│   │   └── ...
 │   ├── auth-gate.tsx     # Password protection
 │   ├── item-list.tsx     # Item display with checkboxes
 │   ├── price-summary.tsx # Jita price totals

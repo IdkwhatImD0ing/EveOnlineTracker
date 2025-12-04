@@ -16,7 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { Copy, ChevronDown, Check, ChevronRight, ArrowUp, ArrowDown, AlertCircle, X } from "lucide-react"
+import { Copy, ChevronDown, Check, ChevronRight, ArrowUp, ArrowDown, AlertCircle, X, ShoppingCart } from "lucide-react"
 import type { RawMaterial } from "@/types/database"
 
 // Category order for display
@@ -143,6 +143,7 @@ interface GroupedItemListProps {
   items: RawMaterial[]
   projectId: string
   onItemUpdate: (itemId: string, collected: boolean) => void
+  isAdjusted?: boolean
 }
 
 interface CategoryGroupProps {
@@ -153,17 +154,25 @@ interface CategoryGroupProps {
 }
 
 function CategoryGroup({ category, items, projectId, onItemUpdate }: CategoryGroupProps) {
-  const [isOpen, setIsOpen] = useState(true)
+  const collectedCount = items.filter((item) => item.collected).length
+  const totalCount = items.length
+  const allChecked = totalCount > 0 && collectedCount === totalCount
+  const someChecked = collectedCount > 0 && collectedCount < totalCount
+
+  // Start collapsed if all items are collected
+  const [isOpen, setIsOpen] = useState(!allChecked)
   const [copied, setCopied] = useState(false)
   const [sortField, setSortField] = useState<SortField>("name")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [error, setError] = useState<string | null>(null)
   const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set())
+  const [copiedItemId, setCopiedItemId] = useState<string | null>(null)
 
-  const collectedCount = items.filter((item) => item.collected).length
-  const totalCount = items.length
-  const allChecked = totalCount > 0 && collectedCount === totalCount
-  const someChecked = collectedCount > 0 && collectedCount < totalCount
+  const handleCopyName = async (item: RawMaterial) => {
+    await navigator.clipboard.writeText(item.item_name)
+    setCopiedItemId(item.id)
+    setTimeout(() => setCopiedItemId(null), 2000)
+  }
 
   // Calculate totals for this category
   const totals = useMemo(() => {
@@ -479,10 +488,22 @@ function CategoryGroup({ category, items, projectId, onItemUpdate }: CategoryGro
                 checked={item.collected}
                 onCheckedChange={() => handleToggle(item)}
               />
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${item.collected ? "line-through" : ""}`}>
+              <div className="flex-1 min-w-0 relative">
+                <button
+                  onClick={() => handleCopyName(item)}
+                  className={`text-sm font-medium truncate text-left hover:text-primary transition-colors ${item.collected ? "line-through" : ""}`}
+                  title="Click to copy name"
+                >
                   {item.item_name}
-                </p>
+                </button>
+                {copiedItemId === item.id && (
+                  <div className="absolute -top-8 left-0 z-10 animate-in fade-in slide-in-from-bottom-1 duration-150">
+                    <div className="bg-foreground text-background text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                      Copied!
+                    </div>
+                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-foreground ml-3" />
+                  </div>
+                )}
               </div>
               <div className="text-right shrink-0 w-24">
                 <p className="text-sm font-mono tabular-nums">{formatNumber(item.quantity)}</p>
@@ -509,7 +530,7 @@ function CategoryGroup({ category, items, projectId, onItemUpdate }: CategoryGro
   )
 }
 
-export function GroupedItemList({ title, items, projectId, onItemUpdate }: GroupedItemListProps) {
+export function GroupedItemList({ title, items, projectId, onItemUpdate, isAdjusted = false }: GroupedItemListProps) {
   // Group items by category
   const groupedItems = useMemo(() => {
     const groups: Record<string, RawMaterial[]> = {}
@@ -549,9 +570,22 @@ export function GroupedItemList({ title, items, projectId, onItemUpdate }: Group
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle>{title}</CardTitle>
+          {isAdjusted && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-500/10 text-green-600 border border-green-500/20">
+              <ShoppingCart className="size-3" />
+              Buy Mode
+            </span>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground">
           {collectedCount} / {totalCount} collected
+          {isAdjusted && (
+            <span className="ml-1 text-green-600">
+              (adjusted for purchased components)
+            </span>
+          )}
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
