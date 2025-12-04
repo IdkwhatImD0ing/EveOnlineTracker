@@ -133,6 +133,12 @@ export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUp
 
   const sortedItems = useMemo(() => {
     const sorted = [...items].sort((a, b) => {
+      // Primary sort: incomplete items first (not collected)
+      if (a.collected !== b.collected) {
+        return a.collected ? 1 : -1
+      }
+      
+      // Secondary sort: by selected field
       let comparison = 0
       
       switch (sortField) {
