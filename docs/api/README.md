@@ -84,6 +84,8 @@ Authorization: Bearer <access_token>
 |--------|----------|-------------|
 | GET | `/api/esi/keepstar-3t7` | Search for 3T7-M8 Keepstar |
 | GET | `/api/esi/structure-orders` | Get structure market orders |
+| GET | `/api/esi/market-history` | Fetch market history for all items (cron) |
+| GET | `/api/esi/market-history-test` | Test market history for single item |
 
 ### Industry Routes
 

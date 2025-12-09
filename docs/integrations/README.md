@@ -109,6 +109,28 @@ GET /api/esi/structure-orders
 Proxy to ESI with token
 ```
 
+### Market History (ESI - Public)
+
+```
+Weekly cron job (Sundays 12:00 UTC)
+        │
+        ▼
+GET /api/esi/market-history
+        │
+        ▼
+Read tradeable-items.jsonl (5,841 items)
+        │
+        ▼
+Batch fetch ESI market history (50 concurrent)
+GET https://esi.evetech.net/markets/10000002/history/?type_id={id}
+        │
+        ▼
+Filter to last 7 days
+        │
+        ▼
+Upsert to Supabase market_history table
+```
+
 ## Error Handling
 
 All integrations handle failures gracefully:
@@ -133,7 +155,8 @@ All integrations handle failures gracefully:
 |------|----------------|----------------|
 | System cost indices | 1 hour | In-memory Map |
 | Job base costs | Indefinite | In-memory Map |
-| Market prices | None | Fetched per request |
+| Market prices (Janice) | None | Fetched per request |
+| Market history (ESI) | 1 week | Supabase `market_history` table |
 
 ## Environment Variables
 

@@ -148,6 +148,57 @@ GET /markets/prices/
 ]
 ```
 
+### Market History
+
+Get historical market statistics for a type in a region (no auth required).
+
+```http
+GET /markets/{region_id}/history/?type_id={type_id}
+X-Compatibility-Date: 2025-11-06
+```
+
+**Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| region_id | integer | EVE region ID (e.g., 10000002 for The Forge) |
+| type_id | integer | EVE type ID |
+
+**Response:**
+```json
+[
+  {
+    "average": 3.99,
+    "date": "2025-12-08",
+    "highest": 4.01,
+    "lowest": 3.94,
+    "order_count": 2106,
+    "volume": 7126308159
+  },
+  {
+    "average": 3.99,
+    "date": "2025-12-07",
+    "highest": 4.00,
+    "lowest": 3.98,
+    "order_count": 2378,
+    "volume": 6473742465
+  }
+]
+```
+
+**Response Fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| average | number | Average price for the day |
+| date | string | Date in YYYY-MM-DD format |
+| highest | number | Highest price for the day |
+| lowest | number | Lowest price for the day |
+| order_count | integer | Total orders that day |
+| volume | integer | Total units traded |
+
+**Cache:** Expires daily at 11:05 UTC
+
+**Rate Limit:** This endpoint is public and has generous rate limits (~100 req/sec)
+
 ## Implementation
 
 ### Proxied Routes
@@ -297,6 +348,8 @@ EVE_CALLBACK_URL=http://localhost:3000/callback
 - `app/api/auth/eve/callback/route.ts` - Token exchange
 - `app/api/esi/keepstar-3t7/route.ts` - Structure search
 - `app/api/esi/structure-orders/route.ts` - Market orders
+- `app/api/esi/market-history/route.ts` - Market history batch fetch
+- `app/api/esi/market-history-test/route.ts` - Market history test endpoint
 
 ## See Also
 

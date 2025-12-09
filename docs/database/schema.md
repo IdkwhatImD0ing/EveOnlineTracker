@@ -40,6 +40,20 @@ The application uses Supabase (PostgreSQL) for data storage. The schema consists
                      │   breakdown     │
                      │ build_cost      │
                      └─────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                       market_history                             │
+├─────────────────────────────────────────────────────────────────┤
+│ type_id: bigint (PK)                                            │
+│ date: date (PK)                                                 │
+│ region_id: bigint (PK)                                          │
+│ average: numeric                                                │
+│ highest: numeric                                                │
+│ lowest: numeric                                                 │
+│ order_count: bigint                                             │
+│ volume: bigint                                                  │
+│ updated_at: timestamptz                                         │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Tables
@@ -184,6 +198,57 @@ CREATE INDEX idx_additional_costs_project_id ON additional_costs(project_id);
 
 ---
 
+### market_history
+
+Cached market history data from ESI. Updated weekly via cron job.
+
+```sql
+CREATE TABLE market_history (
+  type_id BIGINT NOT NULL,
+  date DATE NOT NULL,
+  average NUMERIC,
+  highest NUMERIC,
+  lowest NUMERIC,
+  order_count BIGINT,
+  volume BIGINT,
+  region_id BIGINT DEFAULT 10000002,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (type_id, date, region_id)
+);
+
+CREATE INDEX idx_market_history_type_id ON market_history(type_id);
+CREATE INDEX idx_market_history_updated_at ON market_history(updated_at);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| type_id | bigint | PK (composite) | EVE item type ID |
+| date | date | PK (composite) | Date of the market statistics |
+| region_id | bigint | PK (composite), DEFAULT 10000002 | EVE region ID (The Forge = Jita) |
+| average | numeric | nullable | Average price for the day |
+| highest | numeric | nullable | Highest price for the day |
+| lowest | numeric | nullable | Lowest price for the day |
+| order_count | bigint | nullable | Total number of orders that day |
+| volume | bigint | nullable | Total units traded that day |
+| updated_at | timestamptz | DEFAULT now() | When this record was last updated |
+
+**Data Source:** ESI `/markets/{region_id}/history` endpoint
+
+**Update Frequency:** Weekly via Vercel cron (Sundays at 12:00 UTC)
+
+**Data Retention:** Last 7 days of history per item
+
+**Region IDs:**
+
+| Region | ID |
+|--------|-----|
+| The Forge (Jita) | 10000002 |
+| Domain (Amarr) | 10000043 |
+| Sinq Laison (Dodixie) | 10000032 |
+| Heimatar (Rens) | 10000030 |
+
+---
+
 ## Triggers
 
 ### update_updated_at_column
@@ -280,6 +345,19 @@ export interface ProjectWithDetails extends Project {
   raw_materials: RawMaterial[]
   components: Component[]
   additional_costs: AdditionalCost[]
+}
+
+// Market History types
+export interface MarketHistoryEntry {
+  type_id: number
+  date: string
+  average: number
+  highest: number
+  lowest: number
+  order_count: number
+  volume: number
+  region_id: number
+  updated_at: string
 }
 ```
 
@@ -391,6 +469,30 @@ ADD COLUMN IF NOT EXISTS materials_breakdown jsonb;
 
 ALTER TABLE components 
 ADD COLUMN IF NOT EXISTS build_cost numeric;
+```
+
+### Migration 004: Add market_history
+
+```sql
+-- migrations/004_market_history.sql
+CREATE TABLE market_history (
+  type_id BIGINT NOT NULL,
+  date DATE NOT NULL,
+  average NUMERIC,
+  highest NUMERIC,
+  lowest NUMERIC,
+  order_count BIGINT,
+  volume BIGINT,
+  region_id BIGINT DEFAULT 10000002,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (type_id, date, region_id)
+);
+
+CREATE INDEX idx_market_history_type_id ON market_history(type_id);
+CREATE INDEX idx_market_history_updated_at ON market_history(updated_at);
+
+COMMENT ON TABLE market_history IS 'Cached market history from ESI, refreshed weekly with last 7 days of data';
+COMMENT ON COLUMN market_history.region_id IS 'EVE region ID - 10000002 = The Forge (Jita)';
 ```
 
 ---
