@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/esi/market-history",
+      "schedule": "0 12 * * 0"
+    }
+  ]
+}
+

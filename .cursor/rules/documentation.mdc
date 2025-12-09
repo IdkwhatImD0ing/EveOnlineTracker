@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+## Documentation Authority & Knowledge Base
+- **Location**: The primary source of truth for this project is located in the `./docs` directory.
+- **Protocol**: 
+  1. BEFORE writing code or answering questions, you MUST read the relevant files in `./docs`.
+  2. ONLY reference the codebase implementation if the documentation is incomplete, ambiguous, or missing.
+  3. If there is a conflict between the code and the docs, prioritize the docs logic but flag the discrepancy.
+
+## Feature Implementation Workflow
+- **Constraint**: No feature is considered complete without documentation.
+- **Action**: When generating code for a new feature or modifying existing logic:
+  1. Update the existing markdown files in `./docs` to reflect the changes.
+  2. If the feature is new, create a new file in `./docs` explaining the architecture and usage.

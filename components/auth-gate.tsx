@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { LockKeyhole, AlertCircle, Loader2 } from "lucide-react"
+import { LockKeyhole, AlertCircle, Loader2, ExternalLink } from "lucide-react"
 
 // Dummy password - change this to your desired password
 const SITE_PASSWORD = "eve2024"
@@ -128,9 +128,25 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                     </form>
                 </CardContent>
 
-                <CardFooter className="justify-center border-t border-zinc-800 pt-6">
+                <CardFooter className="flex-col gap-4 border-t border-zinc-800 pt-6">
+                    <div className="relative w-full">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-zinc-800" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-zinc-950 px-2 text-zinc-500">Or</span>
+                        </div>
+                    </div>
+                    <Button
+                        variant="outline"
+                        className="w-full h-11 border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/50"
+                        onClick={() => window.location.href = "/api/auth/eve/login"}
+                    >
+                        <ExternalLink className="size-4" />
+                        Login with EVE SSO
+                    </Button>
                     <p className="text-xs text-zinc-500">
-                        Protected access only
+                        Use EVE SSO to get tokens for external scripts
                     </p>
                 </CardFooter>
             </Card>

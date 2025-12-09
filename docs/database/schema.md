@@ -1,0 +1,444 @@
+# Database Schema
+
+Complete database schema documentation for the EVE Online Industry Tracker.
+
+## Overview
+
+The application uses Supabase (PostgreSQL) for data storage. The schema consists of four main tables with foreign key relationships.
+
+## Entity Relationship Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                           projects                               │
+├─────────────────────────────────────────────────────────────────┤
+│ id: uuid (PK)                                                   │
+│ name: text                                                      │
+│ created_at: timestamptz                                         │
+│ updated_at: timestamptz                                         │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+          ┌───────────────────┼───────────────────┐
+          │                   │                   │
+          ▼                   ▼                   ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│  raw_materials  │  │   components    │  │additional_costs │
+├─────────────────┤  ├─────────────────┤  ├─────────────────┤
+│ id: uuid (PK)   │  │ id: uuid (PK)   │  │ id: uuid (PK)   │
+│ project_id (FK) │  │ project_id (FK) │  │ project_id (FK) │
+│ item_name       │  │ item_name       │  │ note            │
+│ type_id         │  │ type_id         │  │ amount          │
+│ quantity        │  │ quantity        │  │ created_at      │
+│ collected       │  │ collected       │  └─────────────────┘
+│ buy_price       │  │ quantity_made   │
+│ sell_price      │  │ buy_price       │
+│ split_price     │  │ sell_price      │
+│ volume          │  │ split_price     │
+│ item_type       │  │ volume          │
+└─────────────────┘  │ item_type       │
+                     │ materials_      │
+                     │   breakdown     │
+                     │ build_cost      │
+                     └─────────────────┘
+```
+
+## Tables
+
+### projects
+
+Main table storing industry projects.
+
+```sql
+CREATE TABLE projects (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | PK, auto-generated | Unique identifier |
+| name | text | NOT NULL | Project name/title |
+| created_at | timestamptz | DEFAULT now() | Creation timestamp |
+| updated_at | timestamptz | DEFAULT now() | Last update timestamp |
+
+**Trigger:** `updated_at` is automatically updated on row modification.
+
+---
+
+### raw_materials
+
+Stores raw materials (base resources that cannot be built).
+
+```sql
+CREATE TABLE raw_materials (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  item_name text NOT NULL,
+  type_id bigint NOT NULL,
+  quantity bigint NOT NULL DEFAULT 1,
+  collected boolean NOT NULL DEFAULT false,
+  buy_price numeric,
+  sell_price numeric,
+  split_price numeric,
+  volume numeric,
+  item_type text
+);
+
+CREATE INDEX idx_raw_materials_project_id ON raw_materials(project_id);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | PK, auto-generated | Unique identifier |
+| project_id | uuid | FK → projects.id, CASCADE | Parent project |
+| item_name | text | NOT NULL | EVE item name |
+| type_id | bigint | NOT NULL | EVE type ID |
+| quantity | bigint | NOT NULL, DEFAULT 1 | Required quantity |
+| collected | boolean | NOT NULL, DEFAULT false | Whether collected |
+| buy_price | numeric | nullable | Jita buy price per unit |
+| sell_price | numeric | nullable | Jita sell price per unit |
+| split_price | numeric | nullable | Jita split price per unit |
+| volume | numeric | nullable | Item volume per unit (m³) |
+| item_type | text | nullable | Group name (e.g., "Mineral") |
+
+---
+
+### components
+
+Stores intermediate components that need to be manufactured.
+
+```sql
+CREATE TABLE components (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  item_name text NOT NULL,
+  type_id bigint NOT NULL,
+  quantity bigint NOT NULL DEFAULT 1,
+  collected boolean NOT NULL DEFAULT false,
+  quantity_made bigint NOT NULL DEFAULT 0,
+  buy_price numeric,
+  sell_price numeric,
+  split_price numeric,
+  volume numeric,
+  item_type text,
+  materials_breakdown jsonb,
+  build_cost numeric
+);
+
+CREATE INDEX idx_components_project_id ON components(project_id);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | PK, auto-generated | Unique identifier |
+| project_id | uuid | FK → projects.id, CASCADE | Parent project |
+| item_name | text | NOT NULL | EVE item name |
+| type_id | bigint | NOT NULL | EVE type ID |
+| quantity | bigint | NOT NULL, DEFAULT 1 | Required quantity |
+| collected | boolean | NOT NULL, DEFAULT false | Whether fully collected |
+| quantity_made | bigint | NOT NULL, DEFAULT 0 | Units completed so far |
+| buy_price | numeric | nullable | Jita buy price per unit |
+| sell_price | numeric | nullable | Jita sell price per unit |
+| split_price | numeric | nullable | Jita split price per unit |
+| volume | numeric | nullable | Item volume per unit (m³) |
+| item_type | text | nullable | Group name |
+| materials_breakdown | jsonb | nullable | Raw materials needed (for Buy Mode) |
+| build_cost | numeric | nullable | Total cost to build (for Buy Mode) |
+
+**`materials_breakdown` Format:**
+```json
+[
+  {"typeId": 34, "name": "Tritanium", "quantity": 50000000},
+  {"typeId": 35, "name": "Pyerite", "quantity": 12500000}
+]
+```
+
+---
+
+### additional_costs
+
+Stores additional costs added to projects.
+
+```sql
+CREATE TABLE additional_costs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  note text NOT NULL,
+  amount numeric NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_additional_costs_project_id ON additional_costs(project_id);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | PK, auto-generated | Unique identifier |
+| project_id | uuid | FK → projects.id, CASCADE | Parent project |
+| note | text | NOT NULL | Description of the cost |
+| amount | numeric | NOT NULL | Cost amount in ISK |
+| created_at | timestamptz | DEFAULT now() | Creation timestamp |
+
+---
+
+## Triggers
+
+### update_updated_at_column
+
+Automatically updates `updated_at` timestamp on projects table modifications.
+
+```sql
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_projects_updated_at
+  BEFORE UPDATE ON projects
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
+---
+
+## Relationships
+
+| Parent | Child | Relationship | On Delete |
+|--------|-------|--------------|-----------|
+| projects | raw_materials | 1:N | CASCADE |
+| projects | components | 1:N | CASCADE |
+| projects | additional_costs | 1:N | CASCADE |
+
+Deleting a project automatically deletes all related records.
+
+---
+
+## TypeScript Types
+
+```typescript
+// types/database.ts
+
+export interface Project {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface RawMaterial {
+  id: string
+  project_id: string
+  item_name: string
+  type_id: number
+  quantity: number
+  collected: boolean
+  buy_price: number | null
+  sell_price: number | null
+  split_price: number | null
+  volume: number | null
+  item_type: string | null
+}
+
+export interface ComponentMaterialBreakdown {
+  typeId: number
+  name: string
+  quantity: number
+}
+
+export interface Component {
+  id: string
+  project_id: string
+  item_name: string
+  type_id: number
+  quantity: number
+  collected: boolean
+  quantity_made: number
+  buy_price: number | null
+  sell_price: number | null
+  split_price: number | null
+  volume: number | null
+  item_type: string | null
+  materials_breakdown: ComponentMaterialBreakdown[] | null
+  build_cost: number | null
+}
+
+export interface AdditionalCost {
+  id: string
+  project_id: string
+  note: string
+  amount: number
+  created_at: string
+}
+
+export interface ProjectWithDetails extends Project {
+  raw_materials: RawMaterial[]
+  components: Component[]
+  additional_costs: AdditionalCost[]
+}
+```
+
+---
+
+## Migrations
+
+### Initial Schema
+
+Run in Supabase SQL Editor:
+
+```sql
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Projects table
+CREATE TABLE projects (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Raw materials table
+CREATE TABLE raw_materials (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  item_name text NOT NULL,
+  type_id bigint NOT NULL,
+  quantity bigint NOT NULL DEFAULT 1,
+  collected boolean NOT NULL DEFAULT false,
+  buy_price numeric,
+  sell_price numeric,
+  split_price numeric,
+  volume numeric
+);
+
+-- Components table
+CREATE TABLE components (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  item_name text NOT NULL,
+  type_id bigint NOT NULL,
+  quantity bigint NOT NULL DEFAULT 1,
+  collected boolean NOT NULL DEFAULT false,
+  quantity_made bigint NOT NULL DEFAULT 0,
+  buy_price numeric,
+  sell_price numeric,
+  split_price numeric,
+  volume numeric
+);
+
+-- Additional costs table
+CREATE TABLE additional_costs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  note text NOT NULL,
+  amount numeric NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Indexes
+CREATE INDEX idx_raw_materials_project_id ON raw_materials(project_id);
+CREATE INDEX idx_components_project_id ON components(project_id);
+CREATE INDEX idx_additional_costs_project_id ON additional_costs(project_id);
+
+-- Updated_at trigger
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_projects_updated_at
+  BEFORE UPDATE ON projects
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
+### Migration 001: Add quantity_made
+
+```sql
+-- migrations/001_add_quantity_made.sql
+ALTER TABLE components 
+ADD COLUMN IF NOT EXISTS quantity_made bigint NOT NULL DEFAULT 0;
+```
+
+### Migration 002: Fix volume values
+
+```sql
+-- migrations/002_fix_volume_values.sql
+-- Ensure volume is stored per-unit, not total
+```
+
+### Migration 003: Add materials_breakdown
+
+```sql
+-- migrations/003_add_materials_breakdown.sql
+ALTER TABLE raw_materials 
+ADD COLUMN IF NOT EXISTS item_type text;
+
+ALTER TABLE components 
+ADD COLUMN IF NOT EXISTS item_type text;
+
+ALTER TABLE components 
+ADD COLUMN IF NOT EXISTS materials_breakdown jsonb;
+
+ALTER TABLE components 
+ADD COLUMN IF NOT EXISTS build_cost numeric;
+```
+
+---
+
+## Notes
+
+### Numeric Type
+
+Using `numeric` instead of `float` for monetary values avoids floating-point precision issues with ISK amounts.
+
+### Volume Storage
+
+Volume is stored per-unit. Total volume is calculated: `volume * quantity`.
+
+### Progress Tracking
+
+- `collected` = fully obtained (checkbox checked)
+- `quantity_made` = partial progress (e.g., 50 of 100 built)
+- When `quantity_made >= quantity`, item can be auto-marked as `collected`
+
+### Buy Mode Data
+
+Projects created from Industry Calculator include:
+- `materials_breakdown`: Raw materials for each component
+- `build_cost`: Cost to manufacture each component
+
+This enables the Buy Mode feature in project detail pages.
+
+---
+
+## Supabase Configuration
+
+### Environment Variables
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+### Row Level Security (RLS)
+
+The application uses service role key (bypasses RLS). For public deployment, configure RLS policies.
+
+---
+
+## Related Files
+
+- `types/database.ts` - TypeScript definitions
+- `utils/supabase/server.ts` - Supabase client
+- `migrations/*.sql` - Migration files
+

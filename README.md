@@ -10,7 +10,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Database-3FCF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
 
-[Features](#-features) • [Getting Started](#-getting-started) • [Usage](#-usage) • [API Reference](#-api-reference) • [Project Structure](#-project-structure)
+[Features](#-features) • [Getting Started](#-getting-started) • [Usage](#-usage) • [Documentation](#-documentation) • [API Reference](#-api-reference) • [Project Structure](#-project-structure)
 
 </div>
 
@@ -26,6 +26,7 @@
 - **💸 Additional Costs** — Track manufacturing fees, transport costs, and more
 - **📋 Clipboard Integration** — Copy item lists back to Eve Online with one click
 - **🔒 Password Protection** — Simple authentication to keep your data private
+- **🔑 EVE SSO Integration** — Grab OAuth tokens for use in external scripts/cron jobs
 - **🧮 Industry Calculator** — Calculate material requirements and costs for any blueprint
 - **🛒 Buy Mode** — Automatically adjust materials based on buy vs build recommendations
 
@@ -80,6 +81,12 @@
    # Optional - Janice API for market prices
    # Without this, items will be parsed but prices will show as 0
    JANICE_API_KEY=your-janice-api-key
+
+   # Optional - EVE SSO for token grabbing (used for external scripts)
+   # Get these from https://developers.eveonline.com/applications
+   EVE_CLIENT_ID=your_client_id
+   EVE_CLIENT_SECRET=your_client_secret
+   EVE_CALLBACK_URL=http://localhost:3000/callback
    ```
 
    > 💡 **Tip:** Find your Supabase credentials in your project's Settings → API page
@@ -268,7 +275,42 @@ This helps you optimize between building and buying intermediate components.
 
 ---
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the [docs/](./docs/) folder:
+
+| Section | Description |
+|---------|-------------|
+| [API Reference](./docs/api/README.md) | Complete documentation for all API endpoints |
+| [Pages](./docs/pages/README.md) | Documentation for all application pages |
+| [Calculations](./docs/calculations/README.md) | Industry calculation formulas (ME, TE, job costs) |
+| [Integrations](./docs/integrations/README.md) | External service integrations (Janice, ESI, eve-industry.org) |
+| [Database Schema](./docs/database/schema.md) | Database tables, relationships, and migrations |
+
+### Key Calculation Formulas
+
+- **Material Efficiency**: `max(runs, ceil(round(baseQty × runs × (1 - totalME), 2)))`
+- **Time Efficiency**: `ceil(baseTime × runs × (1 - min(totalTE, 0.90)))`
+- **Job Cost**: `baseCost × systemCostIndex × runs × (1 - structureBonus) × (1 + facilityTax)`
+
+For detailed explanations with examples, see [docs/calculations/](./docs/calculations/).
+
+---
+
 ## 🔌 API Reference
+
+> 📚 **Full API documentation available in [docs/api/](./docs/api/README.md)**
+
+### Quick Reference
+
+| Category | Endpoints | Documentation |
+| -------- | --------- | ------------- |
+| **Projects** | `/api/projects/*` | [docs/api/projects.md](./docs/api/projects.md) |
+| **Industry** | `/api/industry/*` | [docs/api/industry.md](./docs/api/industry.md) |
+| **Auth** | `/api/auth/eve/*` | [docs/api/auth.md](./docs/api/auth.md) |
+| **ESI** | `/api/esi/*` | [docs/api/esi.md](./docs/api/esi.md) |
+
+### Key Endpoints
 
 | Method   | Endpoint                              | Description                    |
 | -------- | ------------------------------------- | ------------------------------ |
@@ -276,10 +318,9 @@ This helps you optimize between building and buying intermediate components.
 | `POST`   | `/api/projects`                       | Create a new project           |
 | `GET`    | `/api/projects/[id]`                  | Get project with all items     |
 | `DELETE` | `/api/projects/[id]`                  | Delete a project               |
-| `PATCH`  | `/api/projects/[id]/items/[itemId]`   | Update item (collected status) |
-| `POST`   | `/api/projects/[id]/costs`            | Add additional cost            |
-| `DELETE` | `/api/projects/[id]/costs?costId=xxx` | Remove additional cost         |
 | `POST`   | `/api/industry/calculate`             | Calculate blueprint materials  |
+| `GET`    | `/api/esi/structure-orders`           | Get structure market orders    |
+| `GET`    | `/api/esi/market-history`             | Fetch market history for all items (weekly cron) |
 
 ### Create Project Request
 
@@ -299,8 +340,11 @@ This helps you optimize between building and buying intermediate components.
 EveOnlineTracker/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
-│   │   ├── projects/      # Project CRUD endpoints
-│   │   └── industry/      # Industry calculator API
+│   │   ├── auth/eve/      # EVE SSO authentication
+│   │   ├── esi/           # ESI proxy endpoints
+│   │   ├── industry/      # Industry calculator API
+│   │   └── projects/      # Project CRUD endpoints
+│   ├── callback/          # EVE SSO callback page
 │   ├── industry/          # Industry calculator page
 │   ├── projects/          # Project pages
 │   │   ├── [id]/         # Project detail view
@@ -311,18 +355,16 @@ EveOnlineTracker/
 ├── components/            # React components
 │   ├── ui/               # shadcn/ui components
 │   ├── industry/         # Industry calculator components
-│   │   ├── blueprint-search.tsx
-│   │   ├── components-list.tsx
-│   │   ├── grouped-materials.tsx
-│   │   └── ...
 │   ├── auth-gate.tsx     # Password protection
 │   ├── item-list.tsx     # Item display with checkboxes
-│   ├── price-summary.tsx # Jita price totals
-│   ├── additional-costs.tsx
-│   └── total-cost.tsx
+│   └── ...
 │
 ├── lib/                   # Utilities
-│   ├── janice.ts         # Janice API client
+│   ├── blueprints.ts     # Blueprint data & calculations
+│   ├── esi.ts            # eve-industry.org API client
+│   ├── eve-sso.ts        # EVE SSO OAuth helpers
+│   ├── janice.ts         # Janice market API client
+│   ├── sde.ts            # Static data utilities
 │   └── utils.ts          # Helper functions
 │
 ├── types/                 # TypeScript definitions
@@ -331,10 +373,21 @@ EveOnlineTracker/
 ├── utils/supabase/       # Supabase client
 │   └── server.ts         # Server-side client
 │
-└── docs/                  # Documentation
-    ├── supabase.md       # Database schema
-    └── user_flow.md      # App flow documentation
+├── data/                 # Static data files
+│   ├── blueprints.json   # Blueprint material requirements
+│   ├── inv-types.json    # All item types
+│   └── ...
+│
+└── docs/                  # 📚 Comprehensive documentation
+    ├── README.md         # Documentation index
+    ├── api/              # API route documentation
+    ├── pages/            # Page documentation
+    ├── calculations/     # Industry calculation formulas
+    ├── integrations/     # External service integrations
+    └── database/         # Database schema
 ```
+
+> 📚 **See [docs/README.md](./docs/README.md) for comprehensive documentation** covering all API routes, pages, calculation formulas, and integrations.
 
 ---
 
@@ -369,6 +422,33 @@ Edit the `SITE_PASSWORD` constant in `components/auth-gate.tsx`:
 ```typescript
 const SITE_PASSWORD = 'your-new-password'
 ```
+
+### EVE SSO Token Grabber
+
+A utility for obtaining OAuth refresh tokens to use in external scripts or cron jobs.
+
+1. **Register an EVE Developer Application** at [developers.eveonline.com](https://developers.eveonline.com/applications)
+   - Set the callback URL to `http://localhost:3000/callback`
+   - Note your Client ID and Secret
+
+2. **Configure environment variables** in `.env.local`:
+   ```env
+   EVE_CLIENT_ID=your_client_id
+   EVE_CLIENT_SECRET=your_client_secret
+   EVE_CALLBACK_URL=http://localhost:3000/callback
+   ```
+
+3. **Get your tokens:**
+   - Click "Login with EVE SSO" on the login page
+   - Authenticate with your EVE account
+   - Copy the refresh token from the callback page
+   - Use the refresh token in your external scripts to obtain access tokens
+
+4. **Test ESI Endpoints** (optional):
+   - Expand the "ESI API Tester" section on the callback page
+   - Use quick test buttons for common endpoints (Wallet, Location, Assets, etc.)
+   - Or enter a custom ESI URL to test any endpoint
+   - View formatted JSON responses with timing info
 
 ### Janice API
 

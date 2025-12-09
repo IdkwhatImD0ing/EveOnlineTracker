@@ -28,6 +28,36 @@ Downloads and processes the following data from Fuzzwork:
 Also generates:
 - `blueprint-search.json` - Lightweight blueprint data for search autocomplete
 
+### `extract-item-types.ts`
+
+Extracts tradeable item types (ships, modules, ammo, boosters) from EVE Online JSONL static data files.
+
+**Usage:**
+```bash
+# Using default input folder
+npx tsx scripts/extract-item-types.ts
+
+# With custom input folder
+npx tsx scripts/extract-item-types.ts "C:\path\to\eve-static-data-jsonl"
+```
+
+**Input:** JSONL files from [EVE Online Static Data](https://data.everef.net/):
+- `types.jsonl` - All item types
+- `groups.jsonl` - Item group definitions
+
+**Output:** `data/tradeable-items.jsonl` - Filtered items containing:
+| Category | Filter |
+|----------|--------|
+| Ships | Category ID 6 |
+| Modules | Category ID 7 |
+| Charges (Ammo) | Category ID 8 |
+| Boosters | Group ID 303 |
+
+**Output format (JSONL):**
+```json
+{"typeId":587,"name":"Rifter","groupId":25,"groupName":"Frigate","categoryId":6,"categoryName":"Ship","volume":27289,"marketGroupId":64}
+```
+
 ## Usage
 
 ### Update SDE Data
@@ -70,6 +100,7 @@ Check the [Fuzzwork dump page](https://www.fuzzwork.co.uk/dump/) for the latest 
 | `inv-groups.json` | ~120KB | Item group definitions |
 | `solar-systems.json` | ~300KB | All solar systems with security status |
 | `structures.json` | ~1KB | Structure/rig bonuses (manually maintained) |
+| `tradeable-items.jsonl` | ~700KB | Ships, modules, ammo, boosters (JSONL) |
 
 ### Client-side data (`/public/`)
 
@@ -100,6 +131,37 @@ The industry calculator also uses:
 
 ### Janice API
 - Item pricing (requires API key in `JANICE_API_KEY` env var)
+
+### EVE ESI Market History API
+
+The `/api/esi/market-history` endpoint fetches historical market data from ESI.
+
+**Batch Endpoint (Production):**
+```bash
+# Fetch all 5,841 tradeable items
+GET /api/esi/market-history
+
+# With limit for testing
+GET /api/esi/market-history?limit=100
+```
+
+**Test Endpoint (Single Item):**
+```bash
+# Default: Tritanium (type_id=34)
+GET /api/esi/market-history-test
+
+# Specific item
+GET /api/esi/market-history-test?type_id=587
+```
+
+**Vercel Cron Schedule:**
+- Runs weekly on Sundays at 12:00 UTC
+- Configured in `vercel.json`
+
+**Database Table:** `market_history`
+- Stores last 7 days of price history per item
+- Region: The Forge (10000002) - Jita
+- Updated via upsert (ON CONFLICT replace)
 
 ## Troubleshooting
 

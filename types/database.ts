@@ -77,3 +77,16 @@ export interface CreateAdditionalCostRequest {
   amount: number
 }
 
+// Market History types
+export interface MarketHistoryEntry {
+  type_id: number
+  date: string
+  average: number
+  highest: number
+  lowest: number
+  order_count: number
+  volume: number
+  region_id: number
+  updated_at: string
+}
+

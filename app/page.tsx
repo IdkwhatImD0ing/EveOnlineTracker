@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LogoutButton } from "@/components/logout-button"
-import { Plus, Loader2, FolderOpen, Calendar, Calculator } from "lucide-react"
+import { Plus, Loader2, FolderOpen, Calendar, Calculator, KeyRound } from "lucide-react"
 import type { Project } from "@/types/database"
 
 export default function Home() {
@@ -43,6 +43,12 @@ export default function Home() {
               <Link href="/industry">
                 <Calculator className="size-4" />
                 Industry Calculator
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/api/auth/eve/login">
+                <KeyRound className="size-4" />
+                EVE SSO
               </Link>
             </Button>
             <Button asChild>
