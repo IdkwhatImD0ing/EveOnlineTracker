@@ -7,6 +7,10 @@
 
 import { createClient } from '@/utils/supabase/server'
 import {
+  getCachedMarketSeederStatistics,
+  getCachedJitaPrices,
+} from '@/lib/cached-data'
+import {
   type TradeableItem,
   type JitaDemandMetrics,
   type StructureOrderMap,
@@ -78,13 +82,15 @@ export async function loadTradeableItems(): Promise<TradeableItem[]> {
 
 /**
  * Query Jita market history from Supabase using RPC with batching
- * Uses get_market_seeder_statistics RPC function to avoid 1000-row limit
+ * Uses cached function for efficiency when no progress callback needed
  */
 export async function fetchJitaMarketHistory(
   typeIds: number[],
   days: number = 30
 ): Promise<Map<number, JitaDemandMetrics>> {
-  return fetchJitaMarketHistoryWithProgress(typeIds, days)
+  // Use Next.js cached version (no progress callback)
+  console.log(`[Market Seeder] Using cached market history for ${typeIds.length} items`)
+  return getCachedMarketSeederStatistics(typeIds, days, REGION_IDS.THE_FORGE)
 }
 
 /**
@@ -259,13 +265,30 @@ const ESI_BASE = 'https://esi.evetech.net'
 
 /**
  * Fetch current Jita sell prices from ESI regional market orders
- * Processes items in batches with rate limiting
+ * Uses cached function for efficiency when no progress callback needed
  */
 export async function fetchJitaSellPrices(
   typeIds: number[],
   forceRefresh: boolean = false
 ): Promise<Map<number, JitaSellPrice>> {
-  return fetchJitaSellPricesWithProgress(typeIds, undefined, forceRefresh)
+  if (forceRefresh) {
+    // Use the progress version with batching for force refresh
+    return fetchJitaSellPricesWithProgress(typeIds, undefined, forceRefresh)
+  }
+  
+  // Use Next.js cached version
+  console.log(`[Market Seeder] Using cached Jita prices for ${typeIds.length} items`)
+  const cachedPrices = await getCachedJitaPrices(typeIds)
+  
+  // Convert to JitaSellPrice format
+  const result = new Map<number, JitaSellPrice>()
+  for (const [typeId, priceData] of cachedPrices) {
+    result.set(typeId, {
+      typeId: priceData.typeId,
+      lowestSellPrice: priceData.lowestSellPrice
+    })
+  }
+  return result
 }
 
 /**
@@ -513,14 +536,16 @@ export function applyFilters(
   minMarginPct: number,
   minProfitIsk: number,
   minJitaPrice: number = MARKET_SEEDER_DEFAULTS.MIN_JITA_PRICE,
-  minDailyVolume: number = MARKET_SEEDER_DEFAULTS.MIN_DAILY_VOLUME
+  minDailyVolume: number = MARKET_SEEDER_DEFAULTS.MIN_DAILY_VOLUME,
+  noCompetitionOnly: boolean = false
 ): ProfitAnalysis[] {
   return items.filter(item => 
     item.profitMarginPct >= minMarginPct &&
     item.profitPerUnit >= minProfitIsk &&
     item.jitaSellPrice >= minJitaPrice &&
     item.avgDailyVolume >= minDailyVolume &&
-    item.profitPerUnit > 0  // Must be profitable
+    item.profitPerUnit > 0 &&  // Must be profitable
+    (!noCompetitionOnly || !item.hasCompetition)  // Filter for no competition if enabled
   )
 }
 
@@ -572,6 +597,8 @@ export interface AnalyzeOptions {
   transportCostPerM3?: number
   minMarginPct?: number
   minProfitIsk?: number
+  minDailyVolume?: number
+  noCompetitionOnly?: boolean
   days?: number
   limit?: number
 }
@@ -604,6 +631,8 @@ export async function analyzeMarketWithProgress(options: AnalyzeOptionsWithProgr
     transportCostPerM3 = MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3,
     minMarginPct = MARKET_SEEDER_DEFAULTS.MIN_PROFIT_MARGIN_PCT,
     minProfitIsk = MARKET_SEEDER_DEFAULTS.MIN_PROFIT_ISK,
+    minDailyVolume = MARKET_SEEDER_DEFAULTS.MIN_DAILY_VOLUME,
+    noCompetitionOnly = false,
     days = MARKET_SEEDER_DEFAULTS.DAYS_TO_ANALYZE,
     onProgress
   } = options
@@ -672,7 +701,7 @@ export async function analyzeMarketWithProgress(options: AnalyzeOptionsWithProgr
   
   // Step 6: Apply filters
   progress('filtering', 'Applying filters...', 90)
-  const filteredItems = applyFilters(allAnalyzed, minMarginPct, minProfitIsk)
+  const filteredItems = applyFilters(allAnalyzed, minMarginPct, minProfitIsk, MARKET_SEEDER_DEFAULTS.MIN_JITA_PRICE, minDailyVolume, noCompetitionOnly)
   
   // Step 7: Calculate composite scores
   progress('scoring', 'Calculating composite scores...', 92)

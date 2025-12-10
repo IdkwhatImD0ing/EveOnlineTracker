@@ -26,7 +26,13 @@ import {
   Database,
   Globe,
   BarChart3,
+  Copy,
+  Check,
+  X,
+  CheckSquare,
+  Square,
 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface TokenData {
   access_token: string
@@ -185,19 +191,40 @@ function ProgressBar({ progress }: { progress: ProgressState }) {
   )
 }
 
-function ItemCard({ item, rank }: { item: ProfitAnalysis; rank?: number }) {
+interface ItemCardProps {
+  item: ProfitAnalysis
+  rank?: number
+  isSelected: boolean
+  onToggleSelect: (typeId: number) => void
+}
+
+function ItemCard({ item, rank, isSelected, onToggleSelect }: ItemCardProps) {
   const [expanded, setExpanded] = useState(false)
   const CategoryIcon = CATEGORY_ICONS[item.categoryName] || Package
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onToggleSelect(item.typeId)
+  }
 
   return (
     <Card
       className={`transition-all hover:shadow-md cursor-pointer ${
         !item.hasCompetition ? "border-emerald-500/30 bg-emerald-500/5" : ""
-      }`}
+      } ${isSelected ? "ring-2 ring-primary" : ""}`}
       onClick={() => setExpanded(!expanded)}
     >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
+          <div 
+            className="shrink-0 flex items-center justify-center pt-1"
+            onClick={handleCheckboxClick}
+          >
+            <Checkbox 
+              checked={isSelected}
+              className="size-5"
+            />
+          </div>
           {rank && (
             <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
               {rank}
@@ -281,7 +308,15 @@ function ItemCard({ item, rank }: { item: ProfitAnalysis; rank?: number }) {
   )
 }
 
-function ItemList({ items, showRank = true }: { items: ProfitAnalysis[]; showRank?: boolean }) {
+interface ItemListProps {
+  items: ProfitAnalysis[]
+  showRank?: boolean
+  selectedItems: Set<number>
+  onToggleSelect: (typeId: number) => void
+  onSelectAll: (items: ProfitAnalysis[]) => void
+}
+
+function ItemList({ items, showRank = true, selectedItems, onToggleSelect, onSelectAll }: ItemListProps) {
   if (items.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -290,13 +325,62 @@ function ItemList({ items, showRank = true }: { items: ProfitAnalysis[]; showRan
     )
   }
 
+  const allSelected = items.every(item => selectedItems.has(item.typeId))
+
   return (
     <div className="space-y-3">
+      <div className="flex items-center gap-2 pb-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onSelectAll(items)}
+          className="gap-2"
+        >
+          {allSelected ? <CheckSquare className="size-4" /> : <Square className="size-4" />}
+          {allSelected ? "Deselect All" : "Select All"}
+        </Button>
+        <span className="text-sm text-muted-foreground">
+          {items.filter(i => selectedItems.has(i.typeId)).length} of {items.length} selected
+        </span>
+      </div>
       {items.map((item, index) => (
-        <ItemCard key={item.typeId} item={item} rank={showRank ? index + 1 : undefined} />
+        <ItemCard 
+          key={item.typeId} 
+          item={item} 
+          rank={showRank ? index + 1 : undefined}
+          isSelected={selectedItems.has(item.typeId)}
+          onToggleSelect={onToggleSelect}
+        />
       ))}
     </div>
   )
+}
+
+/**
+ * Generate buy text for Eve Online multibuy
+ * Each item gets up to budget ISK worth, minimum 1 unit
+ */
+function generateBuyText(items: ProfitAnalysis[], budget: number): string {
+  return items.map(item => {
+    const qty = Math.max(1, Math.floor(budget / item.jitaSellPrice))
+    return `${item.name} ${qty}`
+  }).join('\n')
+}
+
+/**
+ * Format ISK value with suffix (M, B)
+ */
+function formatIskShort(value: number): string {
+  if (value >= 1_000_000_000) {
+    return `${(value / 1_000_000_000).toFixed(1)}B`
+  }
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(0)}M`
+  }
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(0)}K`
+  }
+  return value.toString()
 }
 
 export default function MarketSeederPage() {
@@ -305,6 +389,9 @@ export default function MarketSeederPage() {
   const [transportCost, setTransportCost] = useState("450")
   const [minMargin, setMinMargin] = useState("10")
   const [minProfit, setMinProfit] = useState("100000")
+  const [minVolume, setMinVolume] = useState("10") // Minimum daily volume
+  const [noCompetitionOnly, setNoCompetitionOnly] = useState(false) // Filter for 0 competition items
+  const [buyBudget, setBuyBudget] = useState("100") // 100M ISK default (in millions)
   const [showSettings, setShowSettings] = useState(false)
 
   // Analysis state
@@ -312,6 +399,10 @@ export default function MarketSeederPage() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AnalysisResponse | null>(null)
   const [progress, setProgress] = useState<ProgressState | null>(null)
+
+  // Selection state
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set())
+  const [copySuccess, setCopySuccess] = useState(false)
 
   // Load saved settings
   useEffect(() => {
@@ -323,6 +414,9 @@ export default function MarketSeederPage() {
         if (settings.transportCost) setTransportCost(settings.transportCost)
         if (settings.minMargin) setMinMargin(settings.minMargin)
         if (settings.minProfit) setMinProfit(settings.minProfit)
+        if (settings.minVolume) setMinVolume(settings.minVolume)
+        if (settings.noCompetitionOnly !== undefined) setNoCompetitionOnly(settings.noCompetitionOnly)
+        if (settings.buyBudget) setBuyBudget(settings.buyBudget)
       } catch {
         // Ignore invalid JSON
       }
@@ -333,9 +427,85 @@ export default function MarketSeederPage() {
   useEffect(() => {
     localStorage.setItem(
       "market-seeder-settings",
-      JSON.stringify({ structureId, transportCost, minMargin, minProfit })
+      JSON.stringify({ structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget })
     )
-  }, [structureId, transportCost, minMargin, minProfit])
+  }, [structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget])
+
+  // Selection helper functions
+  const toggleItemSelection = useCallback((typeId: number) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(typeId)) {
+        next.delete(typeId)
+      } else {
+        next.add(typeId)
+      }
+      return next
+    })
+  }, [])
+
+  const selectAllItems = useCallback((items: ProfitAnalysis[]) => {
+    setSelectedItems(prev => {
+      const allSelected = items.every(item => prev.has(item.typeId))
+      if (allSelected) {
+        // Deselect all items in this list
+        const next = new Set(prev)
+        items.forEach(item => next.delete(item.typeId))
+        return next
+      } else {
+        // Select all items in this list
+        const next = new Set(prev)
+        items.forEach(item => next.add(item.typeId))
+        return next
+      }
+    })
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    setSelectedItems(new Set())
+  }, [])
+
+  // Get all selected items from the result
+  const getSelectedItemsData = useCallback((): ProfitAnalysis[] => {
+    if (!result) return []
+    
+    // Collect all unique items from all lists
+    const allItems = new Map<number, ProfitAnalysis>()
+    ;[
+      ...result.topByCompositeScore,
+      ...result.noCompetitionOpportunities,
+      ...result.bestIskPerM3,
+      ...result.trendingUp,
+      ...result.byCategory.Module,
+      ...result.byCategory.Ship,
+      ...result.byCategory.Charge,
+      ...result.byCategory.Booster,
+    ].forEach(item => {
+      if (selectedItems.has(item.typeId)) {
+        allItems.set(item.typeId, item)
+      }
+    })
+    
+    return Array.from(allItems.values())
+  }, [result, selectedItems])
+
+  // Copy buy text to clipboard
+  const copyBuyText = useCallback(async () => {
+    const items = getSelectedItemsData()
+    if (items.length === 0) return
+
+    const budgetInMillions = parseFloat(buyBudget) || 100
+    const budget = budgetInMillions * 1_000_000 // Convert to ISK
+    const buyText = generateBuyText(items, budget)
+
+    try {
+      await navigator.clipboard.writeText(buyText)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }, [getSelectedItemsData, buyBudget])
 
   /**
    * Get a valid access token, refreshing if needed
@@ -395,6 +565,8 @@ export default function MarketSeederPage() {
         transportCost,
         minMargin,
         minProfit,
+        minVolume,
+        noCompetitionOnly: noCompetitionOnly ? "true" : "false",
         stream: "true",  // Enable SSE streaming
       })
 
@@ -502,7 +674,7 @@ export default function MarketSeederPage() {
       setIsLoading(false)
       setProgress(null)
     }
-  }, [structureId, transportCost, minMargin, minProfit, getValidToken])
+  }, [structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, getValidToken])
 
   return (
     <div className="min-h-screen p-8">
@@ -564,24 +736,45 @@ export default function MarketSeederPage() {
             </div>
 
             {showSettings && (
-              <div className="grid gap-4 md:grid-cols-2 pt-4 border-t">
-                <div className="space-y-2">
-                  <Label htmlFor="minMargin">Min Profit Margin (%)</Label>
-                  <Input
-                    id="minMargin"
-                    type="number"
-                    value={minMargin}
-                    onChange={(e) => setMinMargin(e.target.value)}
-                  />
+              <div className="space-y-4 pt-4 border-t">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="minMargin">Min Profit Margin (%)</Label>
+                    <Input
+                      id="minMargin"
+                      type="number"
+                      value={minMargin}
+                      onChange={(e) => setMinMargin(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="minProfit">Min Profit per Unit (ISK)</Label>
+                    <Input
+                      id="minProfit"
+                      type="number"
+                      value={minProfit}
+                      onChange={(e) => setMinProfit(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="minVolume">Min Volume/Day</Label>
+                    <Input
+                      id="minVolume"
+                      type="number"
+                      value={minVolume}
+                      onChange={(e) => setMinVolume(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="minProfit">Min Profit per Unit (ISK)</Label>
-                  <Input
-                    id="minProfit"
-                    type="number"
-                    value={minProfit}
-                    onChange={(e) => setMinProfit(e.target.value)}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="noCompetitionOnly"
+                    checked={noCompetitionOnly}
+                    onCheckedChange={(checked) => setNoCompetitionOnly(checked === true)}
                   />
+                  <Label htmlFor="noCompetitionOnly" className="text-sm cursor-pointer">
+                    Show only items with no competition (40% markup opportunities)
+                  </Label>
                 </div>
               </div>
             )}
@@ -651,6 +844,61 @@ export default function MarketSeederPage() {
               </Card>
             </div>
 
+            {/* Selection Action Bar */}
+            {selectedItems.size > 0 && (
+              <Card className="sticky top-4 z-10 border-primary/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <CheckSquare className="size-5 text-primary" />
+                      <span className="font-medium">{selectedItems.size} items selected</span>
+                    </div>
+                    <div className="flex-1" />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="buyBudget" className="text-sm whitespace-nowrap">Budget:</Label>
+                        <Input
+                          id="buyBudget"
+                          type="number"
+                          value={buyBudget}
+                          onChange={(e) => setBuyBudget(e.target.value)}
+                          className="w-20 h-8"
+                        />
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">M</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearSelection}
+                        className="gap-2"
+                      >
+                        <X className="size-4" />
+                        Clear
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={copyBuyText}
+                        className="gap-2"
+                        disabled={copySuccess}
+                      >
+                        {copySuccess ? (
+                          <>
+                            <Check className="size-4" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="size-4" />
+                            Copy Buy Text
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Tabbed Results */}
             <Tabs defaultValue="top" className="space-y-4">
               <TabsList className="flex flex-wrap h-auto gap-2">
@@ -681,28 +929,68 @@ export default function MarketSeederPage() {
               </TabsList>
 
               <TabsContent value="top">
-                <ItemList items={result.topByCompositeScore} />
+                <ItemList 
+                  items={result.topByCompositeScore} 
+                  selectedItems={selectedItems}
+                  onToggleSelect={toggleItemSelection}
+                  onSelectAll={selectAllItems}
+                />
               </TabsContent>
               <TabsContent value="nocompetition">
-                <ItemList items={result.noCompetitionOpportunities} />
+                <ItemList 
+                  items={result.noCompetitionOpportunities}
+                  selectedItems={selectedItems}
+                  onToggleSelect={toggleItemSelection}
+                  onSelectAll={selectAllItems}
+                />
               </TabsContent>
               <TabsContent value="efficiency">
-                <ItemList items={result.bestIskPerM3} />
+                <ItemList 
+                  items={result.bestIskPerM3}
+                  selectedItems={selectedItems}
+                  onToggleSelect={toggleItemSelection}
+                  onSelectAll={selectAllItems}
+                />
               </TabsContent>
               <TabsContent value="trending">
-                <ItemList items={result.trendingUp} />
+                <ItemList 
+                  items={result.trendingUp}
+                  selectedItems={selectedItems}
+                  onToggleSelect={toggleItemSelection}
+                  onSelectAll={selectAllItems}
+                />
               </TabsContent>
               <TabsContent value="modules">
-                <ItemList items={result.byCategory.Module} />
+                <ItemList 
+                  items={result.byCategory.Module}
+                  selectedItems={selectedItems}
+                  onToggleSelect={toggleItemSelection}
+                  onSelectAll={selectAllItems}
+                />
               </TabsContent>
               <TabsContent value="ships">
-                <ItemList items={result.byCategory.Ship} />
+                <ItemList 
+                  items={result.byCategory.Ship}
+                  selectedItems={selectedItems}
+                  onToggleSelect={toggleItemSelection}
+                  onSelectAll={selectAllItems}
+                />
               </TabsContent>
               <TabsContent value="ammo">
-                <ItemList items={result.byCategory.Charge} />
+                <ItemList 
+                  items={result.byCategory.Charge}
+                  selectedItems={selectedItems}
+                  onToggleSelect={toggleItemSelection}
+                  onSelectAll={selectAllItems}
+                />
               </TabsContent>
               <TabsContent value="boosters">
-                <ItemList items={result.byCategory.Booster} />
+                <ItemList 
+                  items={result.byCategory.Booster}
+                  selectedItems={selectedItems}
+                  onToggleSelect={toggleItemSelection}
+                  onSelectAll={selectAllItems}
+                />
               </TabsContent>
             </Tabs>
 

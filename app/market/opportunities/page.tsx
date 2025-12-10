@@ -15,7 +15,11 @@ import {
   Clock,
   BarChart3,
   Target,
-  Zap
+  Zap,
+  Copy,
+  Check,
+  X,
+  CheckSquare,
 } from "lucide-react"
 import type { MarketOpportunity } from "@/lib/market-analysis"
 
@@ -49,6 +53,17 @@ interface ProgressState {
   percent: number
 }
 
+/**
+ * Generate buy text for Eve Online multibuy
+ * Each item gets up to budget ISK worth, minimum 1 unit
+ */
+function generateBuyText(items: MarketOpportunity[], budget: number): string {
+  return items.map(item => {
+    const qty = Math.max(1, Math.floor(budget / item.currentPrice))
+    return `${item.itemName} ${qty}`
+  }).join('\n')
+}
+
 export default function MarketOpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<MarketOpportunity[]>([])
   const [summary, setSummary] = useState<ApiResponse['summary'] | null>(null)
@@ -67,6 +82,68 @@ export default function MarketOpportunitiesPage() {
   const [minScore, setMinScore] = useState("20")
   const [minWeeklyIsk, setMinWeeklyIsk] = useState("1000000000") // 1B default
   const [limit, setLimit] = useState("50")
+
+  // Selection state for Copy Buy Text
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set())
+  const [buyBudget, setBuyBudget] = useState("100") // 100M ISK default (in millions)
+  const [copySuccess, setCopySuccess] = useState(false)
+
+  // Selection helper functions
+  const toggleItemSelection = useCallback((typeId: number) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(typeId)) {
+        next.delete(typeId)
+      } else {
+        next.add(typeId)
+      }
+      return next
+    })
+  }, [])
+
+  const selectAllItems = useCallback((items: MarketOpportunity[]) => {
+    setSelectedItems(prev => {
+      const allSelected = items.every(item => prev.has(item.typeId))
+      if (allSelected) {
+        // Deselect all items in this list
+        const next = new Set(prev)
+        items.forEach(item => next.delete(item.typeId))
+        return next
+      } else {
+        // Select all items in this list
+        const next = new Set(prev)
+        items.forEach(item => next.add(item.typeId))
+        return next
+      }
+    })
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    setSelectedItems(new Set())
+  }, [])
+
+  // Get selected items data
+  const getSelectedItemsData = useCallback((): MarketOpportunity[] => {
+    return opportunities.filter(item => selectedItems.has(item.typeId))
+  }, [opportunities, selectedItems])
+
+  // Copy buy text to clipboard
+  const copyBuyText = useCallback(async () => {
+    const items = getSelectedItemsData()
+    if (items.length === 0) return
+
+    const budgetInMillions = parseFloat(buyBudget) || 100
+    const budget = budgetInMillions * 1_000_000 // Convert to ISK
+    const buyText = generateBuyText(items, budget)
+
+    try {
+      await navigator.clipboard.writeText(buyText)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }, [getSelectedItemsData, buyBudget])
 
   // Cleanup EventSource on unmount
   useEffect(() => {
@@ -436,10 +513,68 @@ export default function MarketOpportunitiesPage() {
           </Card>
         )}
 
+        {/* Selection Action Bar */}
+        {selectedItems.size > 0 && (
+          <Card className="sticky top-4 z-10 border-primary/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="size-5 text-primary" />
+                  <span className="font-medium">{selectedItems.size} items selected</span>
+                </div>
+                <div className="flex-1" />
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="buyBudget" className="text-sm whitespace-nowrap">Budget:</Label>
+                    <Input
+                      id="buyBudget"
+                      type="number"
+                      value={buyBudget}
+                      onChange={(e) => setBuyBudget(e.target.value)}
+                      className="w-20 h-8"
+                    />
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">M</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearSelection}
+                    className="gap-2"
+                  >
+                    <X className="size-4" />
+                    Clear
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={copyBuyText}
+                    className="gap-2"
+                    disabled={copySuccess}
+                  >
+                    {copySuccess ? (
+                      <>
+                        <Check className="size-4" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-4" />
+                        Copy Buy Text
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {(summary || isLoading) && (
           <OpportunityTable 
             opportunities={opportunities} 
-            isLoading={isLoading} 
+            isLoading={isLoading}
+            selectedItems={selectedItems}
+            onToggleSelect={toggleItemSelection}
+            onSelectAll={selectAllItems}
           />
         )}
 

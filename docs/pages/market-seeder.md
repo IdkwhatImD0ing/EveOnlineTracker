@@ -17,6 +17,8 @@ The Market Seeder page helps identify the most profitable items to import from J
 - **Advanced Settings**:
   - Minimum profit margin %
   - Minimum profit per unit ISK
+  - Minimum volume per day
+  - No competition only toggle (filter for 40% markup opportunities)
 
 ### Analysis Results
 
@@ -36,6 +38,7 @@ The page displays multiple ranked lists:
 ### Item Cards
 
 Each item shows:
+- **Checkbox** for item selection (for Copy Buy Text)
 - Item name with category icon
 - Competition status badge
 - Profit margin percentage
@@ -50,6 +53,36 @@ Clicking an item expands to show:
 - Volume
 - Jita daily volume
 - Category and group
+
+### Copy Buy Text Feature
+
+Select items using checkboxes and copy a shopping list for Eve Online's multibuy feature.
+
+**Selection Controls:**
+- Each item has a checkbox on the left side
+- "Select All" / "Deselect All" button at the top of each list
+- Selection persists when switching between tabs
+
+**Selection Action Bar:**
+When items are selected, a sticky action bar appears showing:
+- Number of selected items
+- Budget input field in millions (default 100M) - set how much ISK to spend per item
+- "Clear" button to deselect all
+- "Copy Buy Text" button
+
+**Copy Buy Text Button:**
+Copies selected items to clipboard in Eve Online multibuy format:
+```
+Item Name 100
+Another Item 50
+Third Item 1
+```
+
+**Quantity Calculation:**
+- Each item gets up to the configured budget worth of units
+- Formula: `quantity = floor(budgetM * 1,000,000 / jitaSellPrice)`
+- Minimum quantity is always 1 (even if price exceeds budget)
+- Default budget is 100M ISK per item (enter "100" for 100M, configurable in the action bar)
 
 ## Scoring Algorithm
 
@@ -83,14 +116,14 @@ This ensures rare expensive items (like officer modules selling 1/day) don't out
 
 ### Minimum Filters
 
-Items must meet these thresholds to appear:
+Items must meet these thresholds to appear (configurable via Advanced Settings):
 
-| Filter | Value |
-|--------|-------|
-| Jita Daily Volume | ≥ 10 units/day |
-| Profit Margin | ≥ 10% |
-| Profit per Unit | ≥ 100,000 ISK |
-| Jita Price | ≥ 10,000 ISK |
+| Filter | Default | Description |
+|--------|---------|-------------|
+| Min Volume/Day | 10 units | Minimum average daily trading volume in Jita |
+| Min Profit Margin | 10% | Minimum profit as percentage of cost |
+| Min Profit per Unit | 100,000 ISK | Minimum ISK profit per unit |
+| Min Jita Price | 10,000 ISK | Fixed minimum price threshold |
 
 ## Requirements
 
@@ -129,6 +162,9 @@ The analysis uses Server-Sent Events (SSE) to show real-time progress:
 5. **Watch Progress Bar** as each stage completes
 6. **Browse Results** using the tabs to find profitable items
 7. **Click Items** to see detailed profit breakdown
+8. **Select Items** using checkboxes for items you want to buy
+9. **Click "Copy Buy Text"** to copy shopping list to clipboard
+10. **Paste in Eve** using the multibuy feature to purchase items
 
 ## Performance
 
@@ -142,7 +178,7 @@ The main bottleneck is fetching ~5,800 Jita prices from ESI (20 concurrent reque
 ## Settings Persistence
 
 All settings are saved to localStorage:
-- `market-seeder-settings`: JSON object with structure_id, transportCost, minMargin, minProfit
+- `market-seeder-settings`: JSON object with structure_id, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget
 
 ## Related
 

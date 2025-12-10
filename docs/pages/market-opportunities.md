@@ -55,6 +55,7 @@ All columns are sortable by clicking the header. Click any row to expand signal 
 
 | Column | Description |
 |--------|-------------|
+| Checkbox | Select items for Copy Buy Text feature |
 | Item | Item name and type ID |
 | Current Price | Lowest sell order price from ESI |
 | Avg | Historical average price over 90 days |
@@ -76,6 +77,36 @@ All columns are sortable by clicking the header. Click any row to expand signal 
 - Search by item name or type ID
 - Filter by minimum score
 - Filter by minimum potential gain %
+
+### Copy Buy Text Feature
+
+Select items using checkboxes and copy a shopping list for Eve Online's multibuy feature.
+
+**Selection Controls:**
+- Each row in the table has a checkbox on the left side
+- "Select All" / "Deselect All" button at the top of the table
+- Selection persists while browsing results
+
+**Selection Action Bar:**
+When items are selected, a sticky action bar appears showing:
+- Number of selected items
+- Budget input field in millions (default 100M) - set how much ISK to spend per item
+- "Clear" button to deselect all
+- "Copy Buy Text" button
+
+**Copy Buy Text Button:**
+Copies selected items to clipboard in Eve Online multibuy format:
+```
+Item Name 100
+Another Item 50
+Third Item 1
+```
+
+**Quantity Calculation:**
+- Each item gets up to the configured budget worth of units
+- Formula: `quantity = floor(budgetM * 1,000,000 / currentPrice)`
+- Minimum quantity is always 1 (even if price exceeds budget)
+- Default budget is 100M ISK per item (enter "100" for 100M)
 
 ## Scoring System
 

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
-import { createAppraisal } from '@/lib/janice'
+import { getCachedMarketStatistics, getCachedJaniceAppraisal } from '@/lib/cached-data'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
 
-// Cache for tradeable type IDs
+// Cache for tradeable type IDs (file-based, doesn't change)
 let tradeableTypeIdsCache: Set<number> | null = null
 
 /**
@@ -64,174 +63,6 @@ interface SellOpportunity {
   recommendation_text: string
 }
 
-interface MarketStats {
-  type_id: number
-  all_time_high: number
-  mean_price: number
-}
-
-/**
- * Get market statistics (ATH and mean price) from market_history for given type_ids
- * Uses RPC function for efficiency, falls back to per-item pagination if RPC fails
- */
-async function getMarketStats(typeIds: number[]): Promise<Map<number, MarketStats>> {
-  const supabase = createClient()
-  const result = new Map<number, MarketStats>()
-
-  if (typeIds.length === 0) return result
-
-  console.log(`[Sell Opportunities] Fetching market stats for ${typeIds.length} type_ids...`)
-
-  // Try RPC function first (much faster - single query)
-  const { data: rpcData, error: rpcError } = await supabase
-    .rpc('get_sell_statistics', {
-      p_type_ids: typeIds,
-      p_region_id: 10000002  // The Forge (Jita)
-    })
-
-  if (!rpcError && rpcData && rpcData.length > 0) {
-    // RPC succeeded - use the results
-    console.log(`[Sell Opportunities] RPC returned ${rpcData.length} results`)
-    
-    for (const row of rpcData as { type_id: number; all_time_high: number; mean_price: number }[]) {
-      result.set(row.type_id, {
-        type_id: row.type_id,
-        all_time_high: row.all_time_high,
-        mean_price: row.mean_price,
-      })
-    }
-  } else {
-    // RPC failed - fall back to per-item pagination
-    if (rpcError) {
-      console.warn(`[Sell Opportunities] RPC failed, using fallback: ${rpcError.message}`)
-    } else {
-      console.warn(`[Sell Opportunities] RPC returned no data, using fallback`)
-    }
-    
-    return await getMarketStatsFallback(typeIds, supabase)
-  }
-
-  console.log(`[Sell Opportunities] Market stats: requested ${typeIds.length} type_ids, found data for ${result.size}`)
-  
-  // Log items without data for debugging
-  const missingIds = typeIds.filter(id => !result.has(id))
-  if (missingIds.length > 0) {
-    console.log(`[Sell Opportunities] Missing market data for type_ids: ${missingIds.slice(0, 10).join(', ')}${missingIds.length > 10 ? '...' : ''}`)
-  }
-
-  return result
-}
-
-/**
- * Fallback: Query each type_id individually with pagination
- * Used when RPC function is not available
- */
-async function getMarketStatsFallback(
-  typeIds: number[],
-  supabase: ReturnType<typeof createClient>
-): Promise<Map<number, MarketStats>> {
-  const result = new Map<number, MarketStats>()
-  const statsByType = new Map<number, { maxHigh: number; sumAvg: number; count: number }>()
-
-  console.log(`[Sell Opportunities] Fallback: fetching stats for ${typeIds.length} type_ids individually...`)
-
-  for (const typeId of typeIds) {
-    // Paginate to get all rows for this type_id
-    const allRows: { highest: number; average: number }[] = []
-    let page = 0
-    const PAGE_SIZE = 1000
-    
-    while (true) {
-      const { data, error } = await supabase
-        .from('market_history')
-        .select('highest, average')
-        .eq('type_id', typeId)
-        .eq('region_id', 10000002) // The Forge (Jita)
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-
-      if (error) {
-        console.error(`[Sell Opportunities] Supabase error for type ${typeId}:`, error)
-        break
-      }
-      
-      if (!data || data.length === 0) {
-        break
-      }
-      
-      allRows.push(...data)
-      
-      // If we got less than PAGE_SIZE, we've reached the end
-      if (data.length < PAGE_SIZE) {
-        break
-      }
-      
-      page++
-    }
-    
-    // Aggregate this type_id's data
-    if (allRows.length > 0) {
-      let maxHigh = 0
-      let sumAvg = 0
-      
-      for (const row of allRows) {
-        if (row.highest > maxHigh) {
-          maxHigh = row.highest
-        }
-        sumAvg += row.average
-      }
-      
-      statsByType.set(typeId, {
-        maxHigh,
-        sumAvg,
-        count: allRows.length,
-      })
-    }
-  }
-  
-  console.log(`[Sell Opportunities] Fallback fetched stats for ${statsByType.size}/${typeIds.length} type_ids`)
-
-  // Convert to final result
-  for (const [typeId, stats] of statsByType) {
-    result.set(typeId, {
-      type_id: typeId,
-      all_time_high: stats.maxHigh,
-      mean_price: stats.count > 0 ? stats.sumAvg / stats.count : 0,
-    })
-  }
-
-  // Log items without data for debugging
-  const missingIds = typeIds.filter(id => !result.has(id))
-  if (missingIds.length > 0) {
-    console.log(`[Sell Opportunities] Missing market data for type_ids: ${missingIds.slice(0, 10).join(', ')}${missingIds.length > 10 ? '...' : ''}`)
-  }
-
-  return result
-}
-
-/**
- * Get current Jita sell prices using Janice API
- */
-async function getCurrentPrices(items: AssetInput[]): Promise<Map<number, number>> {
-  const result = new Map<number, number>()
-
-  if (items.length === 0) return result
-
-  try {
-    // Build input for Janice API - one item per line
-    const input = items.map(item => `${item.type_name} x1`).join('\n')
-    const appraisal = await createAppraisal(input)
-
-    // Map results back by type_id
-    for (const appItem of appraisal.items) {
-      result.set(appItem.typeId, appItem.sellPrice)
-    }
-  } catch (error) {
-    console.error('[Sell Opportunities] Janice API error:', error)
-    // Return empty map - prices will show as 0
-  }
-
-  return result
-}
 
 /**
  * Determine recommendation based on percentage of ATH
@@ -302,14 +133,24 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Get type_ids for queries
+    // Get type_ids and item names for queries
     const typeIds = assets.map(a => a.type_id)
+    const itemNames = assets.map(a => a.type_name)
 
-    // Fetch market stats and current prices in parallel
-    const [marketStatsMap, currentPricesMap] = await Promise.all([
-      getMarketStats(typeIds),
-      getCurrentPrices(assets),
+    // Fetch market stats and current prices in parallel (using cached functions)
+    const [marketStatsMap, janiceAppraisalMap] = await Promise.all([
+      getCachedMarketStatistics(typeIds),
+      getCachedJaniceAppraisal(itemNames),
     ])
+
+    // Build a map from type_id to sell price using Janice results
+    const currentPricesMap = new Map<number, number>()
+    for (const asset of assets) {
+      const janiceItem = janiceAppraisalMap.get(asset.type_name)
+      if (janiceItem) {
+        currentPricesMap.set(asset.type_id, janiceItem.sellPrice)
+      }
+    }
 
     // Build opportunities list
     const opportunities: SellOpportunity[] = []

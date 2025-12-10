@@ -11,6 +11,7 @@ Welcome to the comprehensive documentation for the EVE Online Industry Tracker. 
 | [Calculations](./calculations/README.md) | Industry calculation formulas and logic |
 | [Integrations](./integrations/README.md) | External service integrations |
 | [Database Schema](./database/schema.md) | Database tables and relationships |
+| [Caching Strategy](./caching.md) | Data caching with Next.js `"use cache"` |
 
 ## Project Overview
 
@@ -59,6 +60,7 @@ The EVE Online Tracker is a Next.js web application designed to help EVE Online 
 ├─────────────────────────────────────────────────────────────────┤
 │                     Library Functions                            │
 ├─────────────────────────────────────────────────────────────────┤
+│  lib/cached-data.ts      │  Cached data fetching ("use cache")  │
 │  lib/blueprints.ts       │  Blueprint data & calculations       │
 │  lib/esi.ts              │  EVE industry API client             │
 │  lib/janice.ts           │  Janice market API client            │
@@ -127,6 +129,7 @@ pnpm dev
 ```
 docs/
 ├── README.md                    # This file
+├── caching.md                   # Caching strategy with "use cache"
 ├── api/
 │   ├── README.md               # API conventions and overview
 │   ├── auth.md                 # EVE SSO authentication routes

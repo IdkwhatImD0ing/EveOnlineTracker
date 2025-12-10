@@ -89,12 +89,14 @@ async function handleStreamingRequest(
     limit: number
     minMargin: number
     minProfit: number
+    minVolume: number
+    noCompetitionOnly: boolean
     transportCost: number
     days: number
     startTime: number
   }
 ) {
-  const { structureId, authToken, limit, minMargin, minProfit, transportCost, days, startTime } = params
+  const { structureId, authToken, limit, minMargin, minProfit, minVolume, noCompetitionOnly, transportCost, days, startTime } = params
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -117,6 +119,8 @@ async function handleStreamingRequest(
           transportCostPerM3: transportCost,
           minMarginPct: minMargin,
           minProfitIsk: minProfit,
+          minDailyVolume: minVolume,
+          noCompetitionOnly,
           days,
           onProgress
         })
@@ -206,6 +210,8 @@ export async function GET(request: NextRequest) {
   )
   const minMargin = parseFloat(searchParams.get('minMargin') || String(MARKET_SEEDER_DEFAULTS.MIN_PROFIT_MARGIN_PCT))
   const minProfit = parseFloat(searchParams.get('minProfit') || String(MARKET_SEEDER_DEFAULTS.MIN_PROFIT_ISK))
+  const minVolume = parseFloat(searchParams.get('minVolume') || String(MARKET_SEEDER_DEFAULTS.MIN_DAILY_VOLUME))
+  const noCompetitionOnly = searchParams.get('noCompetitionOnly') === 'true'
   const transportCost = parseFloat(searchParams.get('transportCost') || String(MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3))
   const days = parseInt(searchParams.get('days') || String(MARKET_SEEDER_DEFAULTS.DAYS_TO_ANALYZE))
   const streamMode = searchParams.get('stream') === 'true'
@@ -247,6 +253,8 @@ export async function GET(request: NextRequest) {
       limit,
       minMargin,
       minProfit,
+      minVolume,
+      noCompetitionOnly,
       transportCost,
       days,
       startTime
@@ -263,6 +271,8 @@ export async function GET(request: NextRequest) {
       transportCostPerM3: transportCost,
       minMarginPct: minMargin,
       minProfitIsk: minProfit,
+      minDailyVolume: minVolume,
+      noCompetitionOnly,
       days,
     })
     

@@ -55,6 +55,8 @@ Runs full profitability analysis and returns ranked item recommendations.
 | limit | integer | No | 50 | Max items per ranked list (max: 200) |
 | minMargin | number | No | 10 | Minimum profit margin % |
 | minProfit | number | No | 100000 | Minimum profit per unit (ISK) |
+| minVolume | number | No | 10 | Minimum daily volume (units/day) |
+| noCompetitionOnly | boolean | No | false | Only return items with no existing competition |
 | transportCost | number | No | 450 | Transport cost per m³ (ISK) |
 | days | integer | No | 30 | Days of market history to analyze |
 | stream | boolean | No | false | Enable Server-Sent Events for progress updates |
@@ -235,14 +237,15 @@ This ensures that rare, expensive items with 1-2 trades/day don't outrank common
 
 ## Minimum Filters
 
-Items must pass these thresholds to appear in results:
+Items must pass these thresholds to appear in results (all configurable via query params except Jita Price):
 
-| Filter | Default | Description |
-|--------|---------|-------------|
-| Profit Margin | ≥ 10% | Below this isn't worth the effort |
-| Profit per Unit | ≥ 100,000 ISK | Minimum absolute profit |
-| Jita Daily Volume | ≥ 10 units/day | Must have meaningful demand to sell in your hub |
-| Jita Price | ≥ 10,000 ISK | Very cheap items have low margin potential |
+| Filter | Default | Query Param | Description |
+|--------|---------|-------------|-------------|
+| Profit Margin | ≥ 10% | `minMargin` | Below this isn't worth the effort |
+| Profit per Unit | ≥ 100,000 ISK | `minProfit` | Minimum absolute profit |
+| Jita Daily Volume | ≥ 10 units/day | `minVolume` | Must have meaningful demand to sell in your hub |
+| Jita Price | ≥ 10,000 ISK | - | Fixed threshold, very cheap items have low margin potential |
+| No Competition Only | false | `noCompetitionOnly` | When true, only show items with no existing sell orders |
 
 ---
 
@@ -279,21 +282,40 @@ Items must pass these thresholds to appear in results:
 
 ## Caching
 
-The algorithm uses multi-tier caching for performance:
+The algorithm uses Next.js `"use cache"` directive with `cacheLife` profiles for performance:
 
-| Data Source | Cache Location | TTL | Notes |
-|-------------|----------------|-----|-------|
-| Market History | Supabase | Updated daily via cron | Up to 365 days of history, fetched via RPC |
-| Structure Orders | In-memory | 5 minutes | Refreshes on each analysis |
-| Jita Prices | In-memory | 5 minutes | ESI regional orders, refreshes on each analysis |
+| Data Source | Cache Method | TTL | Notes |
+|-------------|--------------|-----|-------|
+| Market History | `"use cache"` + `cacheLife('hours')` | 1 hour revalidate | Supabase RPC, updated daily via cron |
+| Jita Prices | `"use cache"` + `cacheLife('minutes')` | 5 min stale, 1 min revalidate | ESI regional orders |
+| Structure Orders | In-memory | 5 minutes | Requires auth token, cached per-request |
+
+### How Caching Works
+
+The cached data functions in `lib/cached-data.ts` use Next.js 16's `"use cache"` directive:
+
+```ts
+export async function getCachedJitaPrices(typeIds: number[]) {
+  'use cache'
+  cacheLife('minutes')
+  // ... fetch from ESI
+}
+```
+
+- **Cache keys** are generated from function arguments (type IDs are sorted for consistency)
+- **Revalidation** happens in the background after TTL expires
+- **Serverless note**: On Vercel, cache is in-memory per instance; data refetches on cold starts
+
+See [Caching Strategy](../caching.md) for full documentation.
 
 ---
 
 ## Performance
 
 Typical response times:
-- **Cold cache**: 1-2 minutes (first request, fetching all Jita prices)
-- **Warm cache**: 5-10 seconds (subsequent requests within TTL)
+- **Cold cache**: 1-2 minutes (first request, fetching all Jita prices from ESI)
+- **Warm cache**: 5-10 seconds (subsequent requests within cache TTL)
+- **Repeated requests**: Near-instant (served from cache)
 
 The analysis processes ~5,800 tradeable items.
 

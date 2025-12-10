@@ -126,6 +126,8 @@ export interface MarketSeederParams {
   limit?: number                  // Max items per category (default: 50)
   minMargin?: number              // Minimum profit margin % (default: 10)
   minProfit?: number              // Minimum profit per unit ISK (default: 100000)
+  minVolume?: number              // Minimum daily volume (default: 10)
+  noCompetitionOnly?: boolean     // Only show items with no competition (default: false)
   transportCost?: number          // ISK per m³ (default: 450)
   days?: number                   // Days of market history to analyze (default: 30)
 }

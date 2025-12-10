@@ -20,13 +20,19 @@ import {
   Repeat,
   Shield,
   BarChart3,
-  Info
+  Info,
+  CheckSquare,
+  Square,
 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import type { MarketOpportunity, SignalBreakdown } from "@/lib/market-analysis"
 
 interface OpportunityTableProps {
   opportunities: MarketOpportunity[]
   isLoading?: boolean
+  selectedItems?: Set<number>
+  onToggleSelect?: (typeId: number) => void
+  onSelectAll?: (items: MarketOpportunity[]) => void
 }
 
 type SortKey = 'itemName' | 'currentPrice' | 'avgPrice' | 'potentialGain' | 'dailyVolume' | 'opportunityScore' | 'confidence' | 'weeklyIskPotential'
@@ -171,7 +177,13 @@ function SignalDetails({ signals }: { signals: SignalBreakdown }) {
   )
 }
 
-export function OpportunityTable({ opportunities, isLoading }: OpportunityTableProps) {
+export function OpportunityTable({ 
+  opportunities, 
+  isLoading,
+  selectedItems = new Set(),
+  onToggleSelect,
+  onSelectAll,
+}: OpportunityTableProps) {
   const [sortConfig, setSortConfig] = useState<SortConfig>({ 
     key: 'opportunityScore', 
     direction: 'desc' 
@@ -181,6 +193,9 @@ export function OpportunityTable({ opportunities, isLoading }: OpportunityTableP
   const [minScore, setMinScore] = useState('')
   const [minGain, setMinGain] = useState('')
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
+
+  // Check if selection mode is enabled
+  const hasSelection = onToggleSelect !== undefined
 
   // Toggle row expansion
   const toggleExpand = (typeId: number) => {
@@ -347,15 +362,37 @@ export function OpportunityTable({ opportunities, isLoading }: OpportunityTableP
               </p>
             )}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="gap-2"
-          >
-            <Filter className="size-4" />
-            Filters
-          </Button>
+          <div className="flex items-center gap-2">
+            {hasSelection && onSelectAll && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onSelectAll(filteredAndSorted)}
+                className="gap-2"
+              >
+                {filteredAndSorted.every(item => selectedItems.has(item.typeId)) ? (
+                  <>
+                    <CheckSquare className="size-4" />
+                    Deselect All
+                  </>
+                ) : (
+                  <>
+                    <Square className="size-4" />
+                    Select All
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="gap-2"
+            >
+              <Filter className="size-4" />
+              Filters
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -402,6 +439,7 @@ export function OpportunityTable({ opportunities, isLoading }: OpportunityTableP
           <table className="w-full text-sm">
             <thead>
               <tr className="border-y bg-muted/30">
+                {hasSelection && <th className="w-10 px-2"></th>}
                 {hasSignalData && <th className="w-8"></th>}
                 <th className="px-4 py-3 text-left font-medium">
                   <button 
@@ -481,6 +519,8 @@ export function OpportunityTable({ opportunities, isLoading }: OpportunityTableP
                 const tier = opportunity.signals?.tier ?? opportunity.confidence
                 const score = opportunity.signals?.totalScore ?? opportunity.opportunityScore
 
+                const isSelected = selectedItems.has(opportunity.typeId)
+
                 return (
                   <>
                     <tr 
@@ -491,8 +531,25 @@ export function OpportunityTable({ opportunities, isLoading }: OpportunityTableP
                         ${index < 3 ? 'bg-primary/5' : ''}
                         ${hasSignalData && opportunity.signals ? 'cursor-pointer' : ''}
                         ${isExpanded ? 'bg-muted/30' : ''}
+                        ${isSelected ? 'ring-2 ring-inset ring-primary/50 bg-primary/10' : ''}
                       `}
                     >
+                      {hasSelection && (
+                        <td className="px-2 py-3">
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onToggleSelect?.(opportunity.typeId)
+                            }}
+                            className="flex items-center justify-center"
+                          >
+                            <Checkbox 
+                              checked={isSelected}
+                              className="size-5"
+                            />
+                          </div>
+                        </td>
+                      )}
                       {hasSignalData && (
                         <td className="pl-2 pr-0 py-3">
                           {opportunity.signals && (
@@ -568,7 +625,7 @@ export function OpportunityTable({ opportunities, isLoading }: OpportunityTableP
                     </tr>
                     {isExpanded && opportunity.signals && (
                       <tr key={`${opportunity.typeId}-details`}>
-                        <td colSpan={hasSignalData ? 11 : 10} className="p-0">
+                        <td colSpan={hasSignalData ? (hasSelection ? 12 : 11) : (hasSelection ? 11 : 10)} className="p-0">
                           <SignalDetails signals={opportunity.signals} />
                         </td>
                       </tr>

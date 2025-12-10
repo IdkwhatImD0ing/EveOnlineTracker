@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import {
+  getCachedMarketHistoryArrays,
+  getCachedBasicMarketStatistics,
+  getCachedJitaPrices,
+} from '@/lib/cached-data'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -668,65 +673,109 @@ export async function GET(request: NextRequest) {
     return handleStreamingRequest(request, { limit, minPrice, minVolume, maxVolatility, minScore, minWeeklyIsk, startTime })
   }
 
-  // Non-streaming mode (for API clients)
+  // Non-streaming mode (for API clients) - uses cached data functions
   try {
     const itemNames = await readTradeableItems()
     console.log(`[Market Opportunities] Loaded ${itemNames.size} item names`)
 
-    const supabase = createClient()
     const allTypeIds = Array.from(itemNames.keys())
 
-    // Try new RPC first
-    const BATCH_SIZE = 100
-    const allHistoryData: HistoryArrayRow[] = []
-    let useOldMethod = false
-
-    for (let i = 0; i < allTypeIds.length; i += BATCH_SIZE) {
-      const batchTypeIds = allTypeIds.slice(i, i + BATCH_SIZE)
+    // Fetch market history using cached function
+    console.log(`[Market Opportunities] Fetching cached market history...`)
+    const historyMap = await getCachedMarketHistoryArrays(allTypeIds, 90, REGION_THE_FORGE)
+    
+    // If no history arrays available, fall back to basic stats
+    if (historyMap.size === 0) {
+      console.log(`[Market Opportunities] No history arrays, trying basic stats...`)
+      const basicStats = await getCachedBasicMarketStatistics(allTypeIds, CONFIG.LOOKBACK_DAYS, REGION_THE_FORGE)
       
-      const { data: batchData, error: batchError } = await supabase
-        .rpc('get_market_history_arrays', {
-          p_type_ids: batchTypeIds,
-          p_region_id: REGION_THE_FORGE,
-          p_days_back: 90
+      if (basicStats.length === 0) {
+        return NextResponse.json({
+          success: true,
+          opportunities: [],
+          message: 'No market history data available. Run the market history fetch first.',
+          timing: { total_ms: Date.now() - startTime }
         })
-
-      if (batchError) {
-        if (batchError.message.includes('function') || batchError.message.includes('does not exist')) {
-          useOldMethod = true
-          break
-        }
-        throw new Error(`Database query failed: ${batchError.message}`)
       }
-
-      if (batchData && batchData.length > 0) {
-        allHistoryData.push(...(batchData as HistoryArrayRow[]))
-      }
-
-      const processed = Math.min(i + BATCH_SIZE, allTypeIds.length)
-      console.log(`[Market Opportunities] History batch ${Math.ceil(processed / BATCH_SIZE)}/${Math.ceil(allTypeIds.length / BATCH_SIZE)}`)
-    }
-
-    if (useOldMethod) {
-      // Fall back to old analysis method
-      return await fallbackNonStreamingAnalysis(request, itemNames, supabase, startTime, {
-        limit, minPrice, minVolume, maxVolatility, minScore, minWeeklyIsk
+      
+      // Use fallback analysis with basic stats
+      const allStats: ItemStatistics[] = basicStats.map(row => ({
+        typeId: row.type_id,
+        itemName: itemNames.get(row.type_id) || `Unknown (${row.type_id})`,
+        mean: row.mean_price,
+        stdDev: row.std_dev,
+        avgVolume: row.avg_volume,
+        volatility: row.volatility,
+        dataPoints: row.data_points,
+        priceHistory: []
+      }))
+      
+      const filteredStats = allStats.filter(item => {
+        if (item.dataPoints < 3) return false
+        if (item.avgVolume < minVolume) return false
+        if (item.volatility > maxVolatility) return false
+        if (item.mean < minPrice) return false
+        return true
       })
-    }
 
-    if (allHistoryData.length === 0) {
+      const candidates = rankByVolume(filteredStats, CONFIG.MAX_ITEMS_TO_ANALYZE)
+      const candidateTypeIds = candidates.map(c => c.typeId)
+      
+      // Fetch prices using cached function
+      console.log(`[Market Opportunities] Fetching cached Jita prices for ${candidateTypeIds.length} items...`)
+      const pricesMap = await getCachedJitaPrices(candidateTypeIds)
+      const prices = new Map<number, number>()
+      for (const [typeId, priceData] of pricesMap) {
+        prices.set(typeId, priceData.lowestSellPrice)
+      }
+      
+      const opportunities: MarketOpportunity[] = []
+      for (const stats of candidates) {
+        const currentPrice = prices.get(stats.typeId)
+        if (currentPrice === undefined) continue
+        
+        const opportunity = analyzeOpportunity(stats, currentPrice)
+        if (opportunity && 
+            opportunity.signals.totalScore >= minScore &&
+            (minWeeklyIsk === 0 || opportunity.weeklyIskPotential >= minWeeklyIsk)) {
+          opportunities.push(opportunity)
+        }
+      }
+
+      const rankedOpportunities = rankOpportunities(opportunities, limit)
+      
       return NextResponse.json({
         success: true,
-        opportunities: [],
-        message: 'No market history data available. Run the market history fetch first.',
-        timing: { total_ms: Date.now() - startTime }
+        opportunities: rankedOpportunities,
+        summary: {
+          total_items_analyzed: allStats.length,
+          items_after_filters: filteredStats.length,
+          items_with_current_price: prices.size,
+          opportunities_found: opportunities.length,
+          results_returned: rankedOpportunities.length,
+        },
+        filters: {
+          min_price: minPrice,
+          min_volume: minVolume,
+          max_volatility: maxVolatility,
+          min_score: minScore,
+          lookback_days: CONFIG.LOOKBACK_DAYS,
+        },
+        timing: { total_ms: Date.now() - startTime },
+        generated_at: new Date().toISOString(),
+        cached: true,
+        note: 'Using basic analysis with cached data.'
       })
     }
 
-    // Convert and filter
-    const allStats: ItemStatistics[] = allHistoryData.map(row => 
-      convertToItemStatistics(row, itemNames.get(row.type_id) || `Unknown (${row.type_id})`)
-    )
+    // Convert history arrays to ItemStatistics
+    const allStats: ItemStatistics[] = []
+    for (const [typeId, row] of historyMap) {
+      allStats.push(convertToItemStatistics(
+        row as HistoryArrayRow, 
+        itemNames.get(typeId) || `Unknown (${typeId})`
+      ))
+    }
 
     const filteredStats = filterCandidates(allStats).filter(item => {
       if (item.mean < minPrice) return false
@@ -736,30 +785,14 @@ export async function GET(request: NextRequest) {
     })
 
     const candidates = rankByVolume(filteredStats, CONFIG.MAX_ITEMS_TO_ANALYZE)
+    const candidateTypeIds = candidates.map(c => c.typeId)
     
-    // Fetch current prices
+    // Fetch current prices using cached function
+    console.log(`[Market Opportunities] Fetching cached Jita prices for ${candidateTypeIds.length} items...`)
+    const pricesMap = await getCachedJitaPrices(candidateTypeIds)
     const prices = new Map<number, number>()
-    const typeIds = candidates.map(c => c.typeId)
-    
-    for (let i = 0; i < typeIds.length; i += CONFIG.CONCURRENT_ESI_REQUESTS) {
-      const batch = typeIds.slice(i, i + CONFIG.CONCURRENT_ESI_REQUESTS)
-      
-      const batchPromises = batch.map(async (typeId) => {
-        const price = await fetchCurrentPrice(typeId, REGION_THE_FORGE)
-        return { typeId, price }
-      })
-
-      const batchResults = await Promise.all(batchPromises)
-      
-      for (const { typeId, price } of batchResults) {
-        if (price !== null) {
-          prices.set(typeId, price)
-        }
-      }
-
-      if (i + CONFIG.CONCURRENT_ESI_REQUESTS < typeIds.length) {
-        await new Promise(resolve => setTimeout(resolve, CONFIG.ESI_BATCH_DELAY_MS))
-      }
+    for (const [typeId, priceData] of pricesMap) {
+      prices.set(typeId, priceData.lowestSellPrice)
     }
 
     // Analyze with multi-signal system
@@ -801,7 +834,8 @@ export async function GET(request: NextRequest) {
         weights: CONFIG.WEIGHTS
       },
       timing: { total_ms: totalTime },
-      generated_at: new Date().toISOString()
+      generated_at: new Date().toISOString(),
+      cached: true
     })
 
   } catch (error) {
@@ -816,139 +850,3 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * Fallback non-streaming analysis using old RPC
- */
-async function fallbackNonStreamingAnalysis(
-  request: NextRequest,
-  itemNames: Map<number, string>,
-  supabase: ReturnType<typeof createClient>,
-  startTime: number,
-  params: {
-    limit: number
-    minPrice: number
-    minVolume: number
-    maxVolatility: number
-    minScore: number
-    minWeeklyIsk: number
-  }
-) {
-  const { limit, minPrice, minVolume, maxVolatility, minScore, minWeeklyIsk } = params
-  const allTypeIds = Array.from(itemNames.keys())
-
-  interface OldStatRow {
-    type_id: number
-    mean_price: number
-    std_dev: number
-    avg_volume: number
-    data_points: number
-    volatility: number
-  }
-
-  const BATCH_SIZE = 200
-  const allStatsData: OldStatRow[] = []
-
-  for (let i = 0; i < allTypeIds.length; i += BATCH_SIZE) {
-    const batchTypeIds = allTypeIds.slice(i, i + BATCH_SIZE)
-    
-    const { data: batchData, error: batchError } = await supabase
-      .rpc('get_market_statistics', {
-        p_type_ids: batchTypeIds,
-        p_region_id: REGION_THE_FORGE,
-        p_days_back: CONFIG.LOOKBACK_DAYS,
-        p_min_data_points: 3
-      })
-
-    if (batchError) {
-      throw new Error(`Database query failed: ${batchError.message}`)
-    }
-
-    if (batchData && batchData.length > 0) {
-      allStatsData.push(...(batchData as OldStatRow[]))
-    }
-  }
-
-  const allStats: ItemStatistics[] = allStatsData.map(row => ({
-    typeId: row.type_id,
-    itemName: itemNames.get(row.type_id) || `Unknown (${row.type_id})`,
-    mean: row.mean_price,
-    stdDev: row.std_dev,
-    avgVolume: row.avg_volume,
-    volatility: row.volatility,
-    dataPoints: row.data_points,
-    priceHistory: []
-  }))
-
-  const filteredStats = allStats.filter(item => {
-    if (item.dataPoints < 3) return false
-    if (item.avgVolume < minVolume) return false
-    if (item.volatility > maxVolatility) return false
-    if (item.mean < minPrice) return false
-    return true
-  })
-
-  const candidates = rankByVolume(filteredStats, CONFIG.MAX_ITEMS_TO_ANALYZE)
-  
-  // Fetch prices
-  const prices = new Map<number, number>()
-  const typeIds = candidates.map(c => c.typeId)
-  
-  for (let i = 0; i < typeIds.length; i += CONFIG.CONCURRENT_ESI_REQUESTS) {
-    const batch = typeIds.slice(i, i + CONFIG.CONCURRENT_ESI_REQUESTS)
-    
-    const batchPromises = batch.map(async (typeId) => {
-      const price = await fetchCurrentPrice(typeId, REGION_THE_FORGE)
-      return { typeId, price }
-    })
-
-    const batchResults = await Promise.all(batchPromises)
-    
-    for (const { typeId, price } of batchResults) {
-      if (price !== null) {
-        prices.set(typeId, price)
-      }
-    }
-
-    if (i + CONFIG.CONCURRENT_ESI_REQUESTS < typeIds.length) {
-      await new Promise(resolve => setTimeout(resolve, CONFIG.ESI_BATCH_DELAY_MS))
-    }
-  }
-
-  // Basic analysis
-  const opportunities: MarketOpportunity[] = []
-  for (const stats of candidates) {
-    const currentPrice = prices.get(stats.typeId)
-    if (currentPrice === undefined) continue
-    
-    const opportunity = analyzeOpportunity(stats, currentPrice)
-    if (opportunity && 
-        opportunity.signals.totalScore >= minScore &&
-        (minWeeklyIsk === 0 || opportunity.weeklyIskPotential >= minWeeklyIsk)) {
-      opportunities.push(opportunity)
-    }
-  }
-
-  const rankedOpportunities = rankOpportunities(opportunities, limit)
-
-  return NextResponse.json({
-    success: true,
-    opportunities: rankedOpportunities,
-    summary: {
-      total_items_analyzed: allStats.length,
-      items_after_filters: filteredStats.length,
-      items_with_current_price: prices.size,
-      opportunities_found: opportunities.length,
-      results_returned: rankedOpportunities.length,
-    },
-    filters: {
-      min_price: minPrice,
-      min_volume: minVolume,
-      max_volatility: maxVolatility,
-      min_score: minScore,
-      lookback_days: CONFIG.LOOKBACK_DAYS,
-    },
-    timing: { total_ms: Date.now() - startTime },
-    generated_at: new Date().toISOString(),
-    note: 'Using basic analysis. Run migration 007 for full multi-signal analysis.'
-  })
-}

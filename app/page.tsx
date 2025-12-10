@@ -162,17 +162,21 @@ export default function Dashboard() {
   useEffect(() => {
     if (!characterInfo || !accessToken) return
 
+    // Capture in local const so TypeScript knows it's not null inside async function
+    const charInfo = characterInfo
+    const token = accessToken
+
     async function fetchEsiData() {
       setIsLoadingEsi(true)
       
       try {
         // Fetch wallet and orders in parallel
         const [walletRes, ordersRes] = await Promise.all([
-          fetch(`/api/esi/wallet?character_id=${characterInfo.character_id}`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
+          fetch(`/api/esi/wallet?character_id=${charInfo.character_id}`, {
+            headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch(`/api/esi/character-orders?character_id=${characterInfo.character_id}`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
+          fetch(`/api/esi/character-orders?character_id=${charInfo.character_id}`, {
+            headers: { Authorization: `Bearer ${token}` }
           })
         ])
 
