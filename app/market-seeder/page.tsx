@@ -31,8 +31,13 @@ import {
   X,
   CheckSquare,
   Square,
+  Eye,
+  Trash2,
+  Plus,
+  AlertTriangle,
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { ItemSearch, TradeableItem } from "@/components/market/item-search"
 
 interface TokenData {
   access_token: string
@@ -145,6 +150,31 @@ interface ProgressState {
   stage: string
   message: string
   percent: number
+}
+
+interface WatchlistItem {
+  id: string
+  type_id: number
+  item_name: string
+  group_name: string | null
+  category_name: string | null
+  volume: number | null
+  created_at: string
+  stock: number
+  lowest_price: number | null
+  needs_restock: boolean
+}
+
+interface WatchlistResponse {
+  success: boolean
+  items: WatchlistItem[]
+  structure_id: string | null
+  checked_at: string | null
+  summary?: {
+    total: number
+    needs_restock: number
+    in_stock: number
+  }
 }
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -403,6 +433,14 @@ export default function MarketSeederPage() {
   // Selection state
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set())
   const [copySuccess, setCopySuccess] = useState(false)
+
+  // Watchlist state
+  const [activeMainTab, setActiveMainTab] = useState<"analysis" | "watchlist">("analysis")
+  const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([])
+  const [watchlistLoading, setWatchlistLoading] = useState(false)
+  const [watchlistError, setWatchlistError] = useState<string | null>(null)
+  const [watchlistCheckedAt, setWatchlistCheckedAt] = useState<string | null>(null)
+  const [addingItem, setAddingItem] = useState(false)
 
   // Load saved settings
   useEffect(() => {
@@ -676,37 +714,163 @@ export default function MarketSeederPage() {
     }
   }, [structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, getValidToken])
 
+  // Watchlist functions
+  const fetchWatchlist = useCallback(async (checkStock: boolean = true) => {
+    setWatchlistLoading(true)
+    setWatchlistError(null)
+
+    try {
+      let url = '/api/watchlist'
+      
+      if (checkStock && structureId) {
+        const accessToken = await getValidToken()
+        if (!accessToken) {
+          setWatchlistError("Please login with EVE SSO to check stock levels")
+          setWatchlistLoading(false)
+          return
+        }
+        
+        const response = await fetch(`${url}?structure_id=${structureId}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || "Failed to fetch watchlist")
+        }
+
+        const data: WatchlistResponse = await response.json()
+        setWatchlistItems(data.items)
+        setWatchlistCheckedAt(data.checked_at)
+      } else {
+        // Just fetch the list without stock info
+        const response = await fetch(url)
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || "Failed to fetch watchlist")
+        }
+        const data: WatchlistResponse = await response.json()
+        setWatchlistItems(data.items)
+        setWatchlistCheckedAt(null)
+      }
+    } catch (err) {
+      setWatchlistError(err instanceof Error ? err.message : "Failed to fetch watchlist")
+    } finally {
+      setWatchlistLoading(false)
+    }
+  }, [structureId, getValidToken])
+
+  const addToWatchlist = useCallback(async (item: TradeableItem) => {
+    setAddingItem(true)
+    try {
+      const response = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          typeId: item.typeId,
+          itemName: item.name,
+          groupName: item.groupName,
+          categoryName: item.categoryName,
+          volume: item.volume,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to add item")
+      }
+
+      // Refresh the watchlist
+      await fetchWatchlist(false)
+    } catch (err) {
+      setWatchlistError(err instanceof Error ? err.message : "Failed to add item")
+    } finally {
+      setAddingItem(false)
+    }
+  }, [fetchWatchlist])
+
+  const removeFromWatchlist = useCallback(async (typeId: number) => {
+    try {
+      const response = await fetch(`/api/watchlist/${typeId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to remove item")
+      }
+
+      // Update local state immediately
+      setWatchlistItems(prev => prev.filter(item => item.type_id !== typeId))
+    } catch (err) {
+      setWatchlistError(err instanceof Error ? err.message : "Failed to remove item")
+    }
+  }, [])
+
+  // Load watchlist when switching to watchlist tab
+  useEffect(() => {
+    if (activeMainTab === "watchlist" && watchlistItems.length === 0 && !watchlistLoading) {
+      fetchWatchlist(false)
+    }
+  }, [activeMainTab, watchlistItems.length, watchlistLoading, fetchWatchlist])
+
+  // Get existing watchlist type IDs for filtering search results
+  const existingWatchlistTypeIds = new Set(watchlistItems.map(item => item.type_id))
+
   return (
     <div className="min-h-screen p-8">
       <div className="mx-auto max-w-6xl space-y-8">
-        <header>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <ShoppingCart className="size-8" />
-            Market Seeder
-          </h1>
-          <p className="text-muted-foreground">
-            Find the most profitable items to import from Jita to your alliance hub
-          </p>
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+              <ShoppingCart className="size-8" />
+              Market Seeder
+            </h1>
+            <p className="text-muted-foreground">
+              Find the most profitable items to import from Jita to your alliance hub
+            </p>
+          </div>
         </header>
 
-        {/* Configuration */}
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Analysis Settings</CardTitle>
-                <CardDescription>Configure your target structure and filters</CardDescription>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowSettings(!showSettings)}
-              >
-                <Settings2 className="size-4 mr-2" />
-                {showSettings ? "Hide" : "Show"} Advanced
-              </Button>
-            </div>
-          </CardHeader>
+        {/* Main Tabs: Analysis / Watchlist */}
+        <Tabs value={activeMainTab} onValueChange={(v: string) => setActiveMainTab(v as "analysis" | "watchlist")} className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="analysis" className="gap-2">
+              <BarChart3 className="size-4" />
+              Analysis
+            </TabsTrigger>
+            <TabsTrigger value="watchlist" className="gap-2">
+              <Eye className="size-4" />
+              Watchlist
+              {watchlistItems.filter(i => i.needs_restock).length > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0">
+                  {watchlistItems.filter(i => i.needs_restock).length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="analysis" className="space-y-8">
+            {/* Configuration */}
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Analysis Settings</CardTitle>
+                    <CardDescription>Configure your target structure and filters</CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowSettings(!showSettings)}
+                  >
+                    <Settings2 className="size-4 mr-2" />
+                    {showSettings ? "Hide" : "Show"} Advanced
+                  </Button>
+                </div>
+              </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -1000,6 +1164,175 @@ export default function MarketSeederPage() {
             </p>
           </>
         )}
+          </TabsContent>
+
+          {/* Watchlist Tab */}
+          <TabsContent value="watchlist" className="space-y-6">
+            {/* Watchlist Header */}
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Watchlist</CardTitle>
+                    <CardDescription>
+                      Track specific items and monitor stock levels
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchWatchlist(true)}
+                      disabled={watchlistLoading || !structureId}
+                      title={!structureId ? "Set Structure ID first" : "Check stock levels"}
+                    >
+                      {watchlistLoading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-4" />
+                      )}
+                      <span className="ml-2">Refresh Stock</span>
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Structure ID reminder */}
+                {!structureId && (
+                  <Alert>
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                      Set a Structure ID in the Analysis tab to check stock levels
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Add Item Search */}
+                <div className="space-y-2">
+                  <Label>Add Item to Watchlist</Label>
+                  <ItemSearch
+                    onSelect={addToWatchlist}
+                    placeholder="Search for items to add..."
+                    disabled={addingItem}
+                    existingTypeIds={existingWatchlistTypeIds}
+                  />
+                </div>
+
+                {watchlistError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{watchlistError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {watchlistCheckedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Stock checked at {new Date(watchlistCheckedAt).toLocaleString()}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Watchlist Summary */}
+            {watchlistItems.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-2xl font-bold">{watchlistItems.length}</p>
+                    <p className="text-sm text-muted-foreground">Total Items</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-2xl font-bold text-destructive">
+                      {watchlistItems.filter(i => i.needs_restock).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Need Restock</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-2xl font-bold text-emerald-500">
+                      {watchlistItems.filter(i => !i.needs_restock).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">In Stock</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Watchlist Items */}
+            {watchlistLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : watchlistItems.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Eye className="size-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">
+                    No items in watchlist yet. Use the search above to add items.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {watchlistItems.map((item) => {
+                  const CategoryIcon = CATEGORY_ICONS[item.category_name || ''] || Package
+                  return (
+                    <Card
+                      key={item.id}
+                      className={
+                        item.needs_restock
+                          ? "border-destructive/50 bg-destructive/5"
+                          : "border-emerald-500/30 bg-emerald-500/5"
+                      }
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-4">
+                          <CategoryIcon className="size-5 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{item.item_name}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {item.category_name} • {item.group_name}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            {item.needs_restock ? (
+                              <Badge variant="destructive" className="gap-1">
+                                <AlertTriangle className="size-3" />
+                                Out of Stock
+                              </Badge>
+                            ) : (
+                              <div>
+                                <p className="font-medium text-emerald-600">
+                                  {item.stock.toLocaleString()} units
+                                </p>
+                                {item.lowest_price && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatIskShort(item.lowest_price)} ISK
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeFromWatchlist(item.type_id)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

@@ -14,6 +14,8 @@ The application provides a REST API built with Next.js API Routes (App Router). 
 | [ESI Proxy](./esi.md) | `/api/esi/*` | Proxied EVE ESI endpoints |
 | [Industry](./industry.md) | `/api/industry/*` | Industry calculator endpoints |
 | [Market](./market.md) | `/api/market/*` | Market analysis endpoints |
+| [Market Seeder](./market-seeder.md) | `/api/market-seeder/*` | Market seeding analysis |
+| [Watchlist](./watchlist.md) | `/api/watchlist/*` | Item watchlist management |
 | [Projects](./projects.md) | `/api/projects/*` | Project CRUD operations |
 
 ## Conventions
@@ -102,6 +104,21 @@ Authorization: Bearer <access_token>
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/market/opportunities` | Find undervalued items using mean reversion |
+
+### Market Seeder Routes
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/market-seeder/analyze` | Run market seeding analysis |
+
+### Watchlist Routes
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/watchlist` | Get watchlist items with stock levels |
+| POST | `/api/watchlist` | Add item to watchlist |
+| DELETE | `/api/watchlist/[typeId]` | Remove item from watchlist |
+| GET | `/api/items/search` | Search tradeable items |
 
 ### Project Routes
 

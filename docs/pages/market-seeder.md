@@ -10,6 +10,12 @@ The Market Seeder page helps identify the most profitable items to import from J
 
 ## Features
 
+The page has two main tabs: **Analysis** and **Watchlist**.
+
+---
+
+## Analysis Tab
+
 ### Configuration Panel
 
 - **Structure ID**: Your alliance market hub structure ID (saved to localStorage)
@@ -180,8 +186,68 @@ The main bottleneck is fetching ~5,800 Jita prices from ESI (20 concurrent reque
 All settings are saved to localStorage:
 - `market-seeder-settings`: JSON object with structure_id, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget
 
+---
+
+## Watchlist Tab
+
+The Watchlist tab allows you to track specific items and monitor their stock levels in your alliance structure.
+
+### Features
+
+#### Add Items to Watchlist
+
+- Use the search input to find items from the ~5,800 tradeable items
+- Type at least 2 characters to search
+- Click an item to add it to your watchlist
+- Items already in the watchlist are filtered from search results
+
+#### Monitor Stock Levels
+
+- Click **Refresh Stock** to check current sell order volumes in your structure
+- Requires Structure ID to be set (from Analysis tab)
+- Requires EVE SSO authentication
+
+#### Stock Status Indicators
+
+| Status | Visual | Description |
+|--------|--------|-------------|
+| Out of Stock | Red badge + red border | No sell orders for this item in structure |
+| In Stock | Green border + unit count | Item has active sell orders |
+
+#### Item Display
+
+Each watchlist item shows:
+- Category icon
+- Item name
+- Category and group
+- Stock quantity (when checked)
+- Lowest sell price (when checked)
+- Remove button
+
+### Summary Cards
+
+When items are in the watchlist, summary cards show:
+- **Total Items**: Number of items being tracked
+- **Need Restock**: Items with 0 stock (highlighted in tab badge)
+- **In Stock**: Items with active sell orders
+
+### Database Storage
+
+Watchlist items are stored in Supabase (`watchlist_items` table) and persist across sessions. The watchlist is shared (not per-user) since the alliance structure is shared.
+
+### Watchlist Usage Flow
+
+1. Set Structure ID in the Analysis tab
+2. Switch to the Watchlist tab
+3. Search and add items you want to track
+4. Click **Refresh Stock** to check current levels
+5. Items with 0 stock are highlighted for restocking
+
+---
+
 ## Related
 
 - [Market Seeder API](../api/market-seeder.md) - Backend API documentation
+- [Watchlist API](../api/watchlist.md) - Watchlist API documentation
 - [ESI API](../api/esi.md) - Structure orders endpoint
 

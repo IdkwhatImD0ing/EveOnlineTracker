@@ -249,6 +249,40 @@ CREATE INDEX idx_market_history_updated_at ON market_history(updated_at);
 
 ---
 
+### watchlist_items
+
+Stores items to monitor for stock levels in the alliance market structure.
+
+```sql
+CREATE TABLE watchlist_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type_id bigint NOT NULL UNIQUE,
+  item_name text NOT NULL,
+  group_name text,
+  category_name text,
+  volume numeric,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_watchlist_items_type_id ON watchlist_items(type_id);
+```
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | uuid | PK, auto-generated | Unique identifier |
+| type_id | bigint | NOT NULL, UNIQUE | EVE item type ID |
+| item_name | text | NOT NULL | Display name of the item |
+| group_name | text | nullable | Item group (e.g., "Damage Control") |
+| category_name | text | nullable | Item category (e.g., "Module", "Ship") |
+| volume | numeric | nullable | Volume per unit in m³ |
+| created_at | timestamptz | DEFAULT now() | When item was added to watchlist |
+
+**Purpose:** Allows users to track specific items and check if they need restocking in the alliance structure.
+
+**Usage:** The Watchlist tab in Market Seeder uses this table to store tracked items. Stock levels are checked in real-time from ESI structure orders.
+
+---
+
 ## Triggers
 
 ### update_updated_at_column
@@ -358,6 +392,23 @@ export interface MarketHistoryEntry {
   volume: number
   region_id: number
   updated_at: string
+}
+
+// Watchlist types
+export interface WatchlistItem {
+  id: string
+  type_id: number
+  item_name: string
+  group_name: string | null
+  category_name: string | null
+  volume: number | null
+  created_at: string
+}
+
+export interface WatchlistItemWithStock extends WatchlistItem {
+  stock: number
+  lowest_price: number | null
+  needs_restock: boolean
 }
 ```
 
@@ -583,6 +634,25 @@ SELECT * FROM get_market_seeder_statistics(
 ```
 
 Returns volume and trend metrics for market seeder profit analysis.
+
+### Migration 009: Watchlist Items
+
+```sql
+-- migrations/009_watchlist.sql
+-- Watchlist items table for Market Seeder watchlist feature
+
+CREATE TABLE watchlist_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type_id bigint NOT NULL UNIQUE,
+  item_name text NOT NULL,
+  group_name text,
+  category_name text,
+  volume numeric,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_watchlist_items_type_id ON watchlist_items(type_id);
+```
 
 ---
 
