@@ -495,6 +495,95 @@ COMMENT ON TABLE market_history IS 'Cached market history from ESI, refreshed we
 COMMENT ON COLUMN market_history.region_id IS 'EVE region ID - 10000002 = The Forge (Jita)';
 ```
 
+### Migration 005: Market Statistics Function
+
+```sql
+-- migrations/005_market_statistics_function.sql
+-- Creates a function for efficient market opportunity analysis
+-- Calculates statistics server-side instead of fetching all rows
+
+CREATE OR REPLACE FUNCTION get_market_statistics(
+  p_region_id BIGINT DEFAULT 10000002,
+  p_days_back INTEGER DEFAULT 30,
+  p_min_data_points INTEGER DEFAULT 7
+)
+RETURNS TABLE (
+  type_id BIGINT,
+  mean_price NUMERIC,
+  std_dev NUMERIC,
+  avg_volume NUMERIC,
+  data_points BIGINT,
+  volatility NUMERIC,
+  first_price NUMERIC,
+  last_price NUMERIC,
+  momentum NUMERIC
+);
+```
+
+**Usage:**
+```sql
+SELECT * FROM get_market_statistics(
+  ARRAY[34, 35, 36]::BIGINT[],  -- type_ids to analyze
+  10000002,                       -- region_id
+  365,                            -- days_back
+  3                               -- min_data_points
+);
+```
+
+Returns pre-aggregated statistics per item instead of raw rows (~5k rows vs ~800k).
+
+### get_sell_statistics
+
+```sql
+-- migrations/006_sell_statistics_function.sql
+-- Aggregates ATH and mean price for sell opportunity analysis
+
+CREATE OR REPLACE FUNCTION get_sell_statistics(
+  p_type_ids BIGINT[],
+  p_region_id BIGINT DEFAULT 10000002
+)
+RETURNS TABLE (
+  type_id BIGINT,
+  all_time_high NUMERIC,
+  mean_price NUMERIC,
+  data_points BIGINT
+);
+```
+
+### get_market_seeder_statistics
+
+```sql
+-- migrations/008_market_seeder_statistics.sql
+-- Calculates demand metrics for market seeder analysis
+
+CREATE OR REPLACE FUNCTION get_market_seeder_statistics(
+  p_type_ids BIGINT[],
+  p_region_id BIGINT DEFAULT 10000002,
+  p_days_back INTEGER DEFAULT 30
+)
+RETURNS TABLE (
+  type_id BIGINT,
+  total_volume NUMERIC,
+  avg_daily_volume NUMERIC,
+  avg_price NUMERIC,
+  total_orders BIGINT,
+  recent_avg_volume NUMERIC,   -- Last 7 days
+  older_avg_volume NUMERIC,    -- Days 8-30
+  trend_direction TEXT         -- 'up', 'down', 'stable'
+);
+```
+
+**Usage:**
+```sql
+SELECT * FROM get_market_seeder_statistics(
+  ARRAY[34, 35, 36]::BIGINT[],
+  10000002,
+  30
+);
+```
+
+Returns volume and trend metrics for market seeder profit analysis.
+
 ---
 
 ## Notes

@@ -2,8 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/esi/market-history",
-      "schedule": "0 12 * * 0"
+      "path": "/api/esi/market-history?mode=daily",
+      "schedule": "0 12 * * *"
     }
   ]
 }

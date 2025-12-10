@@ -29,6 +29,9 @@
 - **🔑 EVE SSO Integration** — Grab OAuth tokens for use in external scripts/cron jobs
 - **🧮 Industry Calculator** — Calculate material requirements and costs for any blueprint
 - **🛒 Buy Mode** — Automatically adjust materials based on buy vs build recommendations
+- **📈 Market Seeder** — Analyze profitability for importing items from Jita to alliance hubs
+- **📊 Market Opportunities** — Find undervalued items using mean reversion analysis
+- **💹 Sell Opportunities** — Identify optimal sell timing by comparing current prices to all-time highs
 
 ---
 
@@ -273,6 +276,28 @@ When components are present, a **Buy Mode** toggle appears at the top of results
 
 This helps you optimize between building and buying intermediate components.
 
+### Sell Opportunities
+
+Identify the best time to sell items you're holding:
+
+1. Navigate to **Sell Opportunities** from the home page
+2. Login with EVE SSO (grants assets permission)
+3. Your character's assets are automatically loaded and analyzed
+4. Each item shows:
+   - **Current Jita sell price**
+   - **All-time high price** (from historical market data)
+   - **% of ATH** — How close current price is to the all-time high
+
+#### Color-Coded Recommendations
+
+| Color | % of ATH | Recommendation |
+|-------|----------|----------------|
+| 🟢 Green | >= 80% | Good time to sell - near all-time high |
+| 🟠 Orange | 60-79% | Consider holding - moderate pricing |
+| 🔴 Red | < 60% | Wait for better prices |
+
+Use the filter buttons to quickly see only items in each category, and sort by value or % of ATH to prioritize your sales.
+
 ---
 
 ## 📚 Documentation
@@ -309,6 +334,7 @@ For detailed explanations with examples, see [docs/calculations/](./docs/calcula
 | **Industry** | `/api/industry/*` | [docs/api/industry.md](./docs/api/industry.md) |
 | **Auth** | `/api/auth/eve/*` | [docs/api/auth.md](./docs/api/auth.md) |
 | **ESI** | `/api/esi/*` | [docs/api/esi.md](./docs/api/esi.md) |
+| **Market Seeder** | `/api/market-seeder/*` | [docs/api/market-seeder.md](./docs/api/market-seeder.md) |
 
 ### Key Endpoints
 
@@ -320,7 +346,11 @@ For detailed explanations with examples, see [docs/calculations/](./docs/calcula
 | `DELETE` | `/api/projects/[id]`                  | Delete a project               |
 | `POST`   | `/api/industry/calculate`             | Calculate blueprint materials  |
 | `GET`    | `/api/esi/structure-orders`           | Get structure market orders    |
-| `GET`    | `/api/esi/market-history`             | Fetch market history for all items (weekly cron) |
+| `GET`    | `/api/esi/character-assets`           | Get character assets (auth required) |
+| `GET`    | `/api/esi/market-history`             | Fetch market history (daily cron) |
+| `POST`   | `/api/sell-opportunities`             | Analyze assets for sell timing |
+| `GET`    | `/api/market/opportunities`           | Find undervalued market items |
+| `GET`    | `/api/market-seeder/analyze`          | Analyze profitable import items |
 
 ### Create Project Request
 
@@ -343,18 +373,24 @@ EveOnlineTracker/
 │   │   ├── auth/eve/      # EVE SSO authentication
 │   │   ├── esi/           # ESI proxy endpoints
 │   │   ├── industry/      # Industry calculator API
+│   │   ├── market-seeder/ # Market seeder analysis
 │   │   └── projects/      # Project CRUD endpoints
 │   ├── callback/          # EVE SSO callback page
 │   ├── industry/          # Industry calculator page
+│   ├── market-seeder/     # Market seeder page
+│   ├── sell-opportunities/# Sell opportunity analysis page
 │   ├── projects/          # Project pages
 │   │   ├── [id]/         # Project detail view
-│   │   └── new/          # Create project form
-│   ├── layout.tsx        # Root layout with auth
-│   └── page.tsx          # Home page (project list)
+│   │   ├── new/          # Create project form
+│   │   └── page.tsx      # Project list
+│   ├── layout.tsx        # Root layout with sidebar
+│   └── page.tsx          # Dashboard home page
 │
 ├── components/            # React components
 │   ├── ui/               # shadcn/ui components
 │   ├── industry/         # Industry calculator components
+│   ├── sidebar.tsx       # Navigation sidebar
+│   ├── sidebar-layout.tsx# Layout wrapper with sidebar
 │   ├── auth-gate.tsx     # Password protection
 │   ├── item-list.tsx     # Item display with checkboxes
 │   └── ...
@@ -364,11 +400,13 @@ EveOnlineTracker/
 │   ├── esi.ts            # eve-industry.org API client
 │   ├── eve-sso.ts        # EVE SSO OAuth helpers
 │   ├── janice.ts         # Janice market API client
+│   ├── market-seeder.ts  # Market seeder algorithm
 │   ├── sde.ts            # Static data utilities
 │   └── utils.ts          # Helper functions
 │
 ├── types/                 # TypeScript definitions
-│   └── database.ts       # Database types
+│   ├── database.ts       # Database types
+│   └── market-seeder.ts  # Market seeder types
 │
 ├── utils/supabase/       # Supabase client
 │   └── server.ts         # Server-side client

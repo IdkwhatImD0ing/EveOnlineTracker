@@ -13,6 +13,11 @@ app/
 │   └── page.tsx            # EVE SSO callback (/callback)
 ├── industry/
 │   └── page.tsx            # Industry calculator (/industry)
+├── market/
+│   └── opportunities/
+│       └── page.tsx        # Market opportunities (/market/opportunities)
+├── sell-opportunities/
+│   └── page.tsx            # Sell opportunities (/sell-opportunities)
 └── projects/
     ├── new/
     │   └── page.tsx        # New project form (/projects/new)
@@ -27,6 +32,8 @@ app/
 | [Home](./home.md) | `/` | Project list and navigation hub |
 | [EVE SSO Callback](./callback.md) | `/callback` | Token display and ESI API tester |
 | [Industry Calculator](./industry-calculator.md) | `/industry` | Blueprint material calculations |
+| [Market Opportunities](./market-opportunities.md) | `/market/opportunities` | Find undervalued items using mean reversion analysis |
+| [Sell Opportunities](./sell-opportunities.md) | `/sell-opportunities` | Identify optimal sell timing for character assets |
 | [Projects](./projects.md) | `/projects/*` | Project creation and detail views |
 
 ## Navigation Flow

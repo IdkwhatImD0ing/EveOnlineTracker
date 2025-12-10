@@ -42,3 +42,16 @@ next-env.d.ts
 
 # EVE SDE data
 data/*.sqlite
+
+# Cache files (large, regenerated at runtime)
+data/market-history-cache.jsonl
+data/import-report.json
+
+# Test output files
+missing.json
+response.json
+test.json
+test_result.json
+verify.json
+verify2.json
+verify3.json

@@ -13,6 +13,13 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // Custom rule overrides
+  {
+    rules: {
+      // Allow setState in effects for legitimate use cases like hydration from localStorage
+      "@eslint-react/hooks-extra/no-direct-set-state-in-use-effect": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

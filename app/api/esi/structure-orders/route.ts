@@ -31,6 +31,7 @@ interface TypeInfo {
  *   - structure_id (required): The structure ID to fetch orders from
  *   - page (optional): Page number, defaults to fetching all pages
  *   - buy_orders (optional): If 'true', only return buy orders. If 'false', only sell orders. Default: sell orders only
+ *   - all (optional): If 'true', return all orders grouped by type_id instead of top 5
  * 
  * Headers:
  *   - Authorization (required): Bearer token from EVE SSO (requires esi-markets.structure_markets.v1 scope)
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const structureId = searchParams.get('structure_id')
   const includeBuyOrders = searchParams.get('buy_orders') === 'true'
+  const returnAllOrders = searchParams.get('all') === 'true'
   
   // Get authorization header
   const authHeader = request.headers.get('authorization')
@@ -103,6 +105,54 @@ export async function GET(request: NextRequest) {
       includeBuyOrders ? order.is_buy_order : !order.is_buy_order
     )
 
+    // If all=true, return orders grouped by type_id with lowest price per type
+    if (returnAllOrders) {
+      // Group orders by type_id and find lowest sell price for each
+      const ordersByType: Record<number, {
+        lowestPrice: number
+        totalVolume: number
+        orderCount: number
+        orders: MarketOrder[]
+      }> = {}
+
+      for (const order of filteredOrders) {
+        if (!ordersByType[order.type_id]) {
+          ordersByType[order.type_id] = {
+            lowestPrice: order.price,
+            totalVolume: order.volume_remain,
+            orderCount: 1,
+            orders: [order]
+          }
+        } else {
+          const existing = ordersByType[order.type_id]
+          if (order.price < existing.lowestPrice) {
+            existing.lowestPrice = order.price
+          }
+          existing.totalVolume += order.volume_remain
+          existing.orderCount++
+          existing.orders.push(order)
+        }
+      }
+
+      // Convert to array format
+      const typesSummary = Object.entries(ordersByType).map(([typeId, data]) => ({
+        type_id: parseInt(typeId),
+        lowest_price: data.lowestPrice,
+        total_volume: data.totalVolume,
+        order_count: data.orderCount
+      }))
+
+      return NextResponse.json({
+        structure_id: structureId,
+        order_type: includeBuyOrders ? 'buy' : 'sell',
+        total_orders: filteredOrders.length,
+        total_pages_fetched: totalPages,
+        unique_types: typesSummary.length,
+        orders_by_type: typesSummary
+      })
+    }
+
+    // Original behavior: return top 5 most expensive
     // Sort by price (descending) to get most expensive first
     const sortedOrders = filteredOrders.sort((a, b) => b.price - a.price)
 

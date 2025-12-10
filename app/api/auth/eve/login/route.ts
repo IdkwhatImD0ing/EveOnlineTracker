@@ -32,6 +32,7 @@ export async function GET() {
     'esi-search.search_structures.v1',     // Required for structure search
     'esi-universe.read_structures.v1',     // Required for reading structure details (type_id, name, etc.)
     'esi-markets.structure_markets.v1',    // Required for fetching market orders from structures
+    'esi-assets.read_assets.v1',           // Required for fetching character assets
   ]
   const authUrl = getAuthorizationUrl(clientId, callbackUrl, state, scopes)
 

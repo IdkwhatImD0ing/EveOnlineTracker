@@ -14,12 +14,14 @@ Welcome to the comprehensive documentation for the EVE Online Industry Tracker. 
 
 ## Project Overview
 
-The EVE Online Industry Tracker is a Next.js web application designed to help EVE Online players manage their manufacturing projects. It provides:
+The EVE Online Tracker is a Next.js web application designed to help EVE Online players with industry, trading, and market analysis. It provides:
 
+- **Market Seeder**: Analyze profitability for importing items from Jita to alliance hubs
 - **Project Management**: Create and track manufacturing projects with raw materials and components
 - **Industry Calculator**: Calculate material requirements, job costs, and build times for any blueprint
-- **Market Integration**: Real-time Jita market prices via Janice API
+- **Market Integration**: Real-time Jita prices via ESI, 365 days of historical data in Supabase
 - **Buy vs Build Analysis**: Optimize between building and purchasing components
+- **Sell Opportunities**: Analyze asset prices to find optimal selling times
 - **EVE SSO Integration**: Authenticate with EVE Online for ESI API access
 
 ## Tech Stack
@@ -39,18 +41,20 @@ The EVE Online Industry Tracker is a Next.js web application designed to help EV
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Frontend (Next.js)                        │
 ├─────────────────────────────────────────────────────────────────┤
-│  Pages                    │  Components                          │
-│  ├── / (Home)            │  ├── UI Components (shadcn/ui)       │
-│  ├── /industry           │  ├── Industry Components             │
-│  ├── /projects/new       │  ├── Item Lists                      │
-│  ├── /projects/[id]      │  └── Price Summaries                 │
-│  └── /callback           │                                       │
+│  Sidebar Navigation      │  Pages                                │
+│  ├── Dashboard (/)       │  ├── Account overview & quick links   │
+│  ├── Market Seeder       │  ├── Import profit analyzer           │
+│  ├── Projects            │  ├── Manufacturing project tracker    │
+│  ├── Industry            │  ├── Blueprint calculator             │
+│  ├── Sell Opportunities  │  ├── Asset price analysis             │
+│  └── EVE SSO             │  └── Login & API tokens               │
 ├─────────────────────────────────────────────────────────────────┤
 │                        API Routes                                │
 ├─────────────────────────────────────────────────────────────────┤
 │  /api/auth/eve/*         │  EVE SSO authentication              │
 │  /api/esi/*              │  ESI proxy endpoints                 │
 │  /api/industry/*         │  Industry calculations               │
+│  /api/market-seeder/*    │  Market seeder analysis              │
 │  /api/projects/*         │  Project CRUD operations             │
 ├─────────────────────────────────────────────────────────────────┤
 │                     Library Functions                            │
@@ -58,12 +62,13 @@ The EVE Online Industry Tracker is a Next.js web application designed to help EV
 │  lib/blueprints.ts       │  Blueprint data & calculations       │
 │  lib/esi.ts              │  EVE industry API client             │
 │  lib/janice.ts           │  Janice market API client            │
+│  lib/market-seeder.ts    │  Market seeder algorithm             │
 │  lib/eve-sso.ts          │  EVE SSO OAuth helpers               │
 │  lib/sde.ts              │  Static data utilities               │
 ├─────────────────────────────────────────────────────────────────┤
 │                    External Services                             │
 ├─────────────────────────────────────────────────────────────────┤
-│  Supabase                │  Database storage                    │
+│  Supabase                │  Database storage (365 days market)  │
 │  Janice API              │  Market price data                   │
 │  eve-industry.org        │  Cost indices & job costs            │
 │  EVE ESI                 │  Game data & character info          │
@@ -127,10 +132,12 @@ docs/
 │   ├── auth.md                 # EVE SSO authentication routes
 │   ├── esi.md                  # ESI proxy routes
 │   ├── industry.md             # Industry calculator routes
+│   ├── market-seeder.md        # Market seeder analysis routes
 │   └── projects.md             # Project CRUD routes
 ├── pages/
 │   ├── README.md               # Pages overview
-│   ├── home.md                 # Home page
+│   ├── dashboard.md            # Dashboard home page
+│   ├── market-seeder.md        # Market seeder page
 │   ├── callback.md             # EVE SSO callback
 │   ├── industry-calculator.md  # Industry calculator
 │   └── projects.md             # Project pages

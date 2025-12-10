@@ -251,6 +251,100 @@ curl -X GET "http://localhost:3000/api/esi/structure-orders?structure_id=1051567
 
 ---
 
+### GET /api/esi/character-assets
+
+Fetches all assets for the authenticated character, aggregated by item type.
+
+**Required Scopes:**
+- `esi-assets.read_assets.v1`
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| include_blueprints | boolean | No | false | Include blueprint copies in results |
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| Authorization | Yes | Bearer token from EVE SSO |
+
+**Example Request:**
+```bash
+curl -X GET "http://localhost:3000/api/esi/character-assets" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Success Response (200):**
+```json
+{
+  "character_id": 123456789,
+  "total_unique_types": 245,
+  "total_items": 1523,
+  "pages_fetched": 2,
+  "assets": [
+    {
+      "type_id": 34,
+      "type_name": "Tritanium",
+      "total_quantity": 50000000,
+      "locations": 3
+    },
+    {
+      "type_id": 35,
+      "type_name": "Pyerite",
+      "total_quantity": 25000000,
+      "locations": 2
+    }
+  ]
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| character_id | number | The authenticated character's ID |
+| total_unique_types | number | Number of unique item types |
+| total_items | number | Total individual asset entries |
+| pages_fetched | number | Number of ESI pages retrieved |
+| assets | array | Aggregated assets by type |
+
+**Asset Object Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| type_id | number | EVE type ID |
+| type_name | string | Human-readable item name |
+| total_quantity | number | Total quantity across all locations |
+| locations | number | Number of unique locations |
+| is_blueprint_copy | boolean | True if item is a blueprint copy (only if include_blueprints=true) |
+
+**Error Responses:**
+
+*Missing authorization (401):*
+```json
+{
+  "error": "Authorization header required. Login with EVE SSO first (requires esi-assets.read_assets.v1 scope)."
+}
+```
+
+*Invalid token (401):*
+```json
+{
+  "error": "Invalid access token - could not extract character ID"
+}
+```
+
+**Implementation Notes:**
+- Fetches all pages of assets from ESI in parallel
+- Aggregates assets by type_id, summing quantities
+- Resolves type names from local `data/inv-types.json`
+- Blueprint copies are excluded by default (set `include_blueprints=true` to include)
+- Sorted by total quantity descending
+
+---
+
 ## ISK Formatting
 
 The API formats ISK values using these suffixes:
@@ -267,7 +361,7 @@ The API formats ISK values using these suffixes:
 
 ### GET /api/esi/market-history
 
-Fetches historical market statistics for all tradeable items (ships, modules, ammo, boosters) from ESI and stores the last 7 days in Supabase. Designed to be called by a weekly cron job.
+Fetches historical market statistics for all tradeable items (ships, modules, ammo, boosters) from ESI and stores in Supabase. Supports multiple modes for initial data population and daily updates.
 
 **Authentication:** None required (ESI market history is public)
 
@@ -275,39 +369,61 @@ Fetches historical market statistics for all tradeable items (ships, modules, am
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
+| mode | string | No | legacy | Fetch mode: `initial`, `daily`, or `legacy` |
+| days | integer | No | 365 | Days to fetch for `initial` mode |
 | region_id | integer | No | 10000002 | EVE region ID (The Forge = Jita) |
 | limit | integer | No | - | Limit items to process (for testing) |
 
-**Example Request:**
+**Modes:**
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `initial` | Fetch last N days (default 365) | One-time data population |
+| `daily` | Fetch only yesterday's data | Daily cron job (efficient append) |
+| `legacy` | Fetch last 7 days | Original behavior (backward compatibility) |
+
+**Example Requests:**
 ```bash
-# Full batch (all ~5,800 items)
-curl -X GET "http://localhost:3000/api/esi/market-history"
+# Initial population (365 days of history)
+curl -X GET "http://localhost:3000/api/esi/market-history?mode=initial"
+
+# Initial with custom days
+curl -X GET "http://localhost:3000/api/esi/market-history?mode=initial&days=180"
+
+# Daily update (yesterday only)
+curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily"
+
+# Legacy mode (last 7 days)
+curl -X GET "http://localhost:3000/api/esi/market-history?mode=legacy"
 
 # Limited batch for testing
-curl -X GET "http://localhost:3000/api/esi/market-history?limit=100"
+curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily&limit=100"
 ```
 
 **Success Response (200):**
 ```json
 {
   "success": true,
+  "mode": "daily",
+  "mode_description": "daily (2025-12-09 only)",
   "summary": {
     "total_items": 5841,
     "successful_fetches": 2569,
     "failed_fetches": 3272,
     "items_with_market_data": 2157,
-    "total_rows": 12582,
-    "rows_inserted": 12582
+    "total_rows": 2157,
+    "rows_inserted": 2157
   },
   "timing": {
     "esi_fetch_ms": 40987,
-    "supabase_upsert_ms": 2102,
-    "total_ms": 43090
+    "supabase_upsert_ms": 502,
+    "total_ms": 41490
   },
   "config": {
     "region_id": 10000002,
     "concurrent_requests": 50,
-    "date_from": "2025-12-02"
+    "date_from": "2025-12-09",
+    "date_to": "2025-12-09"
   },
   "errors": {
     "esi_failures": [
@@ -322,10 +438,12 @@ curl -X GET "http://localhost:3000/api/esi/market-history?limit=100"
 
 | Field | Type | Description |
 |-------|------|-------------|
+| mode | string | The mode used for this fetch |
+| mode_description | string | Human-readable mode description |
 | summary.total_items | number | Total tradeable items processed |
 | summary.successful_fetches | number | Items successfully fetched from ESI |
 | summary.failed_fetches | number | Items that failed (usually no market data) |
-| summary.items_with_market_data | number | Items with data in last 7 days |
+| summary.items_with_market_data | number | Items with data in the date range |
 | summary.total_rows | number | Total market history rows generated |
 | summary.rows_inserted | number | Rows upserted to Supabase |
 | timing.esi_fetch_ms | number | Time spent fetching from ESI |
@@ -333,14 +451,16 @@ curl -X GET "http://localhost:3000/api/esi/market-history?limit=100"
 | timing.total_ms | number | Total processing time |
 | config.region_id | number | Region ID used |
 | config.concurrent_requests | number | Parallel request count |
-| config.date_from | string | Start date for 7-day window |
+| config.date_from | string | Start date of fetch range |
+| config.date_to | string | End date (or "today" for range modes) |
 | errors.esi_failures | array | First 10 ESI failures (for debugging) |
 | errors.supabase_errors | array | Database errors if any |
 
 **Implementation Notes:**
 - Reads items from `data/tradeable-items.jsonl` (ships, modules, ammo, boosters)
 - Fetches ESI market history with 50 concurrent requests
-- Filters to last 7 days of data
+- `initial` mode: Fetches last 365 days for full historical data
+- `daily` mode: Fetches only yesterday (single day append - efficient)
 - Upserts to Supabase `market_history` table (ON CONFLICT replace)
 - Failed fetches are normal - many items have no regional market data
 
@@ -349,13 +469,18 @@ curl -X GET "http://localhost:3000/api/esi/market-history?limit=100"
 {
   "crons": [
     {
-      "path": "/api/esi/market-history",
-      "schedule": "0 12 * * 0"
+      "path": "/api/esi/market-history?mode=daily",
+      "schedule": "0 12 * * *"
     }
   ]
 }
 ```
-Runs every Sunday at 12:00 UTC.
+Runs daily at 12:00 UTC to append yesterday's data.
+
+**Setup Workflow:**
+1. Run `?mode=initial` once to populate 365 days of history
+2. Daily cron job runs `?mode=daily` to append new data
+3. Historical data grows over time (no data is deleted)
 
 ---
 
@@ -440,10 +565,234 @@ curl -X GET "http://localhost:3000/api/esi/market-history-test?type_id=587"
 
 ---
 
+---
+
+### POST /api/sell-opportunities
+
+Analyzes character assets against historical market data to identify optimal sell opportunities. Compares current Jita sell prices to all-time high prices.
+
+**Authentication:** None required (but requires asset data from authenticated endpoint)
+
+**Request Body:**
+```json
+{
+  "assets": [
+    { "type_id": 34, "type_name": "Tritanium", "quantity": 1000000 },
+    { "type_id": 35, "type_name": "Pyerite", "quantity": 500000 }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| assets | array | Yes | Array of assets to analyze |
+| assets[].type_id | number | Yes | EVE type ID |
+| assets[].type_name | string | Yes | Item name (used for Janice API lookup) |
+| assets[].quantity | number | Yes | Quantity owned |
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:3000/api/sell-opportunities" \
+  -H "Content-Type: application/json" \
+  -d '{"assets":[{"type_id":34,"type_name":"Tritanium","quantity":1000000}]}'
+```
+
+**Success Response (200):**
+```json
+{
+  "opportunities": [
+    {
+      "type_id": 34,
+      "type_name": "Tritanium",
+      "quantity": 1000000,
+      "current_sell_price": 5.85,
+      "all_time_high": 6.50,
+      "percent_of_ath": 90,
+      "total_value": 5850000,
+      "recommendation": "sell",
+      "recommendation_text": "Good time to sell - near all-time high"
+    }
+  ],
+  "summary": {
+    "total_items": 1,
+    "sell_now_count": 1,
+    "hold_count": 0,
+    "wait_count": 0,
+    "total_value": 5850000,
+    "sell_now_value": 5850000,
+    "items_with_ath_data": 1
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| opportunities | array | Analyzed items sorted by % of ATH (descending) |
+| summary.total_items | number | Total items analyzed |
+| summary.sell_now_count | number | Items with "sell" recommendation |
+| summary.hold_count | number | Items with "hold" recommendation |
+| summary.wait_count | number | Items with "wait" recommendation |
+| summary.total_value | number | Total ISK value of all items |
+| summary.sell_now_value | number | ISK value of items recommended to sell |
+| summary.items_with_ath_data | number | Items with historical ATH data |
+
+**Opportunity Object Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| type_id | number | EVE type ID |
+| type_name | string | Item name |
+| quantity | number | Quantity owned |
+| current_sell_price | number | Current Jita sell price per unit |
+| all_time_high | number | Highest historical price (from market_history) |
+| percent_of_ath | number | Current price as percentage of ATH |
+| total_value | number | current_sell_price × quantity |
+| recommendation | string | "sell", "hold", or "wait" |
+| recommendation_text | string | Human-readable recommendation |
+
+**Recommendation Thresholds:**
+
+| Recommendation | % of ATH | Color | Description |
+|----------------|----------|-------|-------------|
+| sell | >= 80% | Green | Good time to sell |
+| hold | 60-79% | Orange | Consider holding |
+| wait | < 60% | Red | Wait for better prices |
+
+**Implementation Notes:**
+- Queries `market_history` table for MAX(highest) per type_id
+- Gets current Jita sell prices via Janice API
+- Items without historical data show 100% if they have a current price
+- Results sorted by percent_of_ath descending (best opportunities first)
+
+---
+
+### GET /api/esi/wallet
+
+Fetches character wallet balance from ESI.
+
+**Authentication:** Required (EVE SSO Bearer token)
+
+**Required Scope:** `esi-wallet.read_character_wallet.v1`
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| character_id | integer | Yes | Character ID |
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| Authorization | Yes | Bearer token from EVE SSO |
+
+**Example Request:**
+```bash
+curl -X GET "http://localhost:3000/api/esi/wallet?character_id=12345678" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Success Response (200):**
+```json
+{
+  "character_id": "12345678",
+  "balance": 1234567890.50,
+  "balance_formatted": "1.23B ISK"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| character_id | string | The queried character ID |
+| balance | number | Raw ISK balance |
+| balance_formatted | string | Human-readable balance with suffix |
+
+---
+
+### GET /api/esi/character-orders
+
+Fetches character market orders from ESI with aggregated statistics.
+
+**Authentication:** Required (EVE SSO Bearer token)
+
+**Required Scope:** `esi-markets.read_character_orders.v1`
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| character_id | integer | Yes | Character ID |
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| Authorization | Yes | Bearer token from EVE SSO |
+
+**Example Request:**
+```bash
+curl -X GET "http://localhost:3000/api/esi/character-orders?character_id=12345678" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Success Response (200):**
+```json
+{
+  "character_id": "12345678",
+  "total_orders": 25,
+  "sell_orders": {
+    "count": 20,
+    "total_value": 5000000000,
+    "total_value_formatted": "5.00B ISK"
+  },
+  "buy_orders": {
+    "count": 5,
+    "total_escrow": 100000000,
+    "total_escrow_formatted": "100.00M ISK"
+  },
+  "orders": [
+    {
+      "order_id": 123456,
+      "type_id": 587,
+      "is_buy_order": false,
+      "price": 1500000,
+      "price_formatted": "1.50M ISK",
+      "volume_remain": 10,
+      "volume_total": 50,
+      "location_id": 60003760,
+      "issued": "2025-12-01T12:00:00Z",
+      "duration": 90
+    }
+  ]
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| character_id | string | The queried character ID |
+| total_orders | number | Total active market orders |
+| sell_orders.count | number | Number of sell orders |
+| sell_orders.total_value | number | Total value of items for sale |
+| buy_orders.count | number | Number of buy orders |
+| buy_orders.total_escrow | number | Total ISK in escrow |
+| orders | array | Individual order details |
+
+---
+
 ## Related Files
 
 - `app/api/esi/keepstar-3t7/route.ts` - Keepstar search implementation
 - `app/api/esi/structure-orders/route.ts` - Structure orders implementation
+- `app/api/esi/character-assets/route.ts` - Character assets implementation
+- `app/api/esi/wallet/route.ts` - Character wallet balance
+- `app/api/esi/character-orders/route.ts` - Character market orders
+- `app/api/sell-opportunities/route.ts` - Sell opportunities analysis
 - `app/api/esi/market-history/route.ts` - Market history batch implementation
 - `app/api/esi/market-history-test/route.ts` - Market history test implementation
 - `data/tradeable-items.jsonl` - Source file for tradeable items

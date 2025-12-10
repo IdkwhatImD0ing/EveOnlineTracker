@@ -13,6 +13,7 @@ The application provides a REST API built with Next.js API Routes (App Router). 
 | [Authentication](./auth.md) | `/api/auth/eve/*` | EVE SSO OAuth authentication |
 | [ESI Proxy](./esi.md) | `/api/esi/*` | Proxied EVE ESI endpoints |
 | [Industry](./industry.md) | `/api/industry/*` | Industry calculator endpoints |
+| [Market](./market.md) | `/api/market/*` | Market analysis endpoints |
 | [Projects](./projects.md) | `/api/projects/*` | Project CRUD operations |
 
 ## Conventions
@@ -95,6 +96,12 @@ Authorization: Bearer <access_token>
 | POST | `/api/industry/calculate` | Calculate build requirements |
 | GET | `/api/industry/systems` | List popular systems |
 | POST | `/api/industry/systems` | Get system cost index |
+
+### Market Routes
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/market/opportunities` | Find undervalued items using mean reversion |
 
 ### Project Routes
 
