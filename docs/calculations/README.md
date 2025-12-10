@@ -16,7 +16,8 @@ EVE Online's industry system involves complex calculations for:
 ### Material Efficiency Formula
 
 ```
-adjustedQuantity = max(runs, ceil(round(baseQuantity × runs × (1 - totalME), 2)))
+perRunQuantity = max(1, ceil(baseQuantity × (1 - totalME)))
+adjustedQuantity = perRunQuantity × runs
 ```
 
 Where `totalME = blueprintME + structureME + (rigME × securityMultiplier)`

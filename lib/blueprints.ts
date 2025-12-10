@@ -167,13 +167,12 @@ export function calculateMaterialQuantity(
   // Total ME reduction (blueprint ME + structure + rig * security)
   const totalMeReduction = (blueprintMe / 100) + structureMeBonus + (rigMeBonus * securityMultiplier)
   
-  // Apply ME formula to total quantity
-  const rawQuantity = baseQuantity * runs * (1 - totalMeReduction)
-  const rounded = Math.round(rawQuantity * 100) / 100 // Round to 2 decimal places
-  const adjusted = Math.ceil(rounded)
+  // EVE Online calculates ME per-run first, then multiplies by runs
+  // Formula: max(1, ceil(baseQuantity * (1 - totalME))) * runs
+  const perRunRaw = baseQuantity * (1 - totalMeReduction)
+  const perRunAdjusted = Math.max(1, Math.ceil(perRunRaw))
   
-  // Minimum is the number of runs (at least 1 material per run)
-  return Math.max(runs, adjusted)
+  return perRunAdjusted * runs
 }
 
 /**
