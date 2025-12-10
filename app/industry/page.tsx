@@ -14,8 +14,8 @@ import { GroupedMaterials } from "@/components/industry/grouped-materials"
 import { ComponentsList } from "@/components/industry/components-list"
 import { BuildSteps } from "@/components/industry/build-steps"
 import { CostSummary } from "@/components/industry/cost-summary"
-import { ArrowLeft, Calculator, Loader2, Factory, FlaskConical, FolderPlus, ShoppingCart, Hammer } from "lucide-react"
-import type { CalculateResponse, MaterialWithPrice } from "@/app/api/industry/calculate/route"
+import { ArrowLeft, Calculator, Loader2, Factory, FlaskConical } from "lucide-react"
+import type { CalculateResponse } from "@/app/api/industry/calculate/route"
 
 interface BlueprintResult {
   blueprintTypeId: number
@@ -60,6 +60,20 @@ function getSecurityLabel(security: number | null): string {
   return `Nullsec (${secStr})`
 }
 
+// Default values for inputs
+const DEFAULTS = {
+  quantity: 1,
+  runs: 1,
+  blueprintMe: 0,
+  blueprintTe: 0,
+  systemName: "Jita",
+  facilityTax: 0,
+  structureType: "raitaru",
+  rigType: "t1",
+  reactionStructure: "tatara",
+  reactionRig: "t1",
+}
+
 export default function IndustryCalculatorPage() {
   const router = useRouter()
   const [selectedBlueprint, setSelectedBlueprint] = useState<BlueprintResult | null>(null)
@@ -67,10 +81,10 @@ export default function IndustryCalculatorPage() {
   const [runs, setRuns] = useState(1)
   const [blueprintMe, setBlueprintMe] = useState(0)
   const [blueprintTe, setBlueprintTe] = useState(0)
-  const [systemName, setSystemName] = useState("3t7-m8")
-  const [systemSecurity, setSystemSecurity] = useState<number | null>(-0.5)
+  const [systemName, setSystemName] = useState("Jita")
+  const [systemSecurity, setSystemSecurity] = useState<number | null>(1.0)
   const [facilityTax, setFacilityTax] = useState(0)
-  const [structureType, setStructureType] = useState("sotiyo")
+  const [structureType, setStructureType] = useState("raitaru")
   const [rigType, setRigType] = useState("t1")
   const [reactionStructure, setReactionStructure] = useState("tatara")
   const [reactionRig, setReactionRig] = useState("t1")
@@ -80,6 +94,12 @@ export default function IndustryCalculatorPage() {
   const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [result, setResult] = useState<CalculateResponse | null>(null)
   const [error, setError] = useState("")
+  
+  // Save as project state
+  const [isSaving, setIsSaving] = useState(false)
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [projectName, setProjectName] = useState("")
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
   const handleCalculate = async () => {
     if (!selectedBlueprint) return
@@ -94,12 +114,12 @@ export default function IndustryCalculatorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           blueprintTypeId: selectedBlueprint.blueprintTypeId,
-          quantity,
-          runs,
-          blueprintMe,
-          blueprintTe,
-          systemName,
-          facilityTax,
+          quantity: quantity ? parseInt(quantity) : DEFAULTS.quantity,
+          runs: runs ? parseInt(runs) : DEFAULTS.runs,
+          blueprintMe: blueprintMe ? parseInt(blueprintMe) : DEFAULTS.blueprintMe,
+          blueprintTe: blueprintTe ? parseInt(blueprintTe) : DEFAULTS.blueprintTe,
+          systemName: systemName || DEFAULTS.systemName,
+          facilityTax: facilityTax ? parseFloat(facilityTax) : DEFAULTS.facilityTax,
           structureType: selectedBlueprint.isReaction ? reactionStructure : structureType,
           rigType: selectedBlueprint.isReaction ? reactionRig : rigType,
           securityType: getSecurityType(systemSecurity),
@@ -117,36 +137,6 @@ export default function IndustryCalculatorPage() {
       setError(err instanceof Error ? err.message : "Calculation failed")
     } finally {
       setIsCalculating(false)
-    }
-  }
-
-  const handleCreateProject = async () => {
-    if (!result) return
-
-    setIsCreatingProject(true)
-    setError("")
-
-    try {
-      const response = await fetch("/api/projects/from-calculation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          calculation: result,
-          quantity,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to create project")
-      }
-
-      const data = await response.json()
-      router.push(`/projects/${data.project.id}`)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create project")
-    } finally {
-      setIsCreatingProject(false)
     }
   }
 
@@ -249,7 +239,8 @@ export default function IndustryCalculatorPage() {
                       type="number"
                       min={1}
                       value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      placeholder={DEFAULTS.quantity.toString()}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -259,8 +250,8 @@ export default function IndustryCalculatorPage() {
                       type="number"
                       min={1}
                       value={runs}
-                      onChange={(e) => setRuns(Math.max(1, parseInt(e.target.value) || 1))}
-                      placeholder="∞"
+                      onChange={(e) => setRuns(e.target.value)}
+                      placeholder={DEFAULTS.runs.toString()}
                     />
                   </div>
                 </div>
@@ -274,7 +265,8 @@ export default function IndustryCalculatorPage() {
                       min={0}
                       max={10}
                       value={blueprintMe}
-                      onChange={(e) => setBlueprintMe(Math.min(10, Math.max(0, parseInt(e.target.value) || 0)))}
+                      onChange={(e) => setBlueprintMe(e.target.value)}
+                      placeholder={DEFAULTS.blueprintMe.toString()}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -285,7 +277,8 @@ export default function IndustryCalculatorPage() {
                       min={0}
                       max={20}
                       value={blueprintTe}
-                      onChange={(e) => setBlueprintTe(Math.min(20, Math.max(0, parseInt(e.target.value) || 0)))}
+                      onChange={(e) => setBlueprintTe(e.target.value)}
+                      placeholder={DEFAULTS.blueprintTe.toString()}
                     />
                   </div>
                 </div>
@@ -326,7 +319,8 @@ export default function IndustryCalculatorPage() {
                     max={100}
                     step={0.1}
                     value={facilityTax}
-                    onChange={(e) => setFacilityTax(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setFacilityTax(e.target.value)}
+                    placeholder={DEFAULTS.facilityTax.toString()}
                   />
                 </div>
               </CardContent>
@@ -465,8 +459,84 @@ export default function IndustryCalculatorPage() {
                 <CostSummary
                   costs={result.costs}
                   systemCostIndex={result.systemCostIndex}
-                  quantity={quantity}
+                  quantity={quantity ? parseInt(quantity) : DEFAULTS.quantity}
                 />
+
+                {/* Save as Project */}
+                <Card>
+                  <CardContent className="py-4">
+                    {showSaveDialog ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder={`${result.blueprint.productName} Build`}
+                            value={projectName}
+                            onChange={(e) => setProjectName(e.target.value)}
+                            disabled={isSaving || saveSuccess}
+                          />
+                          <Button
+                            onClick={handleSaveAsProject}
+                            disabled={isSaving || saveSuccess || !projectName.trim()}
+                          >
+                            {saveSuccess ? (
+                              <>
+                                <Check className="size-4 mr-1.5" />
+                                Saved!
+                              </>
+                            ) : isSaving ? (
+                              <>
+                                <Loader2 className="size-4 mr-1.5 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="size-4 mr-1.5" />
+                                Save
+                              </>
+                            )}
+                          </Button>
+                          {!saveSuccess && (
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                setShowSaveDialog(false)
+                                setProjectName("")
+                              }}
+                              disabled={isSaving}
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
+                        {saveSuccess && (
+                          <p className="text-sm text-green-500">
+                            Project created! Redirecting...
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Save as Project</p>
+                          <p className="text-sm text-muted-foreground">
+                            Track materials and progress
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowSaveDialog(true)
+                            setProjectName(result.blueprint.productName)
+                            setSaveSuccess(false)
+                          }}
+                        >
+                          <Save className="size-4 mr-1.5" />
+                          Save as Project
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Output Products */}
                 {result.outputs.length > 0 && (

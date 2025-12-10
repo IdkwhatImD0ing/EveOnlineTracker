@@ -32,7 +32,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body: CreateProjectRequest = await request.json()
-    const { name, rawMaterialsInput, componentsInput } = body
+    const { name, rawMaterialsInput, componentsInput, structuredData } = body
 
     if (!name?.trim()) {
       return NextResponse.json(
@@ -43,7 +43,88 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient()
 
-    // Parse items through Janice API (in parallel)
+    // Create the project first
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .insert({ name: name.trim() })
+      .select()
+      .single()
+
+    if (projectError || !project) {
+      return NextResponse.json(
+        { error: projectError?.message || 'Failed to create project' },
+        { status: 500 }
+      )
+    }
+
+    const insertionErrors: string[] = []
+
+    // Check if we have structured data from industry calculator
+    if (structuredData) {
+      // Insert raw materials from structured data
+      if (structuredData.materials.length > 0) {
+        const rawMaterialsData = structuredData.materials.map((item) => ({
+          project_id: project.id,
+          item_name: item.name,
+          type_id: item.typeId,
+          quantity: item.quantity,
+          collected: false,
+          buy_price: item.sellPrice, // Use sell price as buy reference
+          sell_price: item.sellPrice,
+          split_price: null,
+          volume: item.volume,
+          item_type: item.groupName || null,
+        }))
+
+        const { error: rawError } = await supabase
+          .from('raw_materials')
+          .insert(rawMaterialsData)
+
+        if (rawError) {
+          console.error('Error inserting raw materials:', rawError)
+          insertionErrors.push(`Raw materials: ${rawError.message}`)
+        }
+      }
+
+      // Insert components from structured data
+      // Note: build_cost, should_buy, savings are not stored in DB - they're calculated on demand
+      if (structuredData.components.length > 0) {
+        const componentsData = structuredData.components.map((item) => ({
+          project_id: project.id,
+          item_name: item.name,
+          type_id: item.typeId,
+          quantity: item.quantity,
+          collected: false,
+          buy_price: item.sellPrice,
+          sell_price: item.sellPrice,
+          split_price: null,
+          volume: item.volume,
+          item_type: item.groupName || null,
+        }))
+
+        const { error: compError } = await supabase
+          .from('components')
+          .insert(componentsData)
+
+        if (compError) {
+          console.error('Error inserting components:', compError)
+          insertionErrors.push(`Components: ${compError.message}`)
+        }
+      }
+
+      // If any insertions failed, rollback
+      if (insertionErrors.length > 0) {
+        await supabase.from('projects').delete().eq('id', project.id)
+        return NextResponse.json(
+          { error: 'Failed to save project items', details: insertionErrors },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ project, warnings: {} })
+    }
+
+    // Legacy path: Parse items through Janice API
     const [rawMaterialsResult, componentsResult] = await Promise.all([
       rawMaterialsInput?.trim()
         ? createAppraisal(rawMaterialsInput)
@@ -62,22 +143,6 @@ export async function POST(request: NextRequest) {
     const groupNames = allTypeIds.length > 0 
       ? getGroupNamesBatch(allTypeIds) 
       : new Map<number, string>()
-
-    // Create the project
-    const { data: project, error: projectError } = await supabase
-      .from('projects')
-      .insert({ name: name.trim() })
-      .select()
-      .single()
-
-    if (projectError || !project) {
-      return NextResponse.json(
-        { error: projectError?.message || 'Failed to create project' },
-        { status: 500 }
-      )
-    }
-
-    const insertionErrors: string[] = []
 
     // Insert raw materials
     if (rawMaterialsResult.items.length > 0) {

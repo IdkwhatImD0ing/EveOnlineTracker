@@ -44,6 +44,8 @@ export interface Component {
   item_type: string | null
   materials_breakdown: ComponentMaterialBreakdown[] | null
   build_cost: number | null
+  should_buy?: boolean
+  savings?: number | null
 }
 
 export interface AdditionalCost {
@@ -63,8 +65,30 @@ export interface ProjectWithDetails extends Project {
 // API request/response types
 export interface CreateProjectRequest {
   name: string
-  rawMaterialsInput: string
-  componentsInput: string
+  rawMaterialsInput?: string
+  componentsInput?: string
+  // Structured data option (from industry calculator)
+  structuredData?: {
+    materials: Array<{
+      name: string
+      typeId: number
+      quantity: number
+      volume: number
+      sellPrice: number
+      groupName?: string
+    }>
+    components: Array<{
+      name: string
+      typeId: number
+      quantity: number
+      volume: number
+      sellPrice: number
+      groupName?: string
+      buildCost?: number
+      shouldBuy?: boolean
+      savings?: number
+    }>
+  }
 }
 
 export interface UpdateItemRequest {

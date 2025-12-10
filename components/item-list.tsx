@@ -16,7 +16,7 @@ import { Copy, ChevronDown, Check, ArrowUp, ArrowDown, AlertCircle, X, ShoppingC
 import type { RawMaterial, Component } from "@/types/database"
 
 type Item = RawMaterial | Component
-type SortField = "name" | "type" | "quantity" | "progress" | "total"
+type SortField = "name" | "type" | "quantity" | "progress" | "total" | "savings"
 type SortDirection = "asc" | "desc"
 
 // Type guard to check if item is a Component (has quantity_made)
@@ -100,8 +100,8 @@ function SortHeader({ label, field, currentField, direction, onSort, className =
 
 export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUpdate, showBuyRecommendations = false, buyRecommendations }: ItemListProps) {
   const [copied, setCopied] = useState(false)
-  const [sortField, setSortField] = useState<SortField>("name")
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
+  const [sortField, setSortField] = useState<SortField>(showBuyRecommendations ? "savings" : "name")
+  const [sortDirection, setSortDirection] = useState<SortDirection>(showBuyRecommendations ? "desc" : "asc")
   const [error, setError] = useState<string | null>(null)
   const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set())
   const [editingQuantity, setEditingQuantity] = useState<string | null>(null)
@@ -121,13 +121,21 @@ export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUp
     items.some(item => item.buy_price != null && item.buy_price > 0),
     [items]
   )
+  
+  // Check if any items have buy recommendations (for components)
+  const hasBuyRecommendations = useMemo(() => 
+    type === "component" && items.some(item => 
+      'should_buy' in item && item.should_buy === true
+    ),
+    [items, type]
+  )
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
     } else {
       setSortField(field)
-      setSortDirection("asc")
+      setSortDirection(field === "savings" ? "desc" : "asc")
     }
   }
 
@@ -158,6 +166,11 @@ export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUp
           break
         case "total":
           comparison = getItemTotal(a) - getItemTotal(b)
+          break
+        case "savings":
+          const savingsA = ('savings' in a && a.savings) || 0
+          const savingsB = ('savings' in b && b.savings) || 0
+          comparison = savingsA - savingsB
           break
       }
       
@@ -395,34 +408,41 @@ export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUp
           <CardTitle>{title}</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
             {collectedCount} / {totalCount} collected
+            {hasBuyRecommendations && !showBuyRecommendations && (
+              <span className="ml-2 text-amber-500">
+                • Some items cheaper to buy
+              </span>
+            )}
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              {copied ? (
-                <>
-                  <Check className="size-4" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="size-4" />
-                  Copy
-                  <ChevronDown className="size-4" />
-                </>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleCopy("all")}>
-              Copy All ({totalCount})
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleCopy("remaining")}>
-              Copy Remaining ({totalCount - collectedCount})
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                {copied ? (
+                  <>
+                    <Check className="size-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-4" />
+                    Copy
+                    <ChevronDown className="size-4" />
+                  </>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleCopy("all")}>
+                Copy All ({totalCount})
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCopy("remaining")}>
+                Copy Remaining ({totalCount - collectedCount})
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardHeader>
       <CardContent>
         {/* Error Alert */}
