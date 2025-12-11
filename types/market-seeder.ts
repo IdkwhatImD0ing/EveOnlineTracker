@@ -103,9 +103,9 @@ export interface DepletionPrediction {
 
 /**
  * Hub factor for estimating local demand from Vale of the Silent volume
- * Default: 20% (0.2) - your hub sees ~20% of Vale's regional volume
+ * Default: 5% (0.05) - your hub sees ~5% of Vale's regional volume
  */
-export const VALE_HUB_FACTOR = 0.2
+export const VALE_HUB_FACTOR = 0.05
 
 /**
  * Full profit analysis for a single item

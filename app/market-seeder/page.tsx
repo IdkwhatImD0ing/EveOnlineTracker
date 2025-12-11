@@ -16,9 +16,6 @@ import {
   TrendingDown,
   Minus,
   Package,
-  Rocket,
-  Zap,
-  Pill,
   RefreshCw,
   Settings2,
   ChevronDown,
@@ -43,6 +40,7 @@ import {
 } from "lucide-react"
 import { type CapitalOrder, type CapitalEfficiencyResponse, DEAD_CAPITAL_THRESHOLD_DAYS } from "@/types/market-seeder"
 import { Checkbox } from "@/components/ui/checkbox"
+import { EveItemIcon } from "@/components/eve-item-icon"
 import { ItemSearch, TradeableItem } from "@/components/market/item-search"
 
 interface TokenData {
@@ -218,13 +216,6 @@ interface DepletionPrediction {
   priorityScore: number
 }
 
-const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Module: Package,
-  Ship: Rocket,
-  Charge: Zap,
-  Booster: Pill,
-}
-
 const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   loading: Package,
   market_history: Database,
@@ -278,7 +269,6 @@ interface ItemCardProps {
 
 function ItemCard({ item, rank, isSelected, onToggleSelect }: ItemCardProps) {
   const [expanded, setExpanded] = useState(false)
-  const CategoryIcon = CATEGORY_ICONS[item.categoryName] || Package
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -310,7 +300,7 @@ function ItemCard({ item, rank, isSelected, onToggleSelect }: ItemCardProps) {
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <CategoryIcon className="size-4 text-muted-foreground shrink-0" />
+              <EveItemIcon typeId={item.typeId} size={32} className="size-5 shrink-0 rounded" />
               <span className="font-medium truncate">{item.name}</span>
               <TrendIcon direction={item.trendDirection} />
             </div>
@@ -1178,7 +1168,7 @@ export default function MarketSeederPage() {
                   <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4">
                     <p className="font-medium mb-2">How metrics are calculated:</p>
                     <ul className="space-y-1 text-xs">
-                      <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 20% (hub factor)</li>
+                      <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 5% (hub factor)</li>
                       <li>• <strong>Days to Sell</strong> = Volume Remaining ÷ Est. Daily Sales</li>
                       <li>• <strong>APY</strong> = (Profit ÷ Cost) × (365 ÷ Days to Sell) × 100</li>
                       <li>• <strong>Dead Capital</strong> = Orders taking {`>`}{DEAD_CAPITAL_THRESHOLD_DAYS} days to sell</li>
@@ -1220,7 +1210,7 @@ export default function MarketSeederPage() {
                       </p>
                       <p className="text-sm text-muted-foreground">Est. Daily Revenue</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Based on 20% of Vale volume
+                        Based on 5% of Vale volume
                       </p>
                     </CardContent>
                   </Card>
@@ -1341,9 +1331,7 @@ export default function MarketSeederPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {capitalData.orders.map((order) => {
-                        const CategoryIcon = CATEGORY_ICONS[order.categoryName || ''] || Package
-                        return (
+                      {capitalData.orders.map((order) => (
                           <Card
                             key={order.orderId}
                             className={
@@ -1360,7 +1348,7 @@ export default function MarketSeederPage() {
                           >
                             <CardContent className="p-3">
                               <div className="flex items-start gap-3">
-                                <CategoryIcon className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+                                <EveItemIcon typeId={order.typeId} size={32} className="size-6 shrink-0 rounded" />
                                 <div className="flex-1 min-w-0">
                                   <div className="font-medium truncate">{order.itemName}</div>
                                   <div className="text-xs text-muted-foreground">
@@ -1421,8 +1409,7 @@ export default function MarketSeederPage() {
                               )}
                             </CardContent>
                           </Card>
-                        )
-                      })}
+                      ))}
                       {capitalData.orders.length === 0 && (
                         <div className="text-center py-8 text-muted-foreground">
                           <DollarSign className="size-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -1914,9 +1901,7 @@ export default function MarketSeederPage() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {watchlistItems.map((item) => {
-                  const CategoryIcon = CATEGORY_ICONS[item.category_name || ''] || Package
-                  return (
+                {watchlistItems.map((item) => (
                     <Card
                       key={item.id}
                       className={
@@ -1927,7 +1912,7 @@ export default function MarketSeederPage() {
                     >
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
-                          <CategoryIcon className="size-5 text-muted-foreground shrink-0" />
+                          <EveItemIcon typeId={item.type_id} size={32} className="size-6 shrink-0 rounded" />
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">{item.item_name}</div>
                             <div className="text-xs text-muted-foreground truncate">
@@ -1964,8 +1949,7 @@ export default function MarketSeederPage() {
                         </div>
                       </CardContent>
                     </Card>
-                  )
-                })}
+                ))}
               </div>
             )}
           </TabsContent>
@@ -2026,7 +2010,7 @@ export default function MarketSeederPage() {
                   <p className="font-medium mb-2">How it works:</p>
                   <p className="text-xs mb-2">Analyzes all items currently being sold in your structure.</p>
                   <ul className="space-y-1 text-xs">
-                    <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 20% (hub factor)</li>
+                    <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 5% (hub factor)</li>
                     <li>• <strong>Days Until Stockout</strong> = Current Stock ÷ Est. Daily Sales</li>
                     <li>• <strong>Priority</strong> = Est. Daily Sales × Profit per Unit</li>
                   </ul>
@@ -2103,7 +2087,6 @@ export default function MarketSeederPage() {
               <div className="space-y-3">
                 {/* Already sorted by days until stockout (critical first) from API */}
                 {depletionPredictions.map((prediction) => {
-                    const CategoryIcon = CATEGORY_ICONS[prediction.categoryName || ''] || Package
                     const urgencyLevel = prediction.daysUntilStockout === null 
                       ? 'none'
                       : prediction.daysUntilStockout < 3 
@@ -2127,7 +2110,7 @@ export default function MarketSeederPage() {
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start gap-4">
-                            <CategoryIcon className="size-5 text-muted-foreground shrink-0 mt-1" />
+                            <EveItemIcon typeId={prediction.typeId} size={32} className="size-6 shrink-0 rounded" />
                             <div className="flex-1 min-w-0">
                               <div className="font-medium truncate">{prediction.name}</div>
                               <div className="text-xs text-muted-foreground truncate">

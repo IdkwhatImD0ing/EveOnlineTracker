@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Copy, ChevronDown, Check, ArrowUp, ArrowDown, AlertCircle, X, ShoppingCart, Hammer } from "lucide-react"
+import { EveItemIcon } from "@/components/eve-item-icon"
 import type { RawMaterial, Component } from "@/types/database"
 
 type Item = RawMaterial | Component
@@ -547,6 +548,7 @@ export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUp
                 />
                 <div className="flex-1 min-w-0 relative">
                   <div className="flex items-center gap-2">
+                    <EveItemIcon typeId={item.type_id} size={32} className="size-5 shrink-0 rounded" />
                     {showBuyRecommendations && buyRecommendations && isComponentType && (
                       buyRecommendations.get(item.id) ? (
                         <ShoppingCart className="size-4 text-green-500 shrink-0" />

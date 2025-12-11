@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { EveItemIcon } from "@/components/eve-item-icon"
 
 interface Material {
   typeId: number
@@ -67,7 +68,12 @@ export function MaterialsTable({ title, materials, showType = true }: MaterialsT
             <tbody>
               {materials.map((m) => (
                 <tr key={m.typeId} className="border-b border-border/50 hover:bg-accent/30">
-                  <td className="py-2 font-medium">{m.name}</td>
+                  <td className="py-2 font-medium">
+                    <div className="flex items-center gap-2">
+                      <EveItemIcon typeId={m.typeId} size={32} className="size-5 shrink-0 rounded" />
+                      {m.name}
+                    </div>
+                  </td>
                   <td className="py-2 text-right tabular-nums">{m.quantity.toLocaleString()}</td>
                   <td className="py-2 text-right tabular-nums text-muted-foreground">
                     {formatVolume(m.volume)}

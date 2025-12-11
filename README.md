@@ -89,7 +89,6 @@
    # Get these from https://developers.eveonline.com/applications
    EVE_CLIENT_ID=your_client_id
    EVE_CLIENT_SECRET=your_client_secret
-   EVE_CALLBACK_URL=http://localhost:3000/callback
    ```
 
    > 💡 **Tip:** Find your Supabase credentials in your project's Settings → API page
@@ -466,15 +465,17 @@ const SITE_PASSWORD = 'your-new-password'
 A utility for obtaining OAuth refresh tokens to use in external scripts or cron jobs.
 
 1. **Register an EVE Developer Application** at [developers.eveonline.com](https://developers.eveonline.com/applications)
-   - Set the callback URL to `http://localhost:3000/callback`
+   - For development: Set the callback URL to `http://localhost:3000/callback`
+   - For production: Set the callback URL to `https://eve.art3m1s.me/callback`
    - Note your Client ID and Secret
 
 2. **Configure environment variables** in `.env.local`:
    ```env
    EVE_CLIENT_ID=your_client_id
    EVE_CLIENT_SECRET=your_client_secret
-   EVE_CALLBACK_URL=http://localhost:3000/callback
    ```
+   
+   > Note: The callback URL is auto-detected. Locally it uses `localhost:3000`, on Vercel production it uses `eve.art3m1s.me`.
 
 3. **Get your tokens:**
    - Click "Login with EVE SSO" on the login page

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Input } from "@/components/ui/input"
-import { Search, Loader2, Package, Rocket, Zap, Pill, Plus } from "lucide-react"
+import { Search, Loader2, Plus } from "lucide-react"
+import { EveItemIcon } from "@/components/eve-item-icon"
 
 export interface TradeableItem {
   typeId: number
@@ -20,13 +21,6 @@ interface ItemSearchProps {
   placeholder?: string
   disabled?: boolean
   existingTypeIds?: Set<number>
-}
-
-const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Module: Package,
-  Ship: Rocket,
-  Charge: Zap,
-  Booster: Pill,
 }
 
 export function ItemSearch({ onSelect, placeholder = "Search items...", disabled = false, existingTypeIds }: ItemSearchProps) {
@@ -109,15 +103,13 @@ export function ItemSearch({ onSelect, placeholder = "Search items...", disabled
 
       {isOpen && results.length > 0 && (
         <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-80 overflow-auto rounded-md border bg-popover shadow-lg">
-          {results.map((item) => {
-            const CategoryIcon = CATEGORY_ICONS[item.categoryName] || Package
-            return (
+          {results.map((item) => (
               <button
                 key={item.typeId}
                 onClick={() => handleSelect(item)}
                 className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-accent transition-colors group"
               >
-                <CategoryIcon className="size-4 text-muted-foreground shrink-0" />
+                <EveItemIcon typeId={item.typeId} size={32} className="size-6 shrink-0 rounded" />
                 <div className="min-w-0 flex-1">
                   <div className="font-medium truncate">{item.name}</div>
                   <div className="text-xs text-muted-foreground truncate">
@@ -126,8 +118,7 @@ export function ItemSearch({ onSelect, placeholder = "Search items...", disabled
                 </div>
                 <Plus className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </button>
-            )
-          })}
+          ))}
         </div>
       )}
 

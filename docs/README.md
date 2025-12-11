@@ -100,7 +100,6 @@ JANICE_API_KEY=your-janice-api-key
 # Optional - EVE SSO
 EVE_CLIENT_ID=your_client_id
 EVE_CLIENT_SECRET=your_client_secret
-EVE_CALLBACK_URL=http://localhost:3000/callback
 ```
 
 ### Installation

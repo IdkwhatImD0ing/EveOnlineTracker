@@ -165,9 +165,9 @@ All integrations handle failures gracefully:
 JANICE_API_KEY=your_api_key
 
 # EVE SSO (required for ESI auth)
+# EVE SSO (callback URL auto-detected based on environment)
 EVE_CLIENT_ID=your_client_id
 EVE_CLIENT_SECRET=your_client_secret
-EVE_CALLBACK_URL=http://localhost:3000/callback
 
 # Supabase (required)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co

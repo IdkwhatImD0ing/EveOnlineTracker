@@ -52,7 +52,8 @@ The login endpoint requests a comprehensive set of ESI scopes to enable full fun
 
 **Environment Variables Required:**
 - `EVE_CLIENT_ID` - Your EVE application client ID
-- `EVE_CALLBACK_URL` - Callback URL (default: `http://localhost:3000/callback`)
+
+> Note: The callback URL is auto-detected based on the environment. Locally it uses `http://localhost:3000/callback`, on Vercel production it uses `https://eve.art3m1s.me/callback`.
 
 **Example Usage:**
 ```html

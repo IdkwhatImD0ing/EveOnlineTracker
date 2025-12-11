@@ -17,6 +17,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Copy, ChevronDown, Check, ChevronRight, ArrowUp, ArrowDown, AlertCircle, X, ShoppingCart } from "lucide-react"
+import { EveItemIcon } from "@/components/eve-item-icon"
 import type { RawMaterial } from "@/types/database"
 
 // Category order for display
@@ -488,6 +489,7 @@ function CategoryGroup({ category, items, projectId, onItemUpdate }: CategoryGro
                 checked={item.collected}
                 onCheckedChange={() => handleToggle(item)}
               />
+              <EveItemIcon typeId={item.type_id} size={32} className="size-5 shrink-0 rounded" />
               <div className="flex-1 min-w-0 relative">
                 <button
                   onClick={() => handleCopyName(item)}

@@ -260,7 +260,7 @@ export async function GET(request: NextRequest) {
         },
         orders: [],
         config: {
-          hubFactor: VALE_HUB_FACTOR,  // 20% of Vale volume
+          hubFactor: VALE_HUB_FACTOR,  // 5% of Vale volume
           transportCostPerM3,
           deadCapitalThresholdDays: DEAD_CAPITAL_THRESHOLD_DAYS,
         },
@@ -288,7 +288,7 @@ export async function GET(request: NextRequest) {
       const valeDailyVolume = valeVolumes.get(order.type_id) || 0
       const jitaBuyPrice = jitaPrices.get(order.type_id) || null
       
-      // Calculate metrics - using Vale volume × 20% hub factor
+      // Calculate metrics - using Vale volume × 5% hub factor
       const capitalDeployed = order.price * order.volume_remain
       const estimatedDailySales = valeDailyVolume * VALE_HUB_FACTOR
       const daysToSell = estimatedDailySales > 0 
@@ -419,7 +419,7 @@ export async function GET(request: NextRequest) {
       },
       orders: capitalOrders,
       config: {
-        hubFactor: VALE_HUB_FACTOR,  // 20% of Vale volume
+        hubFactor: VALE_HUB_FACTOR,  // 5% of Vale volume
         transportCostPerM3,
         deadCapitalThresholdDays: DEAD_CAPITAL_THRESHOLD_DAYS,
       },

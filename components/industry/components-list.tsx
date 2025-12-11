@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Copy, Check, ArrowUp, ArrowDown, ShoppingCart, Hammer } from "lucide-react"
+import { EveItemIcon } from "@/components/eve-item-icon"
 
 interface ComponentItem {
   typeId: number
@@ -292,6 +293,7 @@ export function ComponentsList({
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
+                    <EveItemIcon typeId={component.typeId} size={32} className="size-5 shrink-0 rounded" />
                     {showBuyRecommendations && (
                       component.shouldBuy ? (
                         <ShoppingCart className="size-4 text-green-500 shrink-0" />

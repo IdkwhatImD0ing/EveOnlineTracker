@@ -9,6 +9,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Copy, Check, ChevronRight, ArrowUp, ArrowDown, ShoppingCart } from "lucide-react"
+import { EveItemIcon } from "@/components/eve-item-icon"
 
 // Category order for display - same as projects page
 const CATEGORY_ORDER = ["Minerals", "Planetary Industry", "Reactions", "Exploration", "Other"]
@@ -310,6 +311,7 @@ function CategoryGroup({ category, materials }: CategoryGroupProps) {
               key={material.typeId}
               className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/50"
             >
+              <EveItemIcon typeId={material.typeId} size={32} className="size-5 shrink-0 rounded" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">
                   {material.name}

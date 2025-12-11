@@ -10,6 +10,7 @@ import {
   getCachedMarketSeederStatistics,
   getCachedJitaPrices,
 } from '@/lib/cached-data'
+import { config } from '@/lib/config'
 import {
   type TradeableItem,
   type JitaDemandMetrics,
@@ -283,9 +284,8 @@ export async function fetchStructureOrders(
   }
   
   // Fetch from API with all=true parameter
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
   const response = await fetch(
-    `${baseUrl}/api/esi/structure-orders?structure_id=${structureId}&all=true`,
+    `${config.baseUrl}/api/esi/structure-orders?structure_id=${structureId}&all=true`,
     {
       headers: {
         'Authorization': `Bearer ${authToken}`

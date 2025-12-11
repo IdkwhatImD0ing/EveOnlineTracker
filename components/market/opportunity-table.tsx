@@ -25,6 +25,7 @@ import {
   Square,
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { EveItemIcon } from "@/components/eve-item-icon"
 import type { MarketOpportunity, SignalBreakdown } from "@/lib/market-analysis"
 
 interface OpportunityTableProps {
@@ -560,11 +561,14 @@ export function OpportunityTable({
                         </td>
                       )}
                       <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{opportunity.itemName}</span>
-                          <span className="text-xs text-muted-foreground">
-                            ID: {opportunity.typeId}
-                          </span>
+                        <div className="flex items-center gap-3">
+                          <EveItemIcon typeId={opportunity.typeId} size={32} className="size-8 shrink-0 rounded" />
+                          <div className="flex flex-col">
+                            <span className="font-medium">{opportunity.itemName}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ID: {opportunity.typeId}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">

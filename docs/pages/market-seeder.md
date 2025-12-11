@@ -33,10 +33,10 @@ Show where your capital is deployed and how efficiently it's working. Identify "
 
 ### Demand Estimation
 
-Demand is estimated using **Vale of the Silent market history data** with a 20% hub factor (your hub sees ~20% of Vale's regional volume).
+Demand is estimated using **Vale of the Silent market history data** with a 5% hub factor (your hub sees ~5% of Vale's regional volume).
 
 ```
-estimatedDailySales = valeDailyVolume × 0.2  // 20% of Vale volume
+estimatedDailySales = valeDailyVolume × 0.05  // 5% of Vale volume
 daysToSell = volumeRemain / estimatedDailySales
 ```
 
@@ -108,7 +108,7 @@ Returns:
 - Per-order breakdown with efficiency classification
 - Capital allocation by efficiency category
 
-**Note:** Demand estimation uses Vale of the Silent market data × 20% hub factor.
+**Note:** Demand estimation uses Vale of the Silent market data × 5% hub factor.
 
 ---
 
@@ -378,7 +378,7 @@ Combine Vale of the Silent volume data (actual regional demand) with your struct
 ### Core Formulas
 
 ```
-estimated_daily_sales = vale_avg_daily_volume × 0.2  // 20% of Vale volume
+estimated_daily_sales = vale_avg_daily_volume × 0.05  // 5% of Vale volume
 days_until_stockout = current_stock ÷ estimated_daily_sales
 priority_score = estimated_daily_sales × profit_per_unit
 ```
@@ -387,7 +387,7 @@ priority_score = estimated_daily_sales × profit_per_unit
 
 1. Click **Analyze Depletion** to fetch all sell orders and market data
 2. For each item type you're selling, the system calculates:
-   - **Estimated Daily Sales**: Vale Volume × 20% (hub factor)
+   - **Estimated Daily Sales**: Vale Volume × 5% (hub factor)
    - **Days Until Stockout**: Current stock ÷ estimated daily sales
    - **Daily Profit Potential**: Estimated sales × profit per unit
 3. Items are ranked by **Priority Score** (higher = more urgent)

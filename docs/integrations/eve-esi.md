@@ -336,13 +336,51 @@ This ensures response formats remain consistent.
 ## Environment Variables
 
 ```env
+# Callback URL is auto-detected:
+# - Local: http://localhost:3000/callback
+# - Vercel production: https://eve.art3m1s.me/callback
 EVE_CLIENT_ID=your_client_id
 EVE_CLIENT_SECRET=your_client_secret
-EVE_CALLBACK_URL=http://localhost:3000/callback
 ```
+
+## EVE Image Server
+
+The EVE Image Server provides icons and renders for items, characters, corporations, and alliances.
+
+**Base URL:** `https://images.evetech.net`
+
+### Item Icons
+
+```
+https://images.evetech.net/types/{type_id}/icon?size=32
+https://images.evetech.net/types/{type_id}/render?size=128
+```
+
+### Character Portraits
+
+```
+https://images.evetech.net/characters/{character_id}/portrait?size=128
+```
+
+### Available Sizes
+
+Common sizes: `32`, `64`, `128`, `256`, `512`, `1024`
+
+### Usage in Application
+
+The `EveItemIcon` component (`components/eve-item-icon.tsx`) wraps item icon fetching:
+
+```tsx
+import { EveItemIcon } from "@/components/eve-item-icon"
+
+<EveItemIcon typeId={34} size={32} className="size-5 rounded" />
+```
+
+**Note:** No authentication required for image server.
 
 ## Related Files
 
+- `components/eve-item-icon.tsx` - Reusable item icon component
 - `lib/eve-sso.ts` - OAuth helper functions
 - `app/api/auth/eve/login/route.ts` - Login redirect
 - `app/api/auth/eve/callback/route.ts` - Token exchange
