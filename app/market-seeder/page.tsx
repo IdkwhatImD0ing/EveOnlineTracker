@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,7 +35,13 @@ import {
   Trash2,
   Plus,
   AlertTriangle,
+  Clock,
+  Timer,
+  DollarSign,
+  Percent,
+  Skull,
 } from "lucide-react"
+import { type CapitalOrder, type CapitalEfficiencyResponse, DEAD_CAPITAL_THRESHOLD_DAYS, VALE_HUB_FACTOR } from "@/types/market-seeder"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ItemSearch, TradeableItem } from "@/components/market/item-search"
 
@@ -59,6 +65,25 @@ function isTokenExpired(token: string): boolean {
     return payload.exp * 1000 < Date.now() + 60000
   } catch {
     return true // Assume expired if can't parse
+  }
+}
+
+/**
+ * Extract character_id from JWT token
+ */
+function getCharacterIdFromToken(token: string): string | null {
+  try {
+    const base64Url = token.split(".")[1]
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
+    const payload = JSON.parse(atob(base64))
+    // EVE SSO tokens have sub in format "CHARACTER:EVE:<character_id>"
+    const sub = payload.sub as string
+    if (sub && sub.startsWith("CHARACTER:EVE:")) {
+      return sub.replace("CHARACTER:EVE:", "")
+    }
+    return null
+  } catch {
+    return null
   }
 }
 
@@ -175,6 +200,22 @@ interface WatchlistResponse {
     needs_restock: number
     in_stock: number
   }
+}
+
+interface DepletionPrediction {
+  typeId: number
+  name: string
+  categoryName: string | null
+  groupName: string | null
+  currentStock: number
+  lowestPrice: number | null
+  jitaDailyVolume: number
+  estimatedDailySales: number
+  daysUntilStockout: number | null
+  jitaBuyPrice: number
+  profitPerUnit: number
+  dailyProfitPotential: number
+  priorityScore: number
 }
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -398,6 +439,13 @@ function generateBuyText(items: ProfitAnalysis[], budget: number): string {
 }
 
 /**
+ * Filter items by selected categories
+ */
+function filterByCategory(items: ProfitAnalysis[], categories: Set<string>): ProfitAnalysis[] {
+  return items.filter(item => categories.has(item.categoryName))
+}
+
+/**
  * Format ISK value with suffix (M, B)
  */
 function formatIskShort(value: number): string {
@@ -423,6 +471,9 @@ export default function MarketSeederPage() {
   const [noCompetitionOnly, setNoCompetitionOnly] = useState(false) // Filter for 0 competition items
   const [buyBudget, setBuyBudget] = useState("100") // 100M ISK default (in millions)
   const [showSettings, setShowSettings] = useState(false)
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
+    new Set(['Module', 'Ship', 'Charge', 'Booster'])
+  )
 
   // Analysis state
   const [isLoading, setIsLoading] = useState(false)
@@ -435,12 +486,23 @@ export default function MarketSeederPage() {
   const [copySuccess, setCopySuccess] = useState(false)
 
   // Watchlist state
-  const [activeMainTab, setActiveMainTab] = useState<"analysis" | "watchlist">("analysis")
+  const [activeMainTab, setActiveMainTab] = useState<"capital" | "analysis" | "watchlist" | "depletion">("capital")
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([])
   const [watchlistLoading, setWatchlistLoading] = useState(false)
   const [watchlistError, setWatchlistError] = useState<string | null>(null)
   const [watchlistCheckedAt, setWatchlistCheckedAt] = useState<string | null>(null)
   const [addingItem, setAddingItem] = useState(false)
+
+  // Depletion predictor state
+  const [depletionPredictions, setDepletionPredictions] = useState<DepletionPrediction[]>([])
+  const [depletionLoading, setDepletionLoading] = useState(false)
+  const [depletionError, setDepletionError] = useState<string | null>(null)
+  const [depletionAnalyzedAt, setDepletionAnalyzedAt] = useState<string | null>(null)
+
+  // Capital efficiency state
+  const [capitalData, setCapitalData] = useState<CapitalEfficiencyResponse | null>(null)
+  const [capitalLoading, setCapitalLoading] = useState(false)
+  const [capitalError, setCapitalError] = useState<string | null>(null)
 
   // Load saved settings
   useEffect(() => {
@@ -455,6 +517,9 @@ export default function MarketSeederPage() {
         if (settings.minVolume) setMinVolume(settings.minVolume)
         if (settings.noCompetitionOnly !== undefined) setNoCompetitionOnly(settings.noCompetitionOnly)
         if (settings.buyBudget) setBuyBudget(settings.buyBudget)
+        if (settings.selectedCategories && Array.isArray(settings.selectedCategories)) {
+          setSelectedCategories(new Set(settings.selectedCategories))
+        }
       } catch {
         // Ignore invalid JSON
       }
@@ -465,9 +530,18 @@ export default function MarketSeederPage() {
   useEffect(() => {
     localStorage.setItem(
       "market-seeder-settings",
-      JSON.stringify({ structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget })
+      JSON.stringify({ 
+        structureId, 
+        transportCost, 
+        minMargin, 
+        minProfit, 
+        minVolume, 
+        noCompetitionOnly, 
+        buyBudget,
+        selectedCategories: Array.from(selectedCategories)
+      })
     )
-  }, [structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget])
+  }, [structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget, selectedCategories])
 
   // Selection helper functions
   const toggleItemSelection = useCallback((typeId: number) => {
@@ -526,6 +600,23 @@ export default function MarketSeederPage() {
     
     return Array.from(allItems.values())
   }, [result, selectedItems])
+
+  // Filter results by selected categories
+  const filteredResults = useMemo(() => {
+    if (!result) return null
+    return {
+      topByCompositeScore: filterByCategory(result.topByCompositeScore, selectedCategories),
+      noCompetitionOpportunities: filterByCategory(result.noCompetitionOpportunities, selectedCategories),
+      bestIskPerM3: filterByCategory(result.bestIskPerM3, selectedCategories),
+      trendingUp: filterByCategory(result.trendingUp, selectedCategories),
+      byCategory: {
+        Module: result.byCategory.Module,
+        Ship: result.byCategory.Ship,
+        Charge: result.byCategory.Charge,
+        Booster: result.byCategory.Booster,
+      }
+    }
+  }, [result, selectedCategories])
 
   // Copy buy text to clipboard
   const copyBuyText = useCallback(async () => {
@@ -809,6 +900,183 @@ export default function MarketSeederPage() {
     }
   }, [])
 
+  // Depletion predictor analysis - analyzes ALL sell orders in structure
+  const analyzeDepletion = useCallback(async () => {
+    if (!structureId) {
+      setDepletionError("Structure ID is required")
+      return
+    }
+
+    const accessToken = await getValidToken()
+    if (!accessToken) {
+      setDepletionError("Please login with EVE SSO first")
+      return
+    }
+
+    setDepletionLoading(true)
+    setDepletionError(null)
+
+    try {
+      // Step 1: Fetch ALL sell orders from the structure
+      const ordersResponse = await fetch(`/api/esi/structure-orders?structure_id=${structureId}&all=true`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (!ordersResponse.ok) {
+        const data = await ordersResponse.json()
+        throw new Error(data.error || "Failed to fetch structure orders")
+      }
+
+      const ordersData = await ordersResponse.json()
+      const ordersByType: Array<{
+        type_id: number
+        lowest_price: number
+        total_volume: number
+        order_count: number
+      }> = ordersData.orders_by_type || []
+
+      if (ordersByType.length === 0) {
+        setDepletionPredictions([])
+        setDepletionAnalyzedAt(new Date().toISOString())
+        return
+      }
+
+      // Step 2: Fetch market data (Jita volume + prices + item names) for all items being sold
+      const typeIds = ordersByType.map(order => order.type_id)
+      const marketDataResponse = await fetch(`/api/market-seeder/market-data?type_ids=${typeIds.join(',')}`)
+
+      if (!marketDataResponse.ok) {
+        const data = await marketDataResponse.json()
+        throw new Error(data.error || "Failed to fetch market data")
+      }
+
+      const marketData = await marketDataResponse.json()
+      const marketDataMap: Record<number, {
+        name: string
+        categoryName: string | null
+        groupName: string | null
+        volume: number | null
+        avgDailyVolume: number
+        totalVolume30d: number
+        avgPrice: number
+        jitaSellPrice: number | null
+      }> = marketData.data
+
+      // Step 3: Calculate depletion predictions for each item type
+      const predictions: DepletionPrediction[] = ordersByType.map(order => {
+        const market = marketDataMap[order.type_id] || {
+          name: `Unknown (${order.type_id})`,
+          categoryName: null,
+          groupName: null,
+          avgDailyVolume: 0,
+          avgPrice: 0,
+          jitaSellPrice: null
+        }
+
+        // Estimated daily sales from Vale market history × hub factor (20% of Vale volume)
+        const estimatedDailySales = market.avgDailyVolume * VALE_HUB_FACTOR
+
+        // Days until stockout
+        const daysUntilStockout = estimatedDailySales > 0
+          ? order.total_volume / estimatedDailySales
+          : null
+
+        // Profit per unit (sell price - buy price)
+        const jitaBuyPrice = market.jitaSellPrice || market.avgPrice || 0
+        const sellPrice = order.lowest_price
+        const profitPerUnit = sellPrice - jitaBuyPrice
+
+        // Daily profit potential
+        const dailyProfitPotential = estimatedDailySales * Math.max(0, profitPerUnit)
+
+        // Priority score (higher = more urgent to restock)
+        // Combines urgency (inverse of days remaining) with profit potential
+        let priorityScore = dailyProfitPotential
+        if (daysUntilStockout !== null && daysUntilStockout < 30) {
+          // Boost priority for items running low
+          priorityScore *= (30 - daysUntilStockout) / 10
+        }
+
+        return {
+          typeId: order.type_id,
+          name: market.name,
+          categoryName: market.categoryName,
+          groupName: market.groupName,
+          currentStock: order.total_volume,
+          lowestPrice: order.lowest_price,
+          jitaDailyVolume: market.avgDailyVolume,
+          estimatedDailySales,
+          daysUntilStockout,
+          jitaBuyPrice,
+          profitPerUnit,
+          dailyProfitPotential,
+          priorityScore
+        }
+      })
+
+      setDepletionPredictions(predictions)
+      setDepletionAnalyzedAt(new Date().toISOString())
+
+    } catch (err) {
+      setDepletionError(err instanceof Error ? err.message : "Failed to analyze depletion")
+    } finally {
+      setDepletionLoading(false)
+    }
+  }, [structureId, getValidToken])
+
+  // Capital efficiency analysis
+  const fetchCapitalEfficiency = useCallback(async () => {
+    const accessToken = await getValidToken()
+    if (!accessToken) {
+      setCapitalError("Please login with EVE SSO first")
+      return
+    }
+
+    const characterId = getCharacterIdFromToken(accessToken)
+    if (!characterId) {
+      setCapitalError("Could not extract character ID from token")
+      return
+    }
+
+    setCapitalLoading(true)
+    setCapitalError(null)
+
+    try {
+      const params = new URLSearchParams({
+        character_id: characterId,
+        transport_cost: transportCost,
+      })
+
+      const response = await fetch(`/api/esi/capital-efficiency?${params}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to fetch capital efficiency data")
+      }
+
+      const data: CapitalEfficiencyResponse = await response.json()
+      setCapitalData(data)
+
+    } catch (err) {
+      setCapitalError(err instanceof Error ? err.message : "Failed to analyze capital efficiency")
+    } finally {
+      setCapitalLoading(false)
+    }
+  }, [getValidToken, transportCost])
+
+  // Load capital data when switching to capital tab
+  useEffect(() => {
+    if (activeMainTab === "capital" && !capitalData && !capitalLoading && !capitalError) {
+      fetchCapitalEfficiency()
+    }
+  }, [activeMainTab, capitalData, capitalLoading, capitalError, fetchCapitalEfficiency])
+
   // Load watchlist when switching to watchlist tab
   useEffect(() => {
     if (activeMainTab === "watchlist" && watchlistItems.length === 0 && !watchlistLoading) {
@@ -834,9 +1102,18 @@ export default function MarketSeederPage() {
           </div>
         </header>
 
-        {/* Main Tabs: Analysis / Watchlist */}
-        <Tabs value={activeMainTab} onValueChange={(v: string) => setActiveMainTab(v as "analysis" | "watchlist")} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+        {/* Main Tabs: Capital / Analysis / Watchlist / Depletion */}
+        <Tabs value={activeMainTab} onValueChange={(v: string) => setActiveMainTab(v as "capital" | "analysis" | "watchlist" | "depletion")} className="space-y-6">
+          <TabsList className="grid w-full max-w-3xl grid-cols-4">
+            <TabsTrigger value="capital" className="gap-2">
+              <DollarSign className="size-4" />
+              Capital
+              {capitalData && capitalData.summary.deadCapitalOrders > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0">
+                  {capitalData.summary.deadCapitalOrders}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="analysis" className="gap-2">
               <BarChart3 className="size-4" />
               Analysis
@@ -850,7 +1127,323 @@ export default function MarketSeederPage() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="depletion" className="gap-2">
+              <Timer className="size-4" />
+              Depletion
+              {depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout < 7).length > 0 && (
+                <Badge variant="secondary" className="ml-1 px-1.5 py-0 bg-amber-500/20 text-amber-600">
+                  {depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout < 7).length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
+
+          {/* Capital Efficiency Tab */}
+          <TabsContent value="capital" className="space-y-6">
+            {/* Header Card */}
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <DollarSign className="size-5" />
+                      Capital Efficiency Dashboard
+                    </CardTitle>
+                    <CardDescription>
+                      Track your ISK-at-work across all market sell orders
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={fetchCapitalEfficiency}
+                    disabled={capitalLoading}
+                  >
+                    {capitalLoading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-4" />
+                    )}
+                    <span className="ml-2">Refresh</span>
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {capitalError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{capitalError}</AlertDescription>
+                  </Alert>
+                )}
+                {!capitalError && !capitalData && !capitalLoading && (
+                  <Alert>
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                      Login with EVE SSO and click Refresh to analyze your sell orders
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {capitalData && (
+                  <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4">
+                    <p className="font-medium mb-2">How metrics are calculated:</p>
+                    <ul className="space-y-1 text-xs">
+                      <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 20% (hub factor)</li>
+                      <li>• <strong>Days to Sell</strong> = Volume Remaining ÷ Est. Daily Sales</li>
+                      <li>• <strong>APY</strong> = (Profit ÷ Cost) × (365 ÷ Days to Sell) × 100</li>
+                      <li>• <strong>Dead Capital</strong> = Orders taking {`>`}{DEAD_CAPITAL_THRESHOLD_DAYS} days to sell</li>
+                    </ul>
+                  </div>
+                )}
+                {capitalData?.analyzedAt && (
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Last analyzed: {new Date(capitalData.analyzedAt).toLocaleString()}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Loading State */}
+            {capitalLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {/* Summary Cards */}
+            {capitalData && (
+              <>
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-2xl font-bold">{formatIskShort(capitalData.summary.totalCapitalDeployed)}</p>
+                      <p className="text-sm text-muted-foreground">Total ISK Deployed</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {capitalData.summary.totalOrders} active orders
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-2xl font-bold text-emerald-500">
+                        {formatIskShort(capitalData.summary.totalDailyRevenue)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Est. Daily Revenue</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Based on 20% of Vale volume
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-2xl font-bold">
+                        {capitalData.summary.avgDaysToSell.toFixed(1)} days
+                      </p>
+                      <p className="text-sm text-muted-foreground">Avg Time to Sell</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Capital-weighted average
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className={capitalData.summary.effectiveAPY > 100 ? "border-emerald-500/50" : ""}>
+                    <CardContent className="p-4">
+                      <p className={`text-2xl font-bold ${capitalData.summary.effectiveAPY > 100 ? "text-emerald-500" : capitalData.summary.effectiveAPY > 50 ? "text-amber-500" : "text-muted-foreground"}`}>
+                        {capitalData.summary.effectiveAPY.toFixed(1)}%
+                      </p>
+                      <p className="text-sm text-muted-foreground">Effective APY</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Portfolio-wide return
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Dead Capital Alert */}
+                {capitalData.summary.deadCapitalOrders > 0 && (
+                  <Card className="border-destructive/50 bg-destructive/5">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <Skull className="size-8 text-destructive" />
+                        <div className="flex-1">
+                          <p className="font-medium text-destructive">Dead Capital Alert</p>
+                          <p className="text-sm text-muted-foreground">
+                            {capitalData.summary.deadCapitalOrders} orders ({formatIskShort(capitalData.summary.deadCapitalValue)} ISK) 
+                            are estimated to take {`>`}{DEAD_CAPITAL_THRESHOLD_DAYS} days to sell
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-destructive">
+                            {((capitalData.summary.deadCapitalValue / capitalData.summary.totalCapitalDeployed) * 100).toFixed(1)}%
+                          </p>
+                          <p className="text-xs text-muted-foreground">of capital</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Capital Breakdown by Efficiency */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Capital Allocation by Efficiency</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {/* Fast (<14 days) */}
+                      <div className="flex items-center gap-4">
+                        <div className="w-24 text-sm font-medium text-emerald-600">Fast</div>
+                        <div className="flex-1 h-6 bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-500 transition-all"
+                            style={{ width: `${capitalData.summary.totalCapitalDeployed > 0 ? (capitalData.summary.fastCapital / capitalData.summary.totalCapitalDeployed) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <div className="w-24 text-sm text-right">{formatIskShort(capitalData.summary.fastCapital)}</div>
+                        <div className="w-16 text-xs text-muted-foreground text-right">&lt;14d</div>
+                      </div>
+                      {/* Moderate (14-30 days) */}
+                      <div className="flex items-center gap-4">
+                        <div className="w-24 text-sm font-medium text-amber-600">Moderate</div>
+                        <div className="flex-1 h-6 bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-amber-500 transition-all"
+                            style={{ width: `${capitalData.summary.totalCapitalDeployed > 0 ? (capitalData.summary.moderateCapital / capitalData.summary.totalCapitalDeployed) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <div className="w-24 text-sm text-right">{formatIskShort(capitalData.summary.moderateCapital)}</div>
+                        <div className="w-16 text-xs text-muted-foreground text-right">14-30d</div>
+                      </div>
+                      {/* Slow (30-90 days) */}
+                      <div className="flex items-center gap-4">
+                        <div className="w-24 text-sm font-medium text-orange-600">Slow</div>
+                        <div className="flex-1 h-6 bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-orange-500 transition-all"
+                            style={{ width: `${capitalData.summary.totalCapitalDeployed > 0 ? (capitalData.summary.slowCapital / capitalData.summary.totalCapitalDeployed) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <div className="w-24 text-sm text-right">{formatIskShort(capitalData.summary.slowCapital)}</div>
+                        <div className="w-16 text-xs text-muted-foreground text-right">30-90d</div>
+                      </div>
+                      {/* Dead (>90 days) */}
+                      <div className="flex items-center gap-4">
+                        <div className="w-24 text-sm font-medium text-destructive">Dead</div>
+                        <div className="flex-1 h-6 bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-destructive transition-all"
+                            style={{ width: `${capitalData.summary.totalCapitalDeployed > 0 ? (capitalData.summary.deadCapitalValue / capitalData.summary.totalCapitalDeployed) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <div className="w-24 text-sm text-right">{formatIskShort(capitalData.summary.deadCapitalValue)}</div>
+                        <div className="w-16 text-xs text-muted-foreground text-right">&gt;90d</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Orders List */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Active Sell Orders</CardTitle>
+                    <CardDescription>
+                      Sorted by days to sell (slowest first to highlight dead capital)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {capitalData.orders.map((order) => {
+                        const CategoryIcon = CATEGORY_ICONS[order.categoryName || ''] || Package
+                        return (
+                          <Card
+                            key={order.orderId}
+                            className={
+                              order.efficiency === 'dead'
+                                ? "border-destructive/50 bg-destructive/5"
+                                : order.efficiency === 'slow'
+                                  ? "border-orange-500/50 bg-orange-500/5"
+                                  : order.efficiency === 'moderate'
+                                    ? "border-amber-500/30 bg-amber-500/5"
+                                    : order.efficiency === 'fast'
+                                      ? "border-emerald-500/30 bg-emerald-500/5"
+                                      : ""
+                            }
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex items-start gap-3">
+                                <CategoryIcon className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{order.itemName}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {order.volumeRemain.toLocaleString()} units @ {formatIskShort(order.price)} each
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0 space-y-1">
+                                  <div className="text-sm font-medium">{formatIskShort(order.capitalDeployed)}</div>
+                                  <div className="flex items-center justify-end gap-2">
+                                    {order.daysToSell !== null ? (
+                                      <Badge 
+                                        variant={order.efficiency === 'dead' ? 'destructive' : 'secondary'}
+                                        className={
+                                          order.efficiency === 'fast' ? 'bg-emerald-500/20 text-emerald-600' :
+                                          order.efficiency === 'moderate' ? 'bg-amber-500/20 text-amber-600' :
+                                          order.efficiency === 'slow' ? 'bg-orange-500/20 text-orange-600' :
+                                          ''
+                                        }
+                                      >
+                                        {order.daysToSell.toFixed(0)}d to sell
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="secondary">
+                                        No volume data
+                                      </Badge>
+                                    )}
+                                    {order.effectiveAPY !== null && (
+                                      <Badge variant="outline" className="gap-1">
+                                        <Percent className="size-3" />
+                                        {order.effectiveAPY.toFixed(0)}% APY
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Expanded details for slow/dead capital */}
+                              {(order.efficiency === 'dead' || order.efficiency === 'slow') && (
+                                <div className="mt-2 pt-2 border-t grid grid-cols-4 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-muted-foreground">Est. Daily Sales:</span>
+                                    <span className="ml-1 font-medium">{order.estimatedDailySales.toFixed(1)}/day</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Days Listed:</span>
+                                    <span className="ml-1 font-medium">{order.daysListed}d</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Jita Price:</span>
+                                    <span className="ml-1 font-medium">{order.jitaBuyPrice ? formatIskShort(order.jitaBuyPrice) : 'N/A'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Profit/Unit:</span>
+                                    <span className={`ml-1 font-medium ${order.profitPerUnit && order.profitPerUnit > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                                      {order.profitPerUnit ? formatIskShort(order.profitPerUnit) : 'N/A'}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                      {capitalData.orders.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <DollarSign className="size-12 mx-auto text-muted-foreground/50 mb-4" />
+                          <p>No active sell orders found</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
 
           <TabsContent value="analysis" className="space-y-8">
             {/* Configuration */}
@@ -937,8 +1530,43 @@ export default function MarketSeederPage() {
                     onCheckedChange={(checked) => setNoCompetitionOnly(checked === true)}
                   />
                   <Label htmlFor="noCompetitionOnly" className="text-sm cursor-pointer">
-                    Show only items with no competition (40% markup opportunities)
+                    Show only items with no competition (tiered markup opportunities)
                   </Label>
+                </div>
+                <div className="space-y-2 pt-2">
+                  <Label className="text-sm">Filter by Category</Label>
+                  <div className="flex flex-wrap gap-4">
+                    {[
+                      { id: 'Module', label: 'Modules' },
+                      { id: 'Ship', label: 'Ships' },
+                      { id: 'Charge', label: 'Ammo' },
+                      { id: 'Booster', label: 'Boosters' },
+                    ].map((category) => (
+                      <div key={category.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`category-${category.id}`}
+                          checked={selectedCategories.has(category.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedCategories(prev => {
+                              const next = new Set(prev)
+                              if (checked) {
+                                next.add(category.id)
+                              } else {
+                                // Prevent deselecting all categories
+                                if (next.size > 1) {
+                                  next.delete(category.id)
+                                }
+                              }
+                              return next
+                            })
+                          }}
+                        />
+                        <Label htmlFor={`category-${category.id}`} className="text-sm cursor-pointer">
+                          {category.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1064,37 +1692,46 @@ export default function MarketSeederPage() {
             )}
 
             {/* Tabbed Results */}
+            {filteredResults && (
             <Tabs defaultValue="top" className="space-y-4">
               <TabsList className="flex flex-wrap h-auto gap-2">
                 <TabsTrigger value="top">
-                  Top Items ({result.topByCompositeScore.length})
+                  Top Items ({filteredResults.topByCompositeScore.length})
                 </TabsTrigger>
                 <TabsTrigger value="nocompetition">
-                  No Competition ({result.noCompetitionOpportunities.length})
+                  No Competition ({filteredResults.noCompetitionOpportunities.length})
                 </TabsTrigger>
                 <TabsTrigger value="efficiency">
-                  Best ISK/m³ ({result.bestIskPerM3.length})
+                  Best ISK/m³ ({filteredResults.bestIskPerM3.length})
                 </TabsTrigger>
                 <TabsTrigger value="trending">
-                  Trending Up ({result.trendingUp.length})
+                  Trending Up ({filteredResults.trendingUp.length})
                 </TabsTrigger>
-                <TabsTrigger value="modules">
-                  Modules ({result.byCategory.Module.length})
-                </TabsTrigger>
-                <TabsTrigger value="ships">
-                  Ships ({result.byCategory.Ship.length})
-                </TabsTrigger>
-                <TabsTrigger value="ammo">
-                  Ammo ({result.byCategory.Charge.length})
-                </TabsTrigger>
-                <TabsTrigger value="boosters">
-                  Boosters ({result.byCategory.Booster.length})
-                </TabsTrigger>
+                {selectedCategories.has('Module') && (
+                  <TabsTrigger value="modules">
+                    Modules ({filteredResults.byCategory.Module.length})
+                  </TabsTrigger>
+                )}
+                {selectedCategories.has('Ship') && (
+                  <TabsTrigger value="ships">
+                    Ships ({filteredResults.byCategory.Ship.length})
+                  </TabsTrigger>
+                )}
+                {selectedCategories.has('Charge') && (
+                  <TabsTrigger value="ammo">
+                    Ammo ({filteredResults.byCategory.Charge.length})
+                  </TabsTrigger>
+                )}
+                {selectedCategories.has('Booster') && (
+                  <TabsTrigger value="boosters">
+                    Boosters ({filteredResults.byCategory.Booster.length})
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="top">
                 <ItemList 
-                  items={result.topByCompositeScore} 
+                  items={filteredResults.topByCompositeScore} 
                   selectedItems={selectedItems}
                   onToggleSelect={toggleItemSelection}
                   onSelectAll={selectAllItems}
@@ -1102,7 +1739,7 @@ export default function MarketSeederPage() {
               </TabsContent>
               <TabsContent value="nocompetition">
                 <ItemList 
-                  items={result.noCompetitionOpportunities}
+                  items={filteredResults.noCompetitionOpportunities}
                   selectedItems={selectedItems}
                   onToggleSelect={toggleItemSelection}
                   onSelectAll={selectAllItems}
@@ -1110,7 +1747,7 @@ export default function MarketSeederPage() {
               </TabsContent>
               <TabsContent value="efficiency">
                 <ItemList 
-                  items={result.bestIskPerM3}
+                  items={filteredResults.bestIskPerM3}
                   selectedItems={selectedItems}
                   onToggleSelect={toggleItemSelection}
                   onSelectAll={selectAllItems}
@@ -1118,45 +1755,54 @@ export default function MarketSeederPage() {
               </TabsContent>
               <TabsContent value="trending">
                 <ItemList 
-                  items={result.trendingUp}
+                  items={filteredResults.trendingUp}
                   selectedItems={selectedItems}
                   onToggleSelect={toggleItemSelection}
                   onSelectAll={selectAllItems}
                 />
               </TabsContent>
-              <TabsContent value="modules">
-                <ItemList 
-                  items={result.byCategory.Module}
-                  selectedItems={selectedItems}
-                  onToggleSelect={toggleItemSelection}
-                  onSelectAll={selectAllItems}
-                />
-              </TabsContent>
-              <TabsContent value="ships">
-                <ItemList 
-                  items={result.byCategory.Ship}
-                  selectedItems={selectedItems}
-                  onToggleSelect={toggleItemSelection}
-                  onSelectAll={selectAllItems}
-                />
-              </TabsContent>
-              <TabsContent value="ammo">
-                <ItemList 
-                  items={result.byCategory.Charge}
-                  selectedItems={selectedItems}
-                  onToggleSelect={toggleItemSelection}
-                  onSelectAll={selectAllItems}
-                />
-              </TabsContent>
-              <TabsContent value="boosters">
-                <ItemList 
-                  items={result.byCategory.Booster}
-                  selectedItems={selectedItems}
-                  onToggleSelect={toggleItemSelection}
-                  onSelectAll={selectAllItems}
-                />
-              </TabsContent>
+              {selectedCategories.has('Module') && (
+                <TabsContent value="modules">
+                  <ItemList 
+                    items={filteredResults.byCategory.Module}
+                    selectedItems={selectedItems}
+                    onToggleSelect={toggleItemSelection}
+                    onSelectAll={selectAllItems}
+                  />
+                </TabsContent>
+              )}
+              {selectedCategories.has('Ship') && (
+                <TabsContent value="ships">
+                  <ItemList 
+                    items={filteredResults.byCategory.Ship}
+                    selectedItems={selectedItems}
+                    onToggleSelect={toggleItemSelection}
+                    onSelectAll={selectAllItems}
+                  />
+                </TabsContent>
+              )}
+              {selectedCategories.has('Charge') && (
+                <TabsContent value="ammo">
+                  <ItemList 
+                    items={filteredResults.byCategory.Charge}
+                    selectedItems={selectedItems}
+                    onToggleSelect={toggleItemSelection}
+                    onSelectAll={selectAllItems}
+                  />
+                </TabsContent>
+              )}
+              {selectedCategories.has('Booster') && (
+                <TabsContent value="boosters">
+                  <ItemList 
+                    items={filteredResults.byCategory.Booster}
+                    selectedItems={selectedItems}
+                    onToggleSelect={toggleItemSelection}
+                    onSelectAll={selectAllItems}
+                  />
+                </TabsContent>
+              )}
             </Tabs>
+            )}
 
             {/* Timestamp */}
             <p className="text-xs text-muted-foreground text-center">
@@ -1329,6 +1975,227 @@ export default function MarketSeederPage() {
                     </Card>
                   )
                 })}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Depletion Predictor Tab */}
+          <TabsContent value="depletion" className="space-y-6">
+            {/* Depletion Header */}
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Timer className="size-5" />
+                      Stock Depletion Predictor
+                    </CardTitle>
+                    <CardDescription>
+                      Predict when your sell orders will deplete and prioritize restocking by profit potential
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={analyzeDepletion}
+                      disabled={depletionLoading || !structureId}
+                      title={!structureId ? "Set Structure ID first" : "Analyze stock depletion for all sell orders"}
+                    >
+                      {depletionLoading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <BarChart3 className="size-4" />
+                      )}
+                      <span className="ml-2">Analyze Depletion</span>
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Prerequisites reminder */}
+                {!structureId && (
+                  <Alert>
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                      Set a Structure ID in the Analysis tab first
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {depletionError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{depletionError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Formula explanation */}
+                <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4">
+                  <p className="font-medium mb-2">How it works:</p>
+                  <p className="text-xs mb-2">Analyzes all items currently being sold in your structure.</p>
+                  <ul className="space-y-1 text-xs">
+                    <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 20% (hub factor)</li>
+                    <li>• <strong>Days Until Stockout</strong> = Current Stock ÷ Est. Daily Sales</li>
+                    <li>• <strong>Priority</strong> = Est. Daily Sales × Profit per Unit</li>
+                  </ul>
+                </div>
+
+                {depletionAnalyzedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Last analyzed at {new Date(depletionAnalyzedAt).toLocaleString()}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Depletion Summary */}
+            {depletionPredictions.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-2xl font-bold">{depletionPredictions.length}</p>
+                    <p className="text-sm text-muted-foreground">Items Tracked</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-destructive/50">
+                  <CardContent className="p-4">
+                    <p className="text-2xl font-bold text-destructive">
+                      {depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout < 3).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Critical (&lt;3 days)</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-amber-500/50">
+                  <CardContent className="p-4">
+                    <p className="text-2xl font-bold text-amber-500">
+                      {depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout >= 3 && p.daysUntilStockout < 7).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Warning (3-7 days)</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-2xl font-bold text-emerald-500">
+                      {formatIskShort(depletionPredictions.reduce((sum, p) => sum + p.dailyProfitPotential, 0))}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Daily Profit Potential</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Depletion Predictions List */}
+            {depletionLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : depletionPredictions.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Timer className="size-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">
+                    Click &quot;Analyze Depletion&quot; to analyze all your sell orders
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {depletionPredictions
+                  .sort((a, b) => b.priorityScore - a.priorityScore)
+                  .map((prediction) => {
+                    const CategoryIcon = CATEGORY_ICONS[prediction.categoryName || ''] || Package
+                    const urgencyLevel = prediction.daysUntilStockout === null 
+                      ? 'none'
+                      : prediction.daysUntilStockout < 3 
+                        ? 'critical' 
+                        : prediction.daysUntilStockout < 7 
+                          ? 'warning' 
+                          : 'safe'
+                    
+                    return (
+                      <Card
+                        key={prediction.typeId}
+                        className={
+                          urgencyLevel === 'critical'
+                            ? "border-destructive/50 bg-destructive/5"
+                            : urgencyLevel === 'warning'
+                              ? "border-amber-500/50 bg-amber-500/5"
+                              : urgencyLevel === 'safe'
+                                ? "border-emerald-500/30 bg-emerald-500/5"
+                                : ""
+                        }
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-4">
+                            <CategoryIcon className="size-5 text-muted-foreground shrink-0 mt-1" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{prediction.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {prediction.categoryName} • {prediction.groupName}
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Current Stock</p>
+                                  <p className="font-medium">{prediction.currentStock.toLocaleString()} units</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
+                                  <p className="font-medium">{prediction.estimatedDailySales.toFixed(1)} units/day</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Days Until Stockout</p>
+                                  <p className={`font-bold ${
+                                    urgencyLevel === 'critical' ? 'text-destructive' :
+                                    urgencyLevel === 'warning' ? 'text-amber-500' :
+                                    urgencyLevel === 'safe' ? 'text-emerald-500' :
+                                    'text-muted-foreground'
+                                  }`}>
+                                    {prediction.daysUntilStockout !== null 
+                                      ? `${prediction.daysUntilStockout.toFixed(1)} days`
+                                      : 'No sales data'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Daily Profit</p>
+                                  <p className="font-medium text-primary">{formatIskShort(prediction.dailyProfitPotential)} ISK</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              {urgencyLevel === 'critical' && (
+                                <Badge variant="destructive" className="gap-1">
+                                  <AlertTriangle className="size-3" />
+                                  Critical
+                                </Badge>
+                              )}
+                              {urgencyLevel === 'warning' && (
+                                <Badge className="gap-1 bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
+                                  <Clock className="size-3" />
+                                  Low Stock
+                                </Badge>
+                              )}
+                              {urgencyLevel === 'safe' && (
+                                <Badge variant="secondary" className="gap-1 bg-emerald-500/20 text-emerald-600">
+                                  <Check className="size-3" />
+                                  OK
+                                </Badge>
+                              )}
+                              {urgencyLevel === 'none' && (
+                                <Badge variant="secondary" className="gap-1">
+                                  <Minus className="size-3" />
+                                  No Data
+                                </Badge>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Priority: {prediction.priorityScore.toFixed(0)}
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
               </div>
             )}
           </TabsContent>

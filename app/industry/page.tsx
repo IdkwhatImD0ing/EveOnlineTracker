@@ -14,8 +14,8 @@ import { GroupedMaterials } from "@/components/industry/grouped-materials"
 import { ComponentsList } from "@/components/industry/components-list"
 import { BuildSteps } from "@/components/industry/build-steps"
 import { CostSummary } from "@/components/industry/cost-summary"
-import { ArrowLeft, Calculator, Loader2, Factory, FlaskConical } from "lucide-react"
-import type { CalculateResponse } from "@/app/api/industry/calculate/route"
+import { ArrowLeft, Calculator, Loader2, Factory, FlaskConical, ShoppingCart, Hammer, FolderPlus, Check, Save } from "lucide-react"
+import type { CalculateResponse, MaterialWithPrice } from "@/app/api/industry/calculate/route"
 
 interface BlueprintResult {
   blueprintTypeId: number
@@ -114,12 +114,12 @@ export default function IndustryCalculatorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           blueprintTypeId: selectedBlueprint.blueprintTypeId,
-          quantity: quantity ? parseInt(quantity) : DEFAULTS.quantity,
-          runs: runs ? parseInt(runs) : DEFAULTS.runs,
-          blueprintMe: blueprintMe ? parseInt(blueprintMe) : DEFAULTS.blueprintMe,
-          blueprintTe: blueprintTe ? parseInt(blueprintTe) : DEFAULTS.blueprintTe,
+          quantity: quantity || DEFAULTS.quantity,
+          runs: runs || DEFAULTS.runs,
+          blueprintMe: blueprintMe ?? DEFAULTS.blueprintMe,
+          blueprintTe: blueprintTe ?? DEFAULTS.blueprintTe,
           systemName: systemName || DEFAULTS.systemName,
-          facilityTax: facilityTax ? parseFloat(facilityTax) : DEFAULTS.facilityTax,
+          facilityTax: facilityTax ?? DEFAULTS.facilityTax,
           structureType: selectedBlueprint.isReaction ? reactionStructure : structureType,
           rigType: selectedBlueprint.isReaction ? reactionRig : rigType,
           securityType: getSecurityType(systemSecurity),
@@ -137,6 +137,71 @@ export default function IndustryCalculatorPage() {
       setError(err instanceof Error ? err.message : "Calculation failed")
     } finally {
       setIsCalculating(false)
+    }
+  }
+
+  const handleCreateProject = async () => {
+    if (!result) return
+    
+    setIsCreatingProject(true)
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: result.blueprint.productName,
+          structuredData: {
+            materials: result.materials,
+            components: result.components,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to create project")
+      }
+
+      const data = await response.json()
+      router.push(`/projects/${data.project.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create project")
+    } finally {
+      setIsCreatingProject(false)
+    }
+  }
+
+  const handleSaveAsProject = async () => {
+    if (!result || !projectName.trim()) return
+    
+    setIsSaving(true)
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: projectName.trim(),
+          structuredData: {
+            materials: showBuyRecommendations ? adjustedMaterials : result.materials,
+            components: result.components,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to create project")
+      }
+
+      const data = await response.json()
+      setSaveSuccess(true)
+      setTimeout(() => {
+        router.push(`/projects/${data.project.id}`)
+      }, 1000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create project")
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -239,7 +304,7 @@ export default function IndustryCalculatorPage() {
                       type="number"
                       min={1}
                       value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
+                      onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                       placeholder={DEFAULTS.quantity.toString()}
                     />
                   </div>
@@ -250,7 +315,7 @@ export default function IndustryCalculatorPage() {
                       type="number"
                       min={1}
                       value={runs}
-                      onChange={(e) => setRuns(e.target.value)}
+                      onChange={(e) => setRuns(parseInt(e.target.value) || 1)}
                       placeholder={DEFAULTS.runs.toString()}
                     />
                   </div>
@@ -265,7 +330,7 @@ export default function IndustryCalculatorPage() {
                       min={0}
                       max={10}
                       value={blueprintMe}
-                      onChange={(e) => setBlueprintMe(e.target.value)}
+                      onChange={(e) => setBlueprintMe(parseInt(e.target.value) || 0)}
                       placeholder={DEFAULTS.blueprintMe.toString()}
                     />
                   </div>
@@ -277,7 +342,7 @@ export default function IndustryCalculatorPage() {
                       min={0}
                       max={20}
                       value={blueprintTe}
-                      onChange={(e) => setBlueprintTe(e.target.value)}
+                      onChange={(e) => setBlueprintTe(parseInt(e.target.value) || 0)}
                       placeholder={DEFAULTS.blueprintTe.toString()}
                     />
                   </div>
@@ -319,7 +384,7 @@ export default function IndustryCalculatorPage() {
                     max={100}
                     step={0.1}
                     value={facilityTax}
-                    onChange={(e) => setFacilityTax(e.target.value)}
+                    onChange={(e) => setFacilityTax(parseFloat(e.target.value) || 0)}
                     placeholder={DEFAULTS.facilityTax.toString()}
                   />
                 </div>
@@ -459,7 +524,7 @@ export default function IndustryCalculatorPage() {
                 <CostSummary
                   costs={result.costs}
                   systemCostIndex={result.systemCostIndex}
-                  quantity={quantity ? parseInt(quantity) : DEFAULTS.quantity}
+                  quantity={quantity || DEFAULTS.quantity}
                 />
 
                 {/* Save as Project */}

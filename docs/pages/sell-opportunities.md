@@ -9,8 +9,12 @@ The Sell Opportunities page helps traders identify when items are near their all
 ## URL
 
 ```
-/sell-opportunities
+/jita-opportunities?tab=sell
 ```
+
+### Legacy Route Redirect
+
+`/sell-opportunities` still works but redirects to `/jita-opportunities?tab=sell`.
 
 ## Prerequisites
 

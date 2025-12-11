@@ -13,7 +13,13 @@ The algorithm balances signal quality (50%) with absolute ISK profit potential (
 
 ## Access
 
-Navigate to `/market/opportunities` from the main application.
+Open **Jita Opportunities** and switch to the **Market Opportunities** tab:
+
+- `/jita-opportunities?tab=market`
+
+### Legacy Route Redirect
+
+`/market/opportunities` still works but redirects to `/jita-opportunities?tab=market`.
 
 ## Features
 

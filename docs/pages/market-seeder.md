@@ -10,7 +10,105 @@ The Market Seeder page helps identify the most profitable items to import from J
 
 ## Features
 
-The page has two main tabs: **Analysis** and **Watchlist**.
+The page has four main tabs: **Capital**, **Analysis**, **Watchlist**, and **Depletion**.
+
+---
+
+## Capital Efficiency Dashboard
+
+Track your ISK-at-work across all market sell orders. The Capital tab shows where your capital is deployed and calculates ROI metrics.
+
+### Concept
+
+Show where your capital is deployed and how efficiently it's working. Identify "dead capital" - ISK tied up in slow-moving orders that could be better deployed elsewhere.
+
+### Key Metrics
+
+| Metric | Formula | Description |
+|--------|---------|-------------|
+| Total ISK Deployed | Sum of `price × volumeRemain` | All capital tied up in sell orders |
+| Est. Daily Revenue | Sum of `capitalDeployed / daysToSell` | Expected daily ISK returned |
+| Avg Days to Sell | Capital-weighted average | How long until orders clear |
+| Effective APY | `(profit/cost) × (365/daysToSell) × 100` | Annualized return rate |
+
+### Demand Estimation
+
+Demand is estimated using **Vale of the Silent market history data** with a 20% hub factor (your hub sees ~20% of Vale's regional volume).
+
+```
+estimatedDailySales = valeDailyVolume × 0.2  // 20% of Vale volume
+daysToSell = volumeRemain / estimatedDailySales
+```
+
+### Efficiency Categories
+
+Orders are categorized by how long they'll take to sell:
+
+| Category | Days to Sell | Visual |
+|----------|--------------|--------|
+| Fast | < 14 days | Green |
+| Moderate | 14-30 days | Amber |
+| Slow | 30-90 days | Orange |
+| Dead | > 90 days | Red |
+
+### Dead Capital Alerts
+
+Orders estimated to take more than **90 days to sell** are flagged as "dead capital". These represent inefficient capital deployment - the ISK could potentially earn better returns elsewhere.
+
+The dashboard shows:
+- Count of dead capital orders
+- Total ISK in dead capital
+- Percentage of total capital that's dead
+
+### Summary Cards
+
+| Card | Description |
+|------|-------------|
+| Total ISK Deployed | Sum of all sell order values |
+| Est. Daily Revenue | Expected daily ISK based on demand |
+| Avg Time to Sell | Capital-weighted average days |
+| Effective APY | Portfolio-wide annualized return |
+
+### Capital Allocation Chart
+
+Visual breakdown showing what percentage of capital is in each efficiency category (Fast/Moderate/Slow/Dead).
+
+### Orders List
+
+All sell orders sorted by days-to-sell (slowest first to highlight problematic orders):
+- Item name and category
+- Volume remaining and price
+- Capital deployed
+- Days to sell badge (color-coded)
+- Effective APY badge
+
+Slow and dead capital orders show expanded details:
+- Estimated daily sales
+- Days listed
+- Jita buy price
+- Profit per unit
+
+### Requirements
+
+**ESI Scope:** `esi-markets.read_character_orders.v1`
+
+The Capital tab requires character-level order access, not just structure market access.
+
+### API Endpoint
+
+**GET /api/esi/capital-efficiency**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| character_id | string | Required - Your character ID |
+| transport_cost | number | Optional - ISK/m³ for cost basis (default: 450) |
+
+Returns:
+- Summary metrics (total deployed, daily revenue, APY, dead capital)
+- Per-order breakdown with efficiency classification
+- Capital allocation by efficiency category
+
+**Note:** Demand estimation uses Vale of the Silent market data × 20% hub factor.
 
 ---
 
@@ -24,7 +122,8 @@ The page has two main tabs: **Analysis** and **Watchlist**.
   - Minimum profit margin %
   - Minimum profit per unit ISK
   - Minimum volume per day
-  - No competition only toggle (filter for 40% markup opportunities)
+  - No competition only toggle (filter for tiered markup opportunities)
+  - Category filter checkboxes (Modules, Ships, Ammo, Boosters) - filter results by item type
 
 ### Analysis Results
 
@@ -33,7 +132,7 @@ The page displays multiple ranked lists:
 | Tab | Description |
 |-----|-------------|
 | Top Items | Best overall items by composite profitability score |
-| No Competition | Items with no existing sell orders (40% markup opportunity) |
+| No Competition | Items with no existing sell orders (tiered markup opportunity) |
 | Best ISK/m³ | Most profitable items per cargo space |
 | Trending Up | Items with increasing Jita demand |
 | Modules | Top modules by category |
@@ -90,6 +189,27 @@ Third Item 1
 - Minimum quantity is always 1 (even if price exceeds budget)
 - Default budget is 100M ISK per item (enter "100" for 100M, configurable in the action bar)
 
+## Tiered Pricing (No Competition)
+
+When there are no existing sell orders for an item in your structure, a **tiered markup** is applied based on Jita price. Cheaper items can sustain higher markups since absolute profit is lower:
+
+| Jita Price | Multiplier | Effective Margin |
+|------------|------------|------------------|
+| < 500K ISK | 4.0x | ~300% |
+| < 2M ISK | 3.0x | ~200% |
+| < 10M ISK | 2.0x | ~100% |
+| < 50M ISK | 1.7x | ~70% |
+| >= 50M ISK | 1.4x | ~40% |
+
+**Example target prices:**
+- 100K ISK item → 400K ISK (4x markup)
+- 1M ISK item → 3M ISK (3x markup)
+- 30M ISK item → 51M ISK (1.7x markup)
+
+When competitors have sell orders, the target price matches the competitor's lowest price.
+
+---
+
 ## Scoring Algorithm
 
 Items are ranked by a **volume-weighted composite score** that balances profitability with realistic sellability.
@@ -100,7 +220,7 @@ Items are ranked by a **volume-weighted composite score** that balances profitab
 |--------|--------|-------------|
 | Profit Margin % | 25% | Higher margins = better capital efficiency |
 | Profit per m³ | 30% | Transport efficiency (ISK per cargo space) |
-| Jita Demand | 25% | Higher Jita volume = more potential buyers |
+| Vale Demand | 25% | Higher regional volume = more potential buyers |
 | Absolute Profit | 20% | Raw ISK profit per unit |
 | No Competition Bonus | +15 | Bonus for items with no existing orders |
 
@@ -126,7 +246,7 @@ Items must meet these thresholds to appear (configurable via Advanced Settings):
 
 | Filter | Default | Description |
 |--------|---------|-------------|
-| Min Volume/Day | 10 units | Minimum average daily trading volume in Jita |
+| Min Volume/Day | 10 units | Minimum average daily trading volume in Vale |
 | Min Profit Margin | 10% | Minimum profit as percentage of cost |
 | Min Profit per Unit | 100,000 ISK | Minimum ISK profit per unit |
 | Min Jita Price | 10,000 ISK | Fixed minimum price threshold |
@@ -135,14 +255,16 @@ Items must meet these thresholds to appear (configurable via Advanced Settings):
 
 ### Authentication
 
-Requires EVE SSO login with scope:
-- `esi-markets.structure_markets.v1`
+Requires EVE SSO login with scopes:
+- `esi-markets.structure_markets.v1` (for Analysis/Watchlist/Depletion tabs)
+- `esi-markets.read_character_orders.v1` (for Capital Efficiency tab)
 
 ### Data Sources
 
-- **Jita Market History**: 365 days cached in Supabase (via RPC batches, daily updates)
+- **Vale Market History**: 365 days cached in Supabase (via RPC batches, daily updates via cron)
+- **Jita Market History**: For Market Opportunities and Sell Opportunities pages only
 - **Structure Orders**: Real-time from ESI (authenticated)
-- **Jita Prices**: Real-time from ESI regional orders (public API)
+- **Jita Prices**: Real-time from ESI regional orders (public API) - used for cost basis
 
 ## Progress Tracking
 
@@ -151,7 +273,7 @@ The analysis uses Server-Sent Events (SSE) to show real-time progress:
 | Stage | Description |
 |-------|-------------|
 | Loading | Loading ~5,800 tradeable items from file |
-| Market History | Fetching demand metrics via RPC batches (30 batches) |
+| Market History | Fetching Vale demand metrics via RPC batches (30 batches) |
 | Structure Orders | Fetching orders from your alliance hub |
 | Jita Prices | Fetching current Jita sell prices (~290 ESI batches) |
 | Analyzing | Computing profit metrics per item |
@@ -184,7 +306,7 @@ The main bottleneck is fetching ~5,800 Jita prices from ESI (20 concurrent reque
 ## Settings Persistence
 
 All settings are saved to localStorage:
-- `market-seeder-settings`: JSON object with structure_id, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget
+- `market-seeder-settings`: JSON object with structure_id, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget, selectedCategories
 
 ---
 
@@ -245,9 +367,95 @@ Watchlist items are stored in Supabase (`watchlist_items` table) and persist acr
 
 ---
 
+## Depletion Predictor Tab
+
+The Depletion Predictor tab analyzes **all items currently being sold in your structure** to predict when they will sell out and prioritize restocking by profit potential.
+
+### Concept
+
+Combine Vale of the Silent volume data (actual regional demand) with your structure's current sell orders to predict stockouts before they happen. Your edge: know exactly when to restock before you lose sales - regular traders react AFTER stockout.
+
+### Core Formulas
+
+```
+estimated_daily_sales = vale_avg_daily_volume × 0.2  // 20% of Vale volume
+days_until_stockout = current_stock ÷ estimated_daily_sales
+priority_score = estimated_daily_sales × profit_per_unit
+```
+
+### How It Works
+
+1. Click **Analyze Depletion** to fetch all sell orders and market data
+2. For each item type you're selling, the system calculates:
+   - **Estimated Daily Sales**: Vale Volume × 20% (hub factor)
+   - **Days Until Stockout**: Current stock ÷ estimated daily sales
+   - **Daily Profit Potential**: Estimated sales × profit per unit
+3. Items are ranked by **Priority Score** (higher = more urgent)
+
+### Urgency Levels
+
+Items are color-coded by how soon they'll run out:
+
+| Level | Days Remaining | Visual |
+|-------|----------------|--------|
+| Critical | < 3 days | Red border + "Critical" badge |
+| Warning | 3-7 days | Amber border + "Low Stock" badge |
+| Safe | > 7 days | Green border + "OK" badge |
+| No Data | N/A | Gray badge (no Vale volume data) |
+
+### Summary Cards
+
+When predictions are available, summary cards show:
+- **Items Tracked**: Total unique items being sold
+- **Critical**: Items with < 3 days of stock (red highlight)
+- **Warning**: Items with 3-7 days of stock (amber highlight)
+- **Daily Profit Potential**: Total ISK/day across all items
+
+### Item Cards
+
+Each prediction card displays:
+- Item name with category icon
+- **Current Stock**: Total units across all your sell orders for this item
+- **Est. Daily Sales**: Predicted units sold per day
+- **Days Until Stockout**: When you'll run out (color-coded)
+- **Daily Profit**: Potential daily profit from this item
+- **Priority**: Ranking score for restock urgency
+
+### Requirements
+
+- **Structure ID**: Must be set in Analysis tab
+- **EVE SSO Login**: Required to fetch structure sell orders
+
+### Usage Flow
+
+1. Set Structure ID in the Analysis tab
+2. Switch to the Depletion tab
+3. Click **Analyze Depletion**
+4. Review items sorted by priority score
+5. Focus restocking on Critical and Warning items
+6. Re-analyze periodically to track changes
+
+### Data Sources
+
+The depletion predictor fetches:
+1. **Structure Orders** (`/api/esi/structure-orders?all=true`) - All sell orders aggregated by type
+2. **Market Data** (`/api/market-seeder/market-data`) - Jita daily volume and prices for each item
+
+### API Endpoint
+
+**GET /api/market-seeder/market-data**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| type_ids | string | Comma-separated list of type IDs (max 500) |
+
+Returns Jita daily volume, prices, and item info for calculating depletion metrics.
+
+---
+
 ## Related
 
 - [Market Seeder API](../api/market-seeder.md) - Backend API documentation
 - [Watchlist API](../api/watchlist.md) - Watchlist API documentation
-- [ESI API](../api/esi.md) - Structure orders endpoint
+- [ESI API](../api/esi.md) - Structure orders and capital efficiency endpoints
 

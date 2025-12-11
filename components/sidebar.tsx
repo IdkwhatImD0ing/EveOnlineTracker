@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  BarChart3,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -39,10 +38,10 @@ const navItems: NavItem[] = [
     description: "Find profitable imports",
   },
   {
-    title: "Market Opportunities",
-    href: "/market/opportunities",
-    icon: BarChart3,
-    description: "Find undervalued items",
+    title: "Jita Opportunities",
+    href: "/jita-opportunities",
+    icon: TrendingUp,
+    description: "Sell + market opportunities",
   },
   {
     title: "Projects",
@@ -55,12 +54,6 @@ const navItems: NavItem[] = [
     href: "/industry",
     icon: Calculator,
     description: "Blueprint calculator",
-  },
-  {
-    title: "Sell Opportunities",
-    href: "/sell-opportunities",
-    icon: TrendingUp,
-    description: "Asset price analysis",
   },
   {
     title: "EVE SSO",

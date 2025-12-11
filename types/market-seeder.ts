@@ -71,6 +71,43 @@ export interface JitaSellPrice {
 // ============================================================================
 
 /**
+ * Stock depletion prediction for a watchlist item
+ * Used to predict when items will sell out and prioritize restocking
+ */
+export interface DepletionPrediction {
+  // Item info
+  typeId: number
+  name: string
+  categoryName: string | null
+  groupName: string | null
+  
+  // Stock data
+  currentStock: number              // Current units in structure
+  lowestPrice: number | null        // Current sell price in structure
+  
+  // Demand estimation
+  jitaDailyVolume: number           // Average daily volume in Jita
+  estimatedDailySales: number       // jitaDailyVolume * hubFactor
+  
+  // Depletion metrics
+  daysUntilStockout: number | null  // currentStock / estimatedDailySales (null if no sales)
+  
+  // Profit metrics
+  jitaBuyPrice: number              // Cost to acquire from Jita
+  profitPerUnit: number             // lowestPrice - jitaBuyPrice (or estimated)
+  dailyProfitPotential: number      // estimatedDailySales * profitPerUnit
+  
+  // Priority score for ranking
+  priorityScore: number             // Higher = more urgent to restock
+}
+
+/**
+ * Hub factor for estimating local demand from Vale of the Silent volume
+ * Default: 20% (0.2) - your hub sees ~20% of Vale's regional volume
+ */
+export const VALE_HUB_FACTOR = 0.2
+
+/**
  * Full profit analysis for a single item
  */
 export interface ProfitAnalysis {
@@ -222,6 +259,18 @@ export interface CachedJitaPrices {
 // ============================================================================
 
 /**
+ * Tiered markup configuration for no-competition pricing
+ * Cheaper items can sustain higher margins, expensive items need lower margins
+ */
+export const NO_COMPETITION_MARKUP_TIERS = [
+  { maxPrice: 500_000, multiplier: 4.0 },      // < 500K ISK: 4x (300% margin)
+  { maxPrice: 2_000_000, multiplier: 3.0 },    // < 2M ISK: 3x (200% margin)
+  { maxPrice: 10_000_000, multiplier: 2.0 },   // < 10M ISK: 2x (100% margin)
+  { maxPrice: 50_000_000, multiplier: 1.7 },   // < 50M ISK: 1.7x (70% margin)
+  { maxPrice: Infinity, multiplier: 1.4 },     // >= 50M ISK: 1.4x (40% margin)
+] as const
+
+/**
  * Default configuration values
  */
 export const MARKET_SEEDER_DEFAULTS = {
@@ -230,7 +279,7 @@ export const MARKET_SEEDER_DEFAULTS = {
   MIN_PROFIT_ISK: 100000,
   MIN_JITA_PRICE: 10000,
   MIN_DAILY_VOLUME: 10,
-  NO_COMPETITION_MARKUP: 1.40,  // 40% markup when no competition
+  NO_COMPETITION_MARKUP: 1.40,  // Fallback markup (used for >= 50M ISK items)
   DAYS_TO_ANALYZE: 30,
   
   // Cache TTLs in milliseconds
@@ -253,9 +302,101 @@ export const MARKET_SEEDER_DEFAULTS = {
  * Region IDs for reference
  */
 export const REGION_IDS = {
-  THE_FORGE: 10000002,  // Jita
-  DOMAIN: 10000043,     // Amarr
-  SINQ_LAISON: 10000032, // Dodixie
-  HEIMATAR: 10000030,   // Rens
+  THE_FORGE: 10000002,      // Jita
+  VALE_OF_SILENT: 10000015, // Vale of the Silent (alliance hub)
+  DOMAIN: 10000043,         // Amarr
+  SINQ_LAISON: 10000032,    // Dodixie
+  HEIMATAR: 10000030,       // Rens
 } as const
+
+// ============================================================================
+// Capital Efficiency Types
+// ============================================================================
+
+/**
+ * Dead capital threshold in days
+ * Orders taking longer than this to sell are considered "dead capital"
+ */
+export const DEAD_CAPITAL_THRESHOLD_DAYS = 90
+
+/**
+ * Capital efficiency analysis for a single sell order
+ */
+export interface CapitalOrder {
+  // Order info
+  orderId: number
+  typeId: number
+  itemName: string
+  categoryName: string | null
+  groupName: string | null
+  
+  // Order details
+  price: number                    // Sell price per unit
+  volumeRemain: number             // Units remaining
+  volumeTotal: number              // Original order volume
+  locationId: number               // Structure ID
+  issued: string                   // ISO date string
+  
+  // Capital metrics
+  capitalDeployed: number          // price * volumeRemain (ISK tied up)
+  
+  // Demand estimation
+  jitaDailyVolume: number          // Avg daily volume in Jita
+  estimatedDailySales: number      // jitaDailyVolume * hubFactor
+  
+  // Time metrics
+  daysToSell: number | null        // volumeRemain / estimatedDailySales
+  daysListed: number               // Days since order was created
+  
+  // Profit metrics (requires Jita price)
+  jitaBuyPrice: number | null      // Cost to acquire from Jita
+  transportCost: number            // Estimated transport cost
+  profitPerUnit: number | null     // price - jitaBuyPrice - transportCost
+  totalProfit: number | null       // profitPerUnit * volumeRemain
+  
+  // APY calculation
+  effectiveAPY: number | null      // (profit/cost) * (365/daysToSell) * 100
+  
+  // Status flags
+  isDeadCapital: boolean           // daysToSell > threshold
+  efficiency: 'fast' | 'moderate' | 'slow' | 'dead' | 'unknown'
+}
+
+/**
+ * Full capital efficiency analysis response
+ */
+export interface CapitalEfficiencyResponse {
+  success: boolean
+  characterId: number
+  analyzedAt: string
+  
+  // Summary metrics
+  summary: {
+    totalCapitalDeployed: number     // Sum of all sell order values
+    totalOrders: number              // Number of active sell orders
+    totalDailyRevenue: number        // Estimated daily revenue
+    avgDaysToSell: number            // Capital-weighted average
+    effectiveAPY: number             // Portfolio-wide APY
+    
+    // Dead capital
+    deadCapitalThreshold: number     // Days threshold used
+    deadCapitalValue: number         // ISK in slow orders
+    deadCapitalOrders: number        // Count of dead orders
+    
+    // Breakdown by efficiency
+    fastCapital: number              // ISK in <14 day orders
+    moderateCapital: number          // ISK in 14-30 day orders
+    slowCapital: number              // ISK in 30-90 day orders
+  }
+  
+  // Per-order breakdown
+  orders: CapitalOrder[]
+  
+  // Config used
+  config: {
+    hubFactor: number
+    transportCostPerM3: number
+    deadCapitalThresholdDays: number
+  }
+}
 

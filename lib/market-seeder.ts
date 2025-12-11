@@ -19,6 +19,7 @@ import {
   type AnalysisSummary,
   type CachedStructureOrders,
   MARKET_SEEDER_DEFAULTS,
+  NO_COMPETITION_MARKUP_TIERS,
   REGION_IDS,
 } from '@/types/market-seeder'
 import * as fs from 'fs'
@@ -81,22 +82,38 @@ export async function loadTradeableItems(): Promise<TradeableItem[]> {
 }
 
 /**
+ * Query Vale of the Silent market history from Supabase using RPC with batching
+ * Uses cached function for efficiency when no progress callback needed
+ * This provides actual demand data for the alliance hub
+ */
+export async function fetchValeMarketHistory(
+  typeIds: number[],
+  days: number = 30
+): Promise<Map<number, JitaDemandMetrics>> {
+  // Use Next.js cached version (no progress callback)
+  console.log(`[Market Seeder] Using cached Vale market history for ${typeIds.length} items`)
+  return getCachedMarketSeederStatistics(typeIds, days, REGION_IDS.VALE_OF_SILENT)
+}
+
+/**
  * Query Jita market history from Supabase using RPC with batching
  * Uses cached function for efficiency when no progress callback needed
+ * @deprecated Use fetchValeMarketHistory for demand metrics
  */
 export async function fetchJitaMarketHistory(
   typeIds: number[],
   days: number = 30
 ): Promise<Map<number, JitaDemandMetrics>> {
   // Use Next.js cached version (no progress callback)
-  console.log(`[Market Seeder] Using cached market history for ${typeIds.length} items`)
+  console.log(`[Market Seeder] Using cached Jita market history for ${typeIds.length} items`)
   return getCachedMarketSeederStatistics(typeIds, days, REGION_IDS.THE_FORGE)
 }
 
 /**
- * Query Jita market history with progress callback
+ * Query Vale of the Silent market history with progress callback
+ * This provides actual demand data for the alliance hub region
  */
-export async function fetchJitaMarketHistoryWithProgress(
+export async function fetchValeMarketHistoryWithProgress(
   typeIds: number[],
   days: number = 30,
   onBatchProgress?: (batch: number, total: number) => void
@@ -105,14 +122,14 @@ export async function fetchJitaMarketHistoryWithProgress(
   const result = new Map<number, JitaDemandMetrics>()
   
   if (typeIds.length === 0) {
-    console.warn('[Market Seeder] No type IDs provided for market history')
+    console.warn('[Market Seeder] No type IDs provided for Vale market history')
     return result
   }
   
   const RPC_BATCH_SIZE = 200  // Process 200 type_ids per RPC call to avoid timeouts
   const totalBatches = Math.ceil(typeIds.length / RPC_BATCH_SIZE)
   
-  console.log(`[Market Seeder] Fetching market history for ${typeIds.length} items in ${totalBatches} batches...`)
+  console.log(`[Market Seeder] Fetching Vale market history for ${typeIds.length} items in ${totalBatches} batches...`)
   
   for (let i = 0; i < typeIds.length; i += RPC_BATCH_SIZE) {
     const batchTypeIds = typeIds.slice(i, i + RPC_BATCH_SIZE)
@@ -124,12 +141,12 @@ export async function fetchJitaMarketHistoryWithProgress(
     try {
       const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
         p_type_ids: batchTypeIds,
-        p_region_id: REGION_IDS.THE_FORGE,
+        p_region_id: REGION_IDS.VALE_OF_SILENT,
         p_days_back: days
       })
       
       if (error) {
-        console.error(`[Market Seeder] RPC batch ${batchNum}/${totalBatches} failed:`, error.message)
+        console.error(`[Market Seeder] Vale RPC batch ${batchNum}/${totalBatches} failed:`, error.message)
         continue
       }
       
@@ -157,14 +174,91 @@ export async function fetchJitaMarketHistoryWithProgress(
         }
       }
       
-      console.log(`[Market Seeder] RPC batch ${batchNum}/${totalBatches}: ${data?.length || 0} results`)
+      console.log(`[Market Seeder] Vale RPC batch ${batchNum}/${totalBatches}: ${data?.length || 0} results`)
       
     } catch (err) {
-      console.error(`[Market Seeder] RPC batch ${batchNum}/${totalBatches} exception:`, err)
+      console.error(`[Market Seeder] Vale RPC batch ${batchNum}/${totalBatches} exception:`, err)
     }
   }
   
-  console.log(`[Market Seeder] Market history: ${result.size} items with data out of ${typeIds.length} requested`)
+  console.log(`[Market Seeder] Vale market history: ${result.size} items with data out of ${typeIds.length} requested`)
+  
+  return result
+}
+
+/**
+ * Query Jita market history with progress callback
+ * @deprecated Use fetchValeMarketHistoryWithProgress for demand metrics
+ */
+export async function fetchJitaMarketHistoryWithProgress(
+  typeIds: number[],
+  days: number = 30,
+  onBatchProgress?: (batch: number, total: number) => void
+): Promise<Map<number, JitaDemandMetrics>> {
+  const supabase = createClient()
+  const result = new Map<number, JitaDemandMetrics>()
+  
+  if (typeIds.length === 0) {
+    console.warn('[Market Seeder] No type IDs provided for market history')
+    return result
+  }
+  
+  const RPC_BATCH_SIZE = 200  // Process 200 type_ids per RPC call to avoid timeouts
+  const totalBatches = Math.ceil(typeIds.length / RPC_BATCH_SIZE)
+  
+  console.log(`[Market Seeder] Fetching Jita market history for ${typeIds.length} items in ${totalBatches} batches...`)
+  
+  for (let i = 0; i < typeIds.length; i += RPC_BATCH_SIZE) {
+    const batchTypeIds = typeIds.slice(i, i + RPC_BATCH_SIZE)
+    const batchNum = Math.floor(i / RPC_BATCH_SIZE) + 1
+    
+    // Send progress update
+    onBatchProgress?.(batchNum, totalBatches)
+    
+    try {
+      const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
+        p_type_ids: batchTypeIds,
+        p_region_id: REGION_IDS.THE_FORGE,
+        p_days_back: days
+      })
+      
+      if (error) {
+        console.error(`[Market Seeder] Jita RPC batch ${batchNum}/${totalBatches} failed:`, error.message)
+        continue
+      }
+      
+      if (data && Array.isArray(data)) {
+        for (const row of data as {
+          type_id: number
+          total_volume: number
+          avg_daily_volume: number
+          avg_price: number
+          total_orders: number
+          recent_avg_volume: number
+          older_avg_volume: number
+          trend_direction: string
+        }[]) {
+          result.set(row.type_id, {
+            typeId: row.type_id,
+            totalVolume30d: row.total_volume || 0,
+            avgDailyVolume: row.avg_daily_volume || 0,
+            avgPrice: row.avg_price || 0,
+            totalOrders: row.total_orders || 0,
+            recentAvgVolume: row.recent_avg_volume || 0,
+            olderAvgVolume: row.older_avg_volume || 0,
+            trendDirection: (row.trend_direction as 'up' | 'down' | 'stable') || 'stable'
+          })
+        }
+      }
+      
+      console.log(`[Market Seeder] Jita RPC batch ${batchNum}/${totalBatches}: ${data?.length || 0} results`)
+      
+    } catch (err) {
+      console.error(`[Market Seeder] Jita RPC batch ${batchNum}/${totalBatches} exception:`, err)
+    }
+  }
+  
+  console.log(`[Market Seeder] Jita market history: ${result.size} items with data out of ${typeIds.length} requested`)
   
   return result
 }
@@ -401,17 +495,39 @@ export async function fetchJitaSellPricesWithProgress(
 // ============================================================================
 
 /**
+ * Get the no-competition markup multiplier based on Jita price
+ * Uses tiered pricing: cheaper items get higher markups, expensive items lower markups
+ * 
+ * Tiers:
+ * - < 500K ISK: 4.0x (300% margin)
+ * - < 2M ISK: 3.0x (200% margin)
+ * - < 10M ISK: 2.0x (100% margin)
+ * - < 50M ISK: 1.7x (70% margin)
+ * - >= 50M ISK: 1.4x (40% margin)
+ */
+export function getNoCompetitionMarkup(jitaPrice: number): number {
+  for (const tier of NO_COMPETITION_MARKUP_TIERS) {
+    if (jitaPrice < tier.maxPrice) {
+      return tier.multiplier
+    }
+  }
+  // Fallback (should never reach due to Infinity in last tier)
+  return MARKET_SEEDER_DEFAULTS.NO_COMPETITION_MARKUP
+}
+
+/**
  * Calculate target sell price based on competition
+ * Uses tiered markup for no-competition items based on Jita price
  */
 export function calculateTargetPrice(
   jitaSellPrice: number,
-  structureLowestSell: number | null,
-  noCompetitionMarkup: number = MARKET_SEEDER_DEFAULTS.NO_COMPETITION_MARKUP
+  structureLowestSell: number | null
 ): TargetPriceResult {
   if (structureLowestSell === null) {
-    // No competition: apply markup over Jita price
+    // No competition: apply tiered markup based on Jita price
+    const markup = getNoCompetitionMarkup(jitaSellPrice)
     return {
-      price: jitaSellPrice * noCompetitionMarkup,
+      price: jitaSellPrice * markup,
       hasCompetition: false,
       competitorPrice: null
     }
@@ -653,15 +769,15 @@ export async function analyzeMarketWithProgress(options: AnalyzeOptionsWithProgr
   // Extract type IDs for batch queries
   const typeIds = tradeableItems.map(item => item.typeId)
   
-  // Step 2: Fetch Jita market history (using batched RPC with progress)
-  progress('market_history', 'Fetching market history from database...', 10)
+  // Step 2: Fetch Vale market history for demand data (using batched RPC with progress)
+  progress('market_history', 'Fetching Vale market history from database...', 10)
   const marketHistoryStart = Date.now()
-  const jitaMarketHistory = await fetchJitaMarketHistoryWithProgress(typeIds, days, (batch, total) => {
+  const valeMarketHistory = await fetchValeMarketHistoryWithProgress(typeIds, days, (batch, total) => {
     const batchPercent = 10 + Math.round((batch / total) * 25)
-    progress('market_history', `Fetching market history... ${batch}/${total} batches`, batchPercent, { batch, total })
+    progress('market_history', `Fetching Vale market history... ${batch}/${total} batches`, batchPercent, { batch, total })
   })
   const marketHistoryMs = Date.now() - marketHistoryStart
-  progress('market_history', `Fetched ${jitaMarketHistory.size} market history records`, 35, { count: jitaMarketHistory.size })
+  progress('market_history', `Fetched ${valeMarketHistory.size} Vale market history records`, 35, { count: valeMarketHistory.size })
   
   // Step 3: Fetch structure orders
   progress('structure_orders', 'Fetching structure orders from ESI...', 40)
@@ -688,9 +804,9 @@ export async function analyzeMarketWithProgress(options: AnalyzeOptionsWithProgr
   for (const item of tradeableItems) {
     const analysis = analyzeItem(
       item,
-      jitaMarketHistory.get(item.typeId),
+      valeMarketHistory.get(item.typeId),  // Use Vale data for demand metrics
       structureOrders[item.typeId],
-      jitaPrices.get(item.typeId),
+      jitaPrices.get(item.typeId),  // Use Jita prices for cost basis
       transportCostPerM3
     )
     

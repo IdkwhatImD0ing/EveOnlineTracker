@@ -24,7 +24,7 @@ The Market Seeder algorithm combines three data sources to calculate profitabili
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Market Seeder Algorithm                       │
 │  • Calculate costs (Jita price + transport)                      │
-│  • Determine target price (competition vs 40% markup)            │
+│  • Determine target price (competition vs tiered markup)         │
 │  • Compute profit metrics and composite score                    │
 │  • Apply filters and rank items                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -165,7 +165,7 @@ The API returns multiple ranked lists optimized for different strategies:
 Best overall items considering all factors. Use this for general market seeding.
 
 ### noCompetitionOpportunities
-Items with **no existing sell orders** in the structure. These allow 40% markup pricing.
+Items with **no existing sell orders** in the structure. These allow tiered markup pricing (40-300% based on item value).
 
 ### bestIskPerM3
 Items with highest profit per cargo volume. Best for maximizing Jump Freighter efficiency.
@@ -181,10 +181,26 @@ Top items broken down by category (Module, Ship, Charge, Booster).
 ## Pricing Logic
 
 ### No Competition (Empty Market)
-When there are no existing sell orders for an item in your structure:
+When there are no existing sell orders for an item in your structure, a **tiered markup** is applied based on Jita price. Cheaper items can sustain higher markups since absolute profit is lower:
+
+| Jita Price | Multiplier | Effective Margin |
+|------------|------------|------------------|
+| < 500K ISK | 4.0x | ~300% |
+| < 2M ISK | 3.0x | ~200% |
+| < 10M ISK | 2.0x | ~100% |
+| < 50M ISK | 1.7x | ~70% |
+| >= 50M ISK | 1.4x | ~40% |
+
 ```
-Target Price = Jita Sell Price × 1.40 (40% markup)
+Target Price = Jita Sell Price × Tiered Multiplier
 ```
+
+**Example:**
+- 100K ISK item → 400K ISK target (4x)
+- 1M ISK item → 3M ISK target (3x)
+- 5M ISK item → 10M ISK target (2x)
+- 30M ISK item → 51M ISK target (1.7x)
+- 100M ISK item → 140M ISK target (1.4x)
 
 ### With Competition
 When competitors have sell orders:
@@ -379,9 +395,68 @@ while (true) {
 
 ---
 
+## GET /api/market-seeder/market-data
+
+Lightweight endpoint to fetch Jita market data for specific type IDs. Used by the Stock Depletion Predictor.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| type_ids | string | Yes | Comma-separated list of type IDs (max 500) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/market-seeder/market-data?type_ids=2048,3170,11269"
+```
+
+**Success Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "2048": {
+      "avgDailyVolume": 2500,
+      "totalVolume30d": 75000,
+      "avgPrice": 450000,
+      "jitaSellPrice": 425000
+    },
+    "3170": {
+      "avgDailyVolume": 1200,
+      "totalVolume30d": 36000,
+      "avgPrice": 320000,
+      "jitaSellPrice": 315000
+    }
+  },
+  "typeCount": 2,
+  "fetchedAt": "2025-12-11T12:00:00Z"
+}
+```
+
+**Response Fields:**
+
+| Field | Description |
+|-------|-------------|
+| avgDailyVolume | Average units traded per day in Jita (30-day) |
+| totalVolume30d | Total units traded in last 30 days |
+| avgPrice | Average transaction price (30-day) |
+| jitaSellPrice | Current lowest sell price in Jita (null if no orders) |
+
+**Error Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 400 | Missing or invalid type_ids parameter |
+| 500 | Server error fetching market data |
+
+---
+
 ## Related Files
 
 - `app/api/market-seeder/analyze/route.ts` - API endpoint with SSE streaming support
+- `app/api/market-seeder/market-data/route.ts` - Lightweight market data endpoint for depletion predictor
 - `lib/market-seeder.ts` - Core algorithm with progress callbacks
 - `types/market-seeder.ts` - TypeScript interfaces
 - `data/tradeable-items.jsonl` - Item catalog (~5,800 items)
@@ -395,11 +470,13 @@ while (true) {
 Uses the `get_market_seeder_statistics` PostgreSQL function to efficiently query market history.
 Processes ~5,800 items in batches of 200 to avoid Supabase's 1000-row limit.
 
+**Vale of the Silent** (region 10000015) is used for demand estimation with a **20% hub factor**.
+
 ```sql
--- Example RPC call
+-- Example RPC call for Vale demand data
 SELECT * FROM get_market_seeder_statistics(
   ARRAY[34, 35, 36]::BIGINT[],  -- type_ids
-  10000002,                       -- region_id (The Forge)
+  10000015,                       -- region_id (Vale of the Silent)
   30                              -- days_back
 );
 ```

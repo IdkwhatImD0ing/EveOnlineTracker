@@ -13,11 +13,15 @@ app/
 │   └── page.tsx            # EVE SSO callback (/callback)
 ├── industry/
 │   └── page.tsx            # Industry calculator (/industry)
+├── jita-opportunities/
+│   └── page.tsx            # Jita opportunities (/jita-opportunities)
+├── market-seeder/
+│   └── page.tsx            # Market seeder (/market-seeder)
 ├── market/
 │   └── opportunities/
-│       └── page.tsx        # Market opportunities (/market/opportunities)
+│       └── page.tsx        # Redirects to /jita-opportunities?tab=market
 ├── sell-opportunities/
-│   └── page.tsx            # Sell opportunities (/sell-opportunities)
+│   └── page.tsx            # Redirects to /jita-opportunities?tab=sell
 └── projects/
     ├── new/
     │   └── page.tsx        # New project form (/projects/new)
@@ -32,8 +36,8 @@ app/
 | [Home](./home.md) | `/` | Project list and navigation hub |
 | [EVE SSO Callback](./callback.md) | `/callback` | Token display and ESI API tester |
 | [Industry Calculator](./industry-calculator.md) | `/industry` | Blueprint material calculations |
-| [Market Opportunities](./market-opportunities.md) | `/market/opportunities` | Find undervalued items using mean reversion analysis |
-| [Sell Opportunities](./sell-opportunities.md) | `/sell-opportunities` | Identify optimal sell timing for character assets |
+| [Jita Opportunities](./jita-opportunities.md) | `/jita-opportunities` | Combined sell timing + market opportunities (tabbed) |
+| [Market Seeder](./market-seeder.md) | `/market-seeder` | Import profit analyzer (tabbed) |
 | [Projects](./projects.md) | `/projects/*` | Project creation and detail views |
 
 ## Navigation Flow

@@ -18,9 +18,9 @@ The app uses a collapsible sidebar for navigation:
 |------|------|-------------|
 | Dashboard | `/` | This page |
 | Market Seeder | `/market-seeder` | Import profit analyzer |
+| Jita Opportunities | `/jita-opportunities` | Sell timing + market opportunities |
 | Projects | `/projects` | Manufacturing tracker |
 | Industry | `/industry` | Blueprint calculator |
-| Sell Opportunities | `/sell-opportunities` | Asset price analysis |
 | EVE SSO | `/callback` | Login & API tokens |
 
 The sidebar:
@@ -58,7 +58,7 @@ Features:
 1. **Market Seeder** - Find profitable imports
 2. **Projects** - Manufacturing tracker
 3. **Industry Calculator** - Blueprint materials
-4. **Sell Opportunities** - Asset analysis
+4. **Jita Opportunities** - Sell timing + market opportunity discovery
 
 ## Data Sources
 
