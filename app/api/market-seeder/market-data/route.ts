@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     // Load tradeable items for name lookup and fetch market data in parallel
     const [tradeableItems, marketHistory, jitaPrices] = await Promise.all([
       loadTradeableItemsMap(),
-      getCachedMarketSeederStatistics(typeIds, 30, REGION_IDS.THE_FORGE),
+      getCachedMarketSeederStatistics(typeIds, 30, REGION_IDS.VALE_OF_SILENT),
       getCachedJitaPrices(typeIds)
     ])
     

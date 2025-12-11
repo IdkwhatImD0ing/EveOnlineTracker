@@ -41,7 +41,7 @@ import {
   Percent,
   Skull,
 } from "lucide-react"
-import { type CapitalOrder, type CapitalEfficiencyResponse, DEAD_CAPITAL_THRESHOLD_DAYS, VALE_HUB_FACTOR } from "@/types/market-seeder"
+import { type CapitalOrder, type CapitalEfficiencyResponse, DEAD_CAPITAL_THRESHOLD_DAYS } from "@/types/market-seeder"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ItemSearch, TradeableItem } from "@/components/market/item-search"
 
@@ -234,6 +234,13 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
   filtering: BarChart3,
   scoring: BarChart3,
   ranking: BarChart3,
+  // Depletion stages
+  starting: Timer,
+  orders: Globe,
+  items: Package,
+  market: Database,
+  sorting: BarChart3,
+  summary: BarChart3,
 }
 
 function TrendIcon({ direction }: { direction: string }) {
@@ -498,6 +505,15 @@ export default function MarketSeederPage() {
   const [depletionLoading, setDepletionLoading] = useState(false)
   const [depletionError, setDepletionError] = useState<string | null>(null)
   const [depletionAnalyzedAt, setDepletionAnalyzedAt] = useState<string | null>(null)
+  const [depletionProgress, setDepletionProgress] = useState<ProgressState | null>(null)
+  const [depletionSummary, setDepletionSummary] = useState<{
+    totalItems: number
+    criticalCount: number
+    warningCount: number
+    okCount: number
+    noDataCount: number
+    totalDailyProfit: number
+  } | null>(null)
 
   // Capital efficiency state
   const [capitalData, setCapitalData] = useState<CapitalEfficiencyResponse | null>(null)
@@ -900,7 +916,7 @@ export default function MarketSeederPage() {
     }
   }, [])
 
-  // Depletion predictor analysis - analyzes ALL sell orders in structure
+  // Depletion predictor analysis - analyzes ALL sell orders in structure with SSE progress
   const analyzeDepletion = useCallback(async () => {
     if (!structureId) {
       setDepletionError("Structure ID is required")
@@ -915,114 +931,86 @@ export default function MarketSeederPage() {
 
     setDepletionLoading(true)
     setDepletionError(null)
+    setDepletionProgress({ stage: "starting", message: "Connecting...", percent: 0 })
 
     try {
-      // Step 1: Fetch ALL sell orders from the structure
-      const ordersResponse = await fetch(`/api/esi/structure-orders?structure_id=${structureId}&all=true`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
+      const response = await fetch(
+        `/api/market-seeder/depletion?structure_id=${structureId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      )
 
-      if (!ordersResponse.ok) {
-        const data = await ordersResponse.json()
-        throw new Error(data.error || "Failed to fetch structure orders")
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to start analysis")
       }
 
-      const ordersData = await ordersResponse.json()
-      const ordersByType: Array<{
-        type_id: number
-        lowest_price: number
-        total_volume: number
-        order_count: number
-      }> = ordersData.orders_by_type || []
+      // Handle SSE streaming
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+      let currentEventType = ""
+      let currentEventData = ""
 
-      if (ordersByType.length === 0) {
-        setDepletionPredictions([])
-        setDepletionAnalyzedAt(new Date().toISOString())
-        return
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          
+          // Process complete lines in buffer
+          const lines = buffer.split("\n")
+          buffer = lines.pop() || ""
+
+          for (const line of lines) {
+            if (line.startsWith("event: ")) {
+              currentEventType = line.slice(7).trim()
+            } else if (line.startsWith("data: ")) {
+              currentEventData = line.slice(6)
+            } else if (line === "") {
+              // Empty line = end of event
+              if (currentEventType && currentEventData) {
+                try {
+                  const data = JSON.parse(currentEventData)
+                  
+                  if (currentEventType === "progress") {
+                    setDepletionProgress({
+                      stage: data.stage,
+                      message: data.message,
+                      percent: data.percent,
+                    })
+                  } else if (currentEventType === "complete") {
+                    setDepletionPredictions(data.predictions)
+                    setDepletionSummary(data.summary)
+                    setDepletionAnalyzedAt(data.analyzedAt)
+                    setDepletionProgress(null)
+                  } else if (currentEventType === "error") {
+                    throw new Error(data.message)
+                  }
+                } catch (e) {
+                  if (e instanceof SyntaxError) {
+                    console.warn("Failed to parse SSE data:", currentEventData)
+                  } else {
+                    throw e
+                  }
+                }
+              }
+              currentEventType = ""
+              currentEventData = ""
+            }
+          }
+        }
       }
-
-      // Step 2: Fetch market data (Jita volume + prices + item names) for all items being sold
-      const typeIds = ordersByType.map(order => order.type_id)
-      const marketDataResponse = await fetch(`/api/market-seeder/market-data?type_ids=${typeIds.join(',')}`)
-
-      if (!marketDataResponse.ok) {
-        const data = await marketDataResponse.json()
-        throw new Error(data.error || "Failed to fetch market data")
-      }
-
-      const marketData = await marketDataResponse.json()
-      const marketDataMap: Record<number, {
-        name: string
-        categoryName: string | null
-        groupName: string | null
-        volume: number | null
-        avgDailyVolume: number
-        totalVolume30d: number
-        avgPrice: number
-        jitaSellPrice: number | null
-      }> = marketData.data
-
-      // Step 3: Calculate depletion predictions for each item type
-      const predictions: DepletionPrediction[] = ordersByType.map(order => {
-        const market = marketDataMap[order.type_id] || {
-          name: `Unknown (${order.type_id})`,
-          categoryName: null,
-          groupName: null,
-          avgDailyVolume: 0,
-          avgPrice: 0,
-          jitaSellPrice: null
-        }
-
-        // Estimated daily sales from Vale market history × hub factor (20% of Vale volume)
-        const estimatedDailySales = market.avgDailyVolume * VALE_HUB_FACTOR
-
-        // Days until stockout
-        const daysUntilStockout = estimatedDailySales > 0
-          ? order.total_volume / estimatedDailySales
-          : null
-
-        // Profit per unit (sell price - buy price)
-        const jitaBuyPrice = market.jitaSellPrice || market.avgPrice || 0
-        const sellPrice = order.lowest_price
-        const profitPerUnit = sellPrice - jitaBuyPrice
-
-        // Daily profit potential
-        const dailyProfitPotential = estimatedDailySales * Math.max(0, profitPerUnit)
-
-        // Priority score (higher = more urgent to restock)
-        // Combines urgency (inverse of days remaining) with profit potential
-        let priorityScore = dailyProfitPotential
-        if (daysUntilStockout !== null && daysUntilStockout < 30) {
-          // Boost priority for items running low
-          priorityScore *= (30 - daysUntilStockout) / 10
-        }
-
-        return {
-          typeId: order.type_id,
-          name: market.name,
-          categoryName: market.categoryName,
-          groupName: market.groupName,
-          currentStock: order.total_volume,
-          lowestPrice: order.lowest_price,
-          jitaDailyVolume: market.avgDailyVolume,
-          estimatedDailySales,
-          daysUntilStockout,
-          jitaBuyPrice,
-          profitPerUnit,
-          dailyProfitPotential,
-          priorityScore
-        }
-      })
-
-      setDepletionPredictions(predictions)
-      setDepletionAnalyzedAt(new Date().toISOString())
 
     } catch (err) {
       setDepletionError(err instanceof Error ? err.message : "Failed to analyze depletion")
     } finally {
       setDepletionLoading(false)
+      setDepletionProgress(null)
     }
   }, [structureId, getValidToken])
 
@@ -1130,9 +1118,12 @@ export default function MarketSeederPage() {
             <TabsTrigger value="depletion" className="gap-2">
               <Timer className="size-4" />
               Depletion
-              {depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout < 7).length > 0 && (
-                <Badge variant="secondary" className="ml-1 px-1.5 py-0 bg-amber-500/20 text-amber-600">
-                  {depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout < 7).length}
+              {depletionSummary && (depletionSummary.criticalCount > 0 || depletionSummary.warningCount > 0) && (
+                <Badge 
+                  variant={depletionSummary.criticalCount > 0 ? "destructive" : "secondary"} 
+                  className={depletionSummary.criticalCount > 0 ? "ml-1 px-1.5 py-0" : "ml-1 px-1.5 py-0 bg-amber-500/20 text-amber-600"}
+                >
+                  {depletionSummary.criticalCount + depletionSummary.warningCount}
                 </Badge>
               )}
             </TabsTrigger>
@@ -2049,19 +2040,28 @@ export default function MarketSeederPage() {
               </CardContent>
             </Card>
 
+            {/* Progress Bar */}
+            {depletionProgress && (
+              <Card>
+                <CardContent className="p-4">
+                  <ProgressBar progress={depletionProgress} />
+                </CardContent>
+              </Card>
+            )}
+
             {/* Depletion Summary */}
-            {depletionPredictions.length > 0 && (
+            {depletionSummary && depletionPredictions.length > 0 && (
               <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-2xl font-bold">{depletionPredictions.length}</p>
+                    <p className="text-2xl font-bold">{depletionSummary.totalItems}</p>
                     <p className="text-sm text-muted-foreground">Items Tracked</p>
                   </CardContent>
                 </Card>
                 <Card className="border-destructive/50">
                   <CardContent className="p-4">
                     <p className="text-2xl font-bold text-destructive">
-                      {depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout < 3).length}
+                      {depletionSummary.criticalCount}
                     </p>
                     <p className="text-sm text-muted-foreground">Critical (&lt;3 days)</p>
                   </CardContent>
@@ -2069,7 +2069,7 @@ export default function MarketSeederPage() {
                 <Card className="border-amber-500/50">
                   <CardContent className="p-4">
                     <p className="text-2xl font-bold text-amber-500">
-                      {depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout >= 3 && p.daysUntilStockout < 7).length}
+                      {depletionSummary.warningCount}
                     </p>
                     <p className="text-sm text-muted-foreground">Warning (3-7 days)</p>
                   </CardContent>
@@ -2077,7 +2077,7 @@ export default function MarketSeederPage() {
                 <Card>
                   <CardContent className="p-4">
                     <p className="text-2xl font-bold text-emerald-500">
-                      {formatIskShort(depletionPredictions.reduce((sum, p) => sum + p.dailyProfitPotential, 0))}
+                      {formatIskShort(depletionSummary.totalDailyProfit)}
                     </p>
                     <p className="text-sm text-muted-foreground">Daily Profit Potential</p>
                   </CardContent>
@@ -2086,11 +2086,11 @@ export default function MarketSeederPage() {
             )}
 
             {/* Depletion Predictions List */}
-            {depletionLoading ? (
+            {depletionLoading && !depletionProgress ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="size-8 animate-spin text-muted-foreground" />
               </div>
-            ) : depletionPredictions.length === 0 ? (
+            ) : !depletionLoading && depletionPredictions.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <Timer className="size-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -2101,9 +2101,8 @@ export default function MarketSeederPage() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {depletionPredictions
-                  .sort((a, b) => b.priorityScore - a.priorityScore)
-                  .map((prediction) => {
+                {/* Already sorted by days until stockout (critical first) from API */}
+                {depletionPredictions.map((prediction) => {
                     const CategoryIcon = CATEGORY_ICONS[prediction.categoryName || ''] || Package
                     const urgencyLevel = prediction.daysUntilStockout === null 
                       ? 'none'
