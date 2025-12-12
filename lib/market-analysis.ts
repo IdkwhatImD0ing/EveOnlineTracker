@@ -1013,3 +1013,93 @@ export function formatISK(value: number): string {
   }
   return `${value.toFixed(2)} ISK`
 }
+
+// =============================================================================
+// EVE MARKET TICK SIZE UTILITIES
+// =============================================================================
+
+/**
+ * Calculate the market tick size for a given price.
+ * 
+ * EVE Online uses 4 significant figures for price precision (as of March 2020).
+ * Tick size = 10^(floor(log10(price)) - 3)
+ * 
+ * Examples:
+ * - 100 ISK → tick = 0.01 ISK
+ * - 1,000 ISK → tick = 0.1 ISK
+ * - 10,000 ISK → tick = 1 ISK
+ * - 100,000 ISK → tick = 10 ISK
+ * - 1,000,000 ISK → tick = 100 ISK
+ * - 10,000,000 ISK → tick = 1,000 ISK
+ * - 100,000,000 ISK → tick = 10,000 ISK
+ * - 1,000,000,000 ISK → tick = 100,000 ISK
+ */
+export function calculateTickSize(price: number): number {
+  if (price <= 0) return 0.01
+  
+  // Calculate the order of magnitude
+  const magnitude = Math.floor(Math.log10(price))
+  
+  // Tick size is 10^(magnitude - 3) for 4 significant figures
+  // But minimum tick is 0.01 ISK
+  const tickExponent = magnitude - 3
+  const tickSize = Math.pow(10, tickExponent)
+  
+  return Math.max(0.01, tickSize)
+}
+
+/**
+ * Round a price down to the nearest valid tick.
+ * Used for calculating undercut prices.
+ */
+export function roundPriceToTick(price: number): number {
+  const tick = calculateTickSize(price)
+  return Math.floor(price / tick) * tick
+}
+
+/**
+ * Round a price up to the nearest valid tick.
+ */
+export function roundPriceUpToTick(price: number): number {
+  const tick = calculateTickSize(price)
+  return Math.ceil(price / tick) * tick
+}
+
+/**
+ * Calculate the undercut price (1 tick below the given price).
+ * This is the minimum valid price that undercuts the competition.
+ * 
+ * @param competitorPrice The competitor's current price
+ * @returns The undercut price (1 tick lower)
+ */
+export function calculateUndercutPrice(competitorPrice: number): number {
+  if (competitorPrice <= 0) return 0
+  
+  // First, ensure the competitor price is on a valid tick
+  const tick = calculateTickSize(competitorPrice)
+  const roundedPrice = roundPriceToTick(competitorPrice)
+  
+  // Undercut by 1 tick
+  const undercutPrice = roundedPrice - tick
+  
+  // Ensure we don't go below minimum (0.01 ISK)
+  return Math.max(0.01, undercutPrice)
+}
+
+/**
+ * Format a price for EVE's market interface (no ISK suffix, comma-separated).
+ * This format can be copy-pasted directly into EVE's modify order dialog.
+ * 
+ * @param price The price to format
+ * @returns Formatted string like "1,234,567.89"
+ */
+export function formatPriceForEve(price: number): string {
+  // Round to 2 decimal places
+  const rounded = Math.round(price * 100) / 100
+  
+  // Format with commas and 2 decimal places
+  return rounded.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+}

@@ -10,7 +10,7 @@ The Market Seeder page helps identify the most profitable items to import from J
 
 ## Features
 
-The page has four main tabs: **Capital**, **Analysis**, **Watchlist**, and **Depletion**.
+The page has five main tabs: **Capital**, **Analysis**, **Watchlist**, **Depletion**, and **Undercut**.
 
 ---
 
@@ -530,9 +530,114 @@ Returns Jita daily volume, prices, and item info for calculating depletion metri
 
 ---
 
+## Undercut Tracker Tab
+
+The Undercut Tracker tab monitors your sell orders for competitors who have undercut your prices, and provides copy-pasteable prices to beat them while respecting EVE's tick size rules.
+
+### Concept
+
+Quickly identify when competitors have undercut your sell orders and get the exact price needed to undercut them by 1 tick. Respects EVE Online's 4 significant figure price precision introduced in March 2020.
+
+### How It Works
+
+1. Click **Check Undercuts** to analyze your orders
+2. The system fetches your character's sell orders from ESI
+3. Filters to orders in the selected structure (3T7-M8 Keepstar by default)
+4. Compares against all structure sell orders
+5. For each item where a competitor has a lower price, calculates the 1-tick undercut price
+
+### Tick Size Rules
+
+EVE Online limits prices to 4 significant figures. The tick size depends on price magnitude:
+
+| Price Range | Tick Size | Example |
+|-------------|-----------|---------|
+| < 1,000 ISK | 0.01 ISK | 999.99 → 999.98 |
+| 1,000 - 9,999 ISK | 0.1 ISK | 5,000.0 → 4,999.9 |
+| 10,000 - 99,999 ISK | 1 ISK | 50,000 → 49,999 |
+| 100,000 - 999,999 ISK | 10 ISK | 500,000 → 499,990 |
+| 1M - 9.99M ISK | 100 ISK | 5,000,000 → 4,999,900 |
+| 10M - 99.9M ISK | 1,000 ISK | 50,000,000 → 49,999,000 |
+| 100M - 999M ISK | 10,000 ISK | 500,000,000 → 499,990,000 |
+| 1B+ ISK | 100,000 ISK | 5,000,000,000 → 4,999,900,000 |
+
+### Summary Cards
+
+| Card | Description |
+|------|-------------|
+| Being Undercut | Number of items where competitors have lower prices |
+| Lowest Price | Number of items where you have the lowest price |
+| Your Orders | Total sell orders you have in the structure |
+
+### Undercut Items List
+
+Items being undercut are shown with red highlighting:
+- Item icon and name
+- Your current price
+- Competitor's lower price
+- Price difference
+- **Copy button** with the undercut price in EVE-pasteable format
+
+Click the copy button, then paste directly into EVE's "Modify Order" dialog to update your price.
+
+### Safe Items List
+
+Items where you have the lowest price are shown with green highlighting:
+- Item icon and name
+- Your price
+- Next competitor price (if any)
+
+### Requirements
+
+**ESI Scopes:**
+- `esi-markets.read_character_orders.v1` - To read your character's orders
+- `esi-markets.structure_markets.v1` - To read structure market orders
+
+### Usage Flow
+
+1. Select Structure in the Analysis tab (3T7-M8 Keepstar is default)
+2. Switch to the Undercut tab
+3. Click **Check Undercuts**
+4. Review items being undercut (red section)
+5. Click the copy button next to each undercut price
+6. In EVE, modify your order and paste the new price
+7. Re-check periodically to stay competitive
+
+### API Endpoint
+
+**GET /api/esi/undercut-check**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| character_id | string | Yes | Your character ID |
+| structure_id | string | No | Structure ID (default: 3T7-M8 Keepstar) |
+
+**Response:**
+
+```json
+{
+  "undercut_items": [{
+    "type_id": 2048,
+    "type_name": "Damage Control II",
+    "your_price": 500000,
+    "competitor_price": 495000,
+    "undercut_price": 494900,
+    "undercut_price_eve": "494,900.00"
+  }],
+  "safe_items": [...],
+  "summary": {
+    "undercut_count": 5,
+    "safe_count": 12,
+    "total_orders_in_structure": 17
+  }
+}
+```
+
+---
+
 ## Related
 
 - [Market Seeder API](../api/market-seeder.md) - Backend API documentation
 - [Watchlist API](../api/watchlist.md) - Watchlist API documentation
-- [ESI API](../api/esi.md) - Structure orders and capital efficiency endpoints
+- [ESI API](../api/esi.md) - Structure orders, capital efficiency, and undercut check endpoints
 

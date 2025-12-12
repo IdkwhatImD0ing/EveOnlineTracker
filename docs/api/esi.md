@@ -886,6 +886,117 @@ curl -X GET "http://localhost:3000/api/esi/character-orders?character_id=1234567
 
 ---
 
+### GET /api/esi/undercut-check
+
+Checks for competitors undercutting your sell orders in a structure and provides copy-pasteable prices to beat them.
+
+**Authentication:** Required (EVE SSO Bearer token)
+
+**Required Scopes:**
+- `esi-markets.read_character_orders.v1`
+- `esi-markets.structure_markets.v1`
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| character_id | string | Yes | - | Your character ID |
+| structure_id | string | No | 1051567430261 | Structure ID (default: 3T7-M8 Keepstar) |
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| Authorization | Yes | Bearer token from EVE SSO |
+
+**Example Request:**
+```bash
+curl -X GET "http://localhost:3000/api/esi/undercut-check?character_id=12345678&structure_id=1051567430261" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Success Response (200):**
+```json
+{
+  "undercut_items": [
+    {
+      "type_id": 2048,
+      "type_name": "Damage Control II",
+      "your_order_id": 6741234567,
+      "your_price": 500000,
+      "your_price_formatted": "500.00K ISK",
+      "your_volume_remain": 50,
+      "competitor_price": 495000,
+      "competitor_price_formatted": "495.00K ISK",
+      "competitor_order_id": 6741234568,
+      "undercut_price": 494900,
+      "undercut_price_formatted": "494.90K ISK",
+      "undercut_price_eve": "494,900.00",
+      "price_difference": 5000,
+      "price_difference_formatted": "5.00K ISK",
+      "tick_size": 100
+    }
+  ],
+  "safe_items": [
+    {
+      "type_id": 3170,
+      "type_name": "Medium Shield Extender II",
+      "your_order_id": 6741234569,
+      "your_price": 750000,
+      "your_price_formatted": "750.00K ISK",
+      "your_volume_remain": 25,
+      "next_competitor_price": 800000,
+      "next_competitor_price_formatted": "800.00K ISK"
+    }
+  ],
+  "summary": {
+    "undercut_count": 1,
+    "safe_count": 1,
+    "total_orders_in_structure": 2,
+    "structure_id": "1051567430261",
+    "total_structure_orders": 1523
+  },
+  "timing": {
+    "total_ms": 2500
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| undercut_items | array | Orders where competitors have lower prices |
+| safe_items | array | Orders where you have the lowest price |
+| summary.undercut_count | number | Count of undercut orders |
+| summary.safe_count | number | Count of orders with lowest price |
+| summary.total_orders_in_structure | number | Your total sell orders in the structure |
+
+**Undercut Item Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| type_id | number | EVE type ID |
+| type_name | string | Item name |
+| your_price | number | Your current price |
+| competitor_price | number | Lowest competitor price |
+| undercut_price | number | Calculated 1-tick undercut price |
+| undercut_price_eve | string | Copy-pasteable format for EVE (e.g., "494,900.00") |
+| tick_size | number | The tick size for this price level |
+
+**Tick Size Calculation:**
+
+EVE Online uses 4 significant figures for price precision:
+- `tick_size = 10^(floor(log10(price)) - 3)`
+- Minimum tick is 0.01 ISK
+
+Examples:
+- 500,000 ISK → tick = 100 ISK → undercut = 494,900 ISK
+- 5,000,000 ISK → tick = 1,000 ISK → undercut = 4,999,000 ISK
+- 50,000,000 ISK → tick = 10,000 ISK → undercut = 49,990,000 ISK
+
+---
+
 ## Related Files
 
 - `app/api/esi/keepstar-3t7/route.ts` - Keepstar search implementation
@@ -893,10 +1004,12 @@ curl -X GET "http://localhost:3000/api/esi/character-orders?character_id=1234567
 - `app/api/esi/character-assets/route.ts` - Character assets implementation
 - `app/api/esi/wallet/route.ts` - Character wallet balance
 - `app/api/esi/character-orders/route.ts` - Character market orders
+- `app/api/esi/undercut-check/route.ts` - Undercut tracker implementation
 - `app/api/sell-opportunities/route.ts` - Sell opportunities analysis
 - `app/api/esi/market-history/route.ts` - Market history batch implementation
 - `app/api/esi/market-history-test/route.ts` - Market history test implementation
 - `app/api/esi/market-history-raw/route.ts` - Raw market history debug endpoint
+- `lib/market-analysis.ts` - Market analysis utilities including tick size calculations
 - `data/tradeable-items.jsonl` - Source file for tradeable items
 - `vercel.json` - Cron job configuration
 
