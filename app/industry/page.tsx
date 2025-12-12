@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { BlueprintSearch } from "@/components/industry/blueprint-search"
 import { SystemSearch } from "@/components/industry/system-search"
 import { GroupedMaterials } from "@/components/industry/grouped-materials"
@@ -401,42 +401,66 @@ export default function IndustryCalculatorPage() {
                   <>
                     <div className="space-y-1.5">
                       <Label htmlFor="structure">Industry Structure</Label>
-                      <Select
-                        id="structure"
-                        value={structureType}
-                        onChange={(e) => setStructureType(e.target.value)}
-                        options={STRUCTURE_OPTIONS}
-                      />
+                      <Select value={structureType} onValueChange={setStructureType}>
+                        <SelectTrigger id="structure" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STRUCTURE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="rig">Industry Rig</Label>
-                      <Select
-                        id="rig"
-                        value={rigType}
-                        onChange={(e) => setRigType(e.target.value)}
-                        options={RIG_OPTIONS}
-                      />
+                      <Select value={rigType} onValueChange={setRigType}>
+                        <SelectTrigger id="rig" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RIG_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="space-y-1.5">
                       <Label htmlFor="reactionStructure">Reaction Structure</Label>
-                      <Select
-                        id="reactionStructure"
-                        value={reactionStructure}
-                        onChange={(e) => setReactionStructure(e.target.value)}
-                        options={REACTION_STRUCTURE_OPTIONS}
-                      />
+                      <Select value={reactionStructure} onValueChange={setReactionStructure}>
+                        <SelectTrigger id="reactionStructure" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {REACTION_STRUCTURE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="reactionRig">Reaction Rig</Label>
-                      <Select
-                        id="reactionRig"
-                        value={reactionRig}
-                        onChange={(e) => setReactionRig(e.target.value)}
-                        options={RIG_OPTIONS}
-                      />
+                      <Select value={reactionRig} onValueChange={setReactionRig}>
+                        <SelectTrigger id="reactionRig" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RIG_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </>
                 )}

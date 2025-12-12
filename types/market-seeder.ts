@@ -183,6 +183,11 @@ export interface AnalysisSummary {
 
 /**
  * Full API response from /api/market-seeder/analyze
+ * 
+ * Note: API now returns all items in a single array. Client handles:
+ * - Filtering (by margin, competition, category)
+ * - Sorting (by score, margin, profit, etc.)
+ * - Pagination
  */
 export interface MarketSeederResponse {
   success: boolean
@@ -192,27 +197,16 @@ export interface MarketSeederResponse {
   config: {
     structureId: string
     transportCostPerM3: number
-    minMarginPct: number
     minProfitIsk: number
+    minDailyVolume: number
     daysAnalyzed: number
   }
   
   // Summary
   summary: AnalysisSummary
   
-  // Ranked lists
-  topByCompositeScore: ProfitAnalysis[]       // Best overall items
-  noCompetitionOpportunities: ProfitAnalysis[] // Items with no competition (40% markup)
-  bestIskPerM3: ProfitAnalysis[]               // Best transport efficiency
-  trendingUp: ProfitAnalysis[]                 // Items with increasing demand
-  
-  // Category breakdown
-  byCategory: {
-    Module: ProfitAnalysis[]
-    Ship: ProfitAnalysis[]
-    Charge: ProfitAnalysis[]
-    Booster: ProfitAnalysis[]
-  }
+  // All items sorted by composite score (client handles filtering/sorting/pagination)
+  items: ProfitAnalysis[]
   
   // Timing info
   timing: {

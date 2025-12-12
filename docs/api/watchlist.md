@@ -43,7 +43,12 @@ Fetches all watchlist items, optionally with current stock levels from a structu
       "created_at": "2025-12-10T12:00:00Z",
       "stock": 0,
       "lowest_price": null,
-      "needs_restock": true
+      "needs_restock": true,
+      "estimatedDailySales": 0,
+      "daysUntilStockout": null,
+      "jitaPrice": null,
+      "profitPerUnit": 0,
+      "dailyProfit": 0
     }
   ],
   "structure_id": null,
@@ -67,7 +72,12 @@ Fetches all watchlist items, optionally with current stock levels from a structu
       "created_at": "2025-12-10T12:00:00Z",
       "stock": 150,
       "lowest_price": 625000,
-      "needs_restock": false
+      "needs_restock": false,
+      "estimatedDailySales": 125.5,
+      "daysUntilStockout": 1.2,
+      "jitaPrice": 450000,
+      "profitPerUnit": 175000,
+      "dailyProfit": 21962500
     },
     {
       "id": "uuid",
@@ -79,7 +89,12 @@ Fetches all watchlist items, optionally with current stock levels from a structu
       "created_at": "2025-12-10T12:00:00Z",
       "stock": 0,
       "lowest_price": null,
-      "needs_restock": true
+      "needs_restock": true,
+      "estimatedDailySales": 60.3,
+      "daysUntilStockout": null,
+      "jitaPrice": 320000,
+      "profitPerUnit": 0,
+      "dailyProfit": 0
     }
   ],
   "structure_id": "1051567430261",
@@ -87,15 +102,41 @@ Fetches all watchlist items, optionally with current stock levels from a structu
   "summary": {
     "total": 2,
     "needs_restock": 1,
-    "in_stock": 1
+    "in_stock": 1,
+    "criticalCount": 1,
+    "warningCount": 0,
+    "okCount": 0,
+    "noDataCount": 1,
+    "totalDailyProfit": 21962500
   }
 }
 ```
 
+**Response Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `stock` | Total volume of all sell orders for that item |
+| `lowest_price` | Lowest sell order price for that item |
+| `estimatedDailySales` | Vale daily volume × 5% (hub factor) |
+| `daysUntilStockout` | Current stock ÷ estimated daily sales (null if no sales data) |
+| `jitaPrice` | Current lowest Jita sell price |
+| `profitPerUnit` | lowest_price - jitaPrice |
+| `dailyProfit` | estimatedDailySales × profitPerUnit |
+
+**Summary Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `criticalCount` | Items with < 3 days until stockout |
+| `warningCount` | Items with 3-7 days until stockout |
+| `okCount` | Items with > 7 days until stockout |
+| `noDataCount` | Items with no sales volume data |
+| `totalDailyProfit` | Sum of daily profit across all items |
+
 **Notes:**
-- Items are sorted with `needs_restock: true` items first, then alphabetically
-- `stock` represents total volume of all sell orders for that item
-- `lowest_price` is the lowest sell order price for that item
+- Items are sorted by days until stockout (critical first), then by needs_restock, then alphabetically
+- Depletion metrics use Vale of the Silent market data × 5% hub factor
 
 ---
 

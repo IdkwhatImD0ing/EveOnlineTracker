@@ -30,7 +30,7 @@ Also generates:
 
 ### `extract-item-types.ts`
 
-Extracts tradeable item types (ships, modules, ammo, boosters) from EVE Online JSONL static data files.
+Extracts tradeable item types from EVE Online JSONL static data files.
 
 **Usage:**
 ```bash
@@ -51,7 +51,11 @@ npx tsx scripts/extract-item-types.ts "C:\path\to\eve-static-data-jsonl"
 | Ships | Category ID 6 |
 | Modules | Category ID 7 |
 | Charges (Ammo) | Category ID 8 |
-| Boosters | Group ID 303 |
+| Drones | Category ID 18 |
+| Implants & Boosters | Category ID 20 |
+| Deployables | Category ID 22 |
+| Subsystems | Category ID 32 |
+| Fighters | Category ID 87 |
 
 **Output format (JSONL):**
 ```json

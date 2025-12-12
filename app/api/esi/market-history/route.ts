@@ -446,6 +446,29 @@ async function upsertToSupabase(rows: MarketHistoryRow[]): Promise<{ inserted: n
   return { inserted, errors }
 }
 
+// Category name to ID mapping for filtering
+const CATEGORY_NAME_TO_ID: Record<string, number> = {
+  'ship': 6,
+  'ships': 6,
+  'module': 7,
+  'modules': 7,
+  'charge': 8,
+  'charges': 8,
+  'ammo': 8,
+  'drone': 18,
+  'drones': 18,
+  'implant': 20,
+  'implants': 20,
+  'booster': 20,
+  'boosters': 20,
+  'deployable': 22,
+  'deployables': 22,
+  'subsystem': 32,
+  'subsystems': 32,
+  'fighter': 87,
+  'fighters': 87
+}
+
 /**
  * GET /api/esi/market-history
  * 
@@ -464,6 +487,9 @@ async function upsertToSupabase(rows: MarketHistoryRow[]): Promise<{ inserted: n
  *   - region_id (optional): The region ID. Defaults to 10000002 (The Forge/Jita)
  *   - limit (optional): Limit number of items to process (for testing)
  *   - type_ids (optional): Comma-separated type_ids for 'verify' or 'test_assets' modes
+ *   - categories (optional): Comma-separated category names or IDs to filter items
+ *                           Names: ship, module, charge, drone, implant, deployable, subsystem, fighter
+ *                           IDs: 6, 7, 8, 18, 20, 22, 32, 87
  *   - save_cache (optional): 'true' to save fetched data to local JSONL file
  *   - save_report (optional): 'true' to generate import report JSON
  *   - skip_db (optional): 'true' to fetch without storing to database (cache only)
@@ -476,11 +502,34 @@ export async function GET(request: NextRequest) {
   const regionId = parseInt(searchParams.get('region_id') || String(REGION_THE_FORGE))
   const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
   const typeIdsParam = searchParams.get('type_ids')
+  const categoriesParam = searchParams.get('categories')
   const saveCache = searchParams.get('save_cache') === 'true'
   const saveReport = searchParams.get('save_report') === 'true'
   const skipDb = searchParams.get('skip_db') === 'true'
 
-  console.log(`[Market History] Starting batch fetch - mode: ${mode}, region: ${regionId}`)
+  // Parse categories filter
+  let categoryFilter: Set<number> | null = null
+  if (categoriesParam) {
+    categoryFilter = new Set<number>()
+    for (const cat of categoriesParam.split(',')) {
+      const trimmed = cat.trim().toLowerCase()
+      // Try as category name first
+      if (CATEGORY_NAME_TO_ID[trimmed]) {
+        categoryFilter.add(CATEGORY_NAME_TO_ID[trimmed])
+      } else {
+        // Try as numeric ID
+        const numId = parseInt(trimmed)
+        if (!isNaN(numId)) {
+          categoryFilter.add(numId)
+        }
+      }
+    }
+    if (categoryFilter.size === 0) {
+      categoryFilter = null
+    }
+  }
+
+  console.log(`[Market History] Starting batch fetch - mode: ${mode}, region: ${regionId}${categoryFilter ? `, categories: [${Array.from(categoryFilter).join(', ')}]` : ''}`)
 
   try {
     // Handle VERIFY mode - just check DB, no ESI calls
@@ -606,6 +655,20 @@ export async function GET(request: NextRequest) {
     let items = await readTradeableItems()
     console.log(`[Market History] Loaded ${items.length} tradeable items`)
 
+    // Apply category filter if specified
+    if (categoryFilter) {
+      const beforeCount = items.length
+      items = items.filter(item => categoryFilter!.has(item.categoryId))
+      console.log(`[Market History] Filtered to ${items.length} items (from ${beforeCount}) by categories: [${Array.from(categoryFilter).join(', ')}]`)
+      
+      // Log breakdown by category
+      const categoryBreakdown: Record<string, number> = {}
+      for (const item of items) {
+        categoryBreakdown[item.categoryName] = (categoryBreakdown[item.categoryName] || 0) + 1
+      }
+      console.log(`[Market History] Category breakdown: ${JSON.stringify(categoryBreakdown)}`)
+    }
+
     // Apply limit if specified (for testing)
     if (limit && limit > 0) {
       items = items.slice(0, limit)
@@ -706,7 +769,8 @@ export async function GET(request: NextRequest) {
         region_id: regionId,
         concurrent_requests: CONCURRENT_REQUESTS,
         date_from: fromDateStr,
-        date_to: toDateStr || 'today'
+        date_to: toDateStr || 'today',
+        category_filter: categoryFilter ? Array.from(categoryFilter) : null
       },
       files: {
         cache_saved: saveCache ? CACHE_FILE_PATH : null,

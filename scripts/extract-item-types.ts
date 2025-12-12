@@ -1,6 +1,6 @@
 /**
  * EVE Online Item Type Extraction Script
- * Extracts ships, modules, ammo, and boosters from JSONL static data
+ * Extracts ships, modules, ammo, drones, implants, subsystems, fighters, and deployables from JSONL static data
  * 
  * Usage: npx tsx scripts/extract-item-types.ts [input-folder]
  * 
@@ -15,17 +15,35 @@ import * as readline from 'readline'
 const CATEGORY_SHIP = 6
 const CATEGORY_MODULE = 7
 const CATEGORY_CHARGE = 8 // Ammo
+const CATEGORY_DRONE = 18
+const CATEGORY_IMPLANT = 20 // Implants and Boosters
+const CATEGORY_DEPLOYABLE = 22
+const CATEGORY_SUBSYSTEM = 32
+const CATEGORY_FIGHTER = 87
 
 // Target groups (for items not filtered by category)
-const GROUP_BOOSTER = 303 // Drugs like Blue Pill
+const GROUP_BOOSTER = 303 // Drugs like Blue Pill (subset of Implant category)
 
-const TARGET_CATEGORIES = new Set([CATEGORY_SHIP, CATEGORY_MODULE, CATEGORY_CHARGE])
+const TARGET_CATEGORIES = new Set([
+  CATEGORY_SHIP,
+  CATEGORY_MODULE,
+  CATEGORY_CHARGE,
+  CATEGORY_DRONE,
+  CATEGORY_IMPLANT,
+  CATEGORY_DEPLOYABLE,
+  CATEGORY_SUBSYSTEM,
+  CATEGORY_FIGHTER
+])
 
 const CATEGORY_NAMES: Record<number, string> = {
   [CATEGORY_SHIP]: 'Ship',
   [CATEGORY_MODULE]: 'Module',
   [CATEGORY_CHARGE]: 'Charge',
-  20: 'Implant' // For boosters which are under Implant category
+  [CATEGORY_DRONE]: 'Drone',
+  [CATEGORY_IMPLANT]: 'Implant',
+  [CATEGORY_DEPLOYABLE]: 'Deployable',
+  [CATEGORY_SUBSYSTEM]: 'Subsystem',
+  [CATEGORY_FIGHTER]: 'Fighter'
 }
 
 interface GroupData {
@@ -124,7 +142,12 @@ async function main() {
     ships: 0,
     modules: 0,
     charges: 0,
-    boosters: 0,
+    drones: 0,
+    implants: 0,
+    boosters: 0, // Subset of implants (Group 303)
+    deployables: 0,
+    subsystems: 0,
+    fighters: 0,
     skippedUnpublished: 0,
     skippedNoMatch: 0
   }
@@ -173,14 +196,25 @@ async function main() {
     extractedItems.push(item)
 
     // Update stats
-    if (isBooster) {
-      stats.boosters++
-    } else if (categoryId === CATEGORY_SHIP) {
+    if (categoryId === CATEGORY_SHIP) {
       stats.ships++
     } else if (categoryId === CATEGORY_MODULE) {
       stats.modules++
     } else if (categoryId === CATEGORY_CHARGE) {
       stats.charges++
+    } else if (categoryId === CATEGORY_DRONE) {
+      stats.drones++
+    } else if (categoryId === CATEGORY_IMPLANT) {
+      stats.implants++
+      if (isBooster) {
+        stats.boosters++ // Also count boosters separately
+      }
+    } else if (categoryId === CATEGORY_DEPLOYABLE) {
+      stats.deployables++
+    } else if (categoryId === CATEGORY_SUBSYSTEM) {
+      stats.subsystems++
+    } else if (categoryId === CATEGORY_FIGHTER) {
+      stats.fighters++
     }
   }
 
@@ -207,7 +241,11 @@ async function main() {
   console.log(`  Ships: ${stats.ships}`)
   console.log(`  Modules: ${stats.modules}`)
   console.log(`  Charges (Ammo): ${stats.charges}`)
-  console.log(`  Boosters: ${stats.boosters}`)
+  console.log(`  Drones: ${stats.drones}`)
+  console.log(`  Implants: ${stats.implants} (incl. ${stats.boosters} boosters)`)
+  console.log(`  Deployables: ${stats.deployables}`)
+  console.log(`  Subsystems: ${stats.subsystems}`)
+  console.log(`  Fighters: ${stats.fighters}`)
   console.log(`\nSkipped:`)
   console.log(`  Unpublished: ${stats.skippedUnpublished}`)
   console.log(`  Not matching criteria: ${stats.skippedNoMatch}`)

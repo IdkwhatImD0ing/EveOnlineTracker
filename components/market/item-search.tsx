@@ -75,10 +75,16 @@ export function ItemSearch({ onSelect, placeholder = "Search items...", disabled
 
   const handleSelect = useCallback((item: TradeableItem) => {
     onSelect(item)
-    setQuery("")
-    setResults([])
-    setIsOpen(false)
-    // Keep focus on input for quick multi-add
+    // Remove the just-added item from results immediately
+    setResults(prev => {
+      const updated = prev.filter(r => r.typeId !== item.typeId)
+      // Close dropdown if no more results
+      if (updated.length === 0) {
+        setIsOpen(false)
+      }
+      return updated
+    })
+    // Keep dropdown open and query intact for multi-add
     inputRef.current?.focus()
   }, [onSelect])
 

@@ -114,64 +114,57 @@ Returns:
 
 ## Analysis Tab
 
-### Configuration Panel
+### Search Settings
 
-- **Structure ID**: Your alliance market hub structure ID (saved to localStorage)
-- **Transport Cost**: ISK per m³ for Jump Freighter shipping (default: 450)
-- **Advanced Settings**:
-  - Minimum profit margin %
-  - Minimum profit per unit ISK
-  - Minimum volume per day
-  - No competition only toggle (filter for tiered markup opportunities)
-  - Category filter checkboxes (Modules, Ships, Ammo, Boosters) - filter results by item type
+Configure the analysis parameters:
 
-### Analysis Results
+| Setting | Description |
+|---------|-------------|
+| **Structure** | Dropdown to select your alliance market hub (default: 3T7-M8 Keepstar). Includes "Other (Custom ID)" option. |
+| **Transport Cost** | ISK per m³ for Jump Freighter shipping (default: 450) |
+| **Min Profit/Unit** | Minimum profit per unit in ISK (default: 100,000) |
+| **Min Vale Vol/Day** | Minimum daily volume in Vale of the Silent (default: 10) |
 
-The page displays multiple ranked lists:
+### Sidebar Filters
 
-| Tab | Description |
-|-----|-------------|
-| Top Items | Best overall items by composite profitability score |
-| No Competition | Items with no existing sell orders (tiered markup opportunity) |
-| Best ISK/m³ | Most profitable items per cargo space |
-| Trending Up | Items with increasing Jita demand |
-| Modules | Top modules by category |
-| Ships | Top ships by category |
-| Ammo | Top ammunition by category |
-| Boosters | Top boosters by category |
+After running an analysis, filter results using the sidebar on the right:
 
-### Item Cards
+| Filter | Description |
+|--------|-------------|
+| **Min Margin %** | Minimum profit margin percentage (client-side filter) |
+| **No Competition Only** | Show only items with no existing sell orders |
+| **Categories** | Checkboxes for Modules, Ships, Ammo, Boosters |
+| **Reset Filters** | Button to restore default filter values |
 
-Each item shows:
-- **Checkbox** for item selection (for Copy Buy Text)
-- Item name with category icon
-- Competition status badge
-- Profit margin percentage
-- Profit per unit
-- Composite score
+### Results Table
 
-Clicking an item expands to show:
-- Jita buy price
-- Transport cost
-- Target sell price
-- Profit per m³
-- Volume
-- Jita daily volume
+Results are displayed in a sortable, paginated table with 50 items per page:
+
+| Column | Description | Sortable |
+|--------|-------------|----------|
+| Checkbox | Select item for Copy Buy Text | No |
+| Name | Item name with trend indicator | Yes |
+| Score | Composite profitability score | Yes (default) |
+| Margin | Profit margin percentage | Yes |
+| Profit/Unit | ISK profit per unit | Yes |
+| ISK/m³ | Profit per cubic meter (transport efficiency) | Yes |
+| Competition | Yes/No badge | Yes |
+| Vol/Day | Vale daily volume × 5% (estimated hub sales) | Yes |
+
+Click a row to expand and see additional details:
+- Jita price, Transport cost, Target price
+- Profit/m³, Volume, Vale daily volume
+- Supply quantity for selected days (at 5% Vale volume)
 - Category and group
 
 ### Copy Buy Text Feature
 
 Select items using checkboxes and copy a shopping list for Eve Online's multibuy feature.
 
-**Selection Controls:**
-- Each item has a checkbox on the left side
-- "Select All" / "Deselect All" button at the top of each list
-- Selection persists when switching between tabs
-
 **Selection Action Bar:**
 When items are selected, a sticky action bar appears showing:
 - Number of selected items
-- Budget input field in millions (default 100M) - set how much ISK to spend per item
+- **Supply duration selector**: Choose from presets (1 day, 3 days, 1 week, 30 days) or enter custom days
 - "Clear" button to deselect all
 - "Copy Buy Text" button
 
@@ -184,10 +177,13 @@ Third Item 1
 ```
 
 **Quantity Calculation:**
-- Each item gets up to the configured budget worth of units
-- Formula: `quantity = floor(budgetM * 1,000,000 / jitaSellPrice)`
-- Minimum quantity is always 1 (even if price exceeds budget)
-- Default budget is 100M ISK per item (enter "100" for 100M, configurable in the action bar)
+- Each item gets the selected days' supply at 5% of Vale of the Silent regional volume
+- Formula: `quantity = ceil(avgDailyVolume × 0.05 × days)`
+
+**Note:** Selected items are automatically cleared when running a new analysis.
+- Presets: 1 day, 3 days, 7 days (1 week), 30 days, or custom
+- Minimum quantity is always 1
+- This ensures you stock enough to meet estimated demand at your hub
 
 ## Tiered Pricing (No Competition)
 
@@ -284,14 +280,14 @@ The analysis uses Server-Sent Events (SSE) to show real-time progress:
 ## Usage Flow
 
 1. **Login with EVE SSO** if not already authenticated
-2. **Enter Structure ID** of your alliance market hub
+2. **Select Structure** from the dropdown (3T7-M8 Keepstar is default, or choose "Other" for custom ID)
 3. **Set Transport Cost** (default 450 ISK/m³)
 4. **Click "Run Analysis"** to fetch and analyze data
 5. **Watch Progress Bar** as each stage completes
 6. **Browse Results** using the tabs to find profitable items
-7. **Click Items** to see detailed profit breakdown
+7. **Click Items** to see detailed profit breakdown (includes weekly quantity at 5% Vale volume)
 8. **Select Items** using checkboxes for items you want to buy
-9. **Click "Copy Buy Text"** to copy shopping list to clipboard
+9. **Click "Copy Buy Text"** to copy shopping list (quantities based on 1 week @ 5% Vale volume)
 10. **Paste in Eve** using the multibuy feature to purchase items
 
 ## Performance
@@ -306,13 +302,13 @@ The main bottleneck is fetching ~5,800 Jita prices from ESI (20 concurrent reque
 ## Settings Persistence
 
 All settings are saved to localStorage:
-- `market-seeder-settings`: JSON object with structure_id, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget, selectedCategories
+- `market-seeder-settings`: JSON object with structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, selectedCategories
 
 ---
 
 ## Watchlist Tab
 
-The Watchlist tab allows you to track specific items and monitor their stock levels in your alliance structure.
+The Watchlist tab allows you to track specific items and monitor their stock levels and depletion metrics in your alliance structure. The UI matches the Depletion tab but works with your curated list of items instead of all sell orders.
 
 ### Features
 
@@ -325,33 +321,49 @@ The Watchlist tab allows you to track specific items and monitor their stock lev
 
 #### Monitor Stock Levels
 
-- Click **Refresh Stock** to check current sell order volumes in your structure
+- Click **Refresh Stock** to check current sell order volumes and calculate depletion metrics
 - Requires Structure ID to be set (from Analysis tab)
 - Requires EVE SSO authentication
 
-#### Stock Status Indicators
+### Core Formulas
 
-| Status | Visual | Description |
-|--------|--------|-------------|
-| Out of Stock | Red badge + red border | No sell orders for this item in structure |
-| In Stock | Green border + unit count | Item has active sell orders |
+The same formulas used in the Depletion tab:
 
-#### Item Display
+```
+estimated_daily_sales = vale_avg_daily_volume × 0.05  // 5% of Vale volume
+days_until_stockout = current_stock ÷ estimated_daily_sales
+daily_profit = estimated_daily_sales × profit_per_unit
+```
 
-Each watchlist item shows:
-- Category icon
-- Item name
-- Category and group
-- Stock quantity (when checked)
-- Lowest sell price (when checked)
-- Remove button
+### Urgency Levels
+
+Items are color-coded by how soon they'll run out:
+
+| Level | Days Remaining | Visual |
+|-------|----------------|--------|
+| Critical | < 3 days | Red border + "Critical" badge |
+| Warning | 3-7 days | Amber border + "Low Stock" badge |
+| Safe | > 7 days | Green border + "OK" badge |
+| No Data | N/A | Gray badge (no Vale volume data) |
 
 ### Summary Cards
 
 When items are in the watchlist, summary cards show:
-- **Total Items**: Number of items being tracked
-- **Need Restock**: Items with 0 stock (highlighted in tab badge)
-- **In Stock**: Items with active sell orders
+- **Items Tracked**: Number of items being tracked
+- **Critical**: Items with < 3 days of stock (red highlight)
+- **Warning**: Items with 3-7 days of stock (amber highlight)
+- **Daily Profit Potential**: Total ISK/day across all items
+
+### Item Cards
+
+Each watchlist item displays:
+- Item name with category icon
+- **Current Stock**: Total units across all your sell orders for this item
+- **Est. Daily Sales**: Predicted units sold per day (Vale volume × 5%)
+- **Days Until Stockout**: When you'll run out (color-coded)
+- **Daily Profit**: Potential daily profit from this item
+- Urgency badge (Critical/Low Stock/OK/No Data)
+- Remove button to delete from watchlist
 
 ### Database Storage
 
@@ -359,11 +371,19 @@ Watchlist items are stored in Supabase (`watchlist_items` table) and persist acr
 
 ### Watchlist Usage Flow
 
-1. Set Structure ID in the Analysis tab
+1. Select Structure in the Analysis tab (3T7-M8 Keepstar is default)
 2. Switch to the Watchlist tab
 3. Search and add items you want to track
-4. Click **Refresh Stock** to check current levels
-5. Items with 0 stock are highlighted for restocking
+4. Click **Refresh Stock** to check current levels and depletion metrics
+5. Review items sorted by urgency (Critical first, then Warning)
+6. Focus restocking on Critical and Warning items
+
+### Data Sources
+
+The watchlist fetches:
+1. **Structure Orders** (`/api/watchlist?structure_id=...`) - Stock levels for watchlist items
+2. **Vale Market History** (via RPC) - Daily volume data for sales estimates
+3. **Jita Prices** (via ESI) - Current Jita prices for profit calculation
 
 ---
 
@@ -428,7 +448,7 @@ Each prediction card displays:
 
 ### Usage Flow
 
-1. Set Structure ID in the Analysis tab
+1. Select Structure in the Analysis tab (3T7-M8 Keepstar is default)
 2. Switch to the Depletion tab
 3. Click **Analyze Depletion**
 4. Review items sorted by priority score

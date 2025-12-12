@@ -12,14 +12,11 @@ import {
   Loader2,
   ShoppingCart,
   AlertCircle,
-  TrendingUp,
-  TrendingDown,
   Minus,
   Package,
   RefreshCw,
   Settings2,
   ChevronDown,
-  ChevronUp,
   Database,
   Globe,
   BarChart3,
@@ -27,21 +24,40 @@ import {
   Check,
   X,
   CheckSquare,
-  Square,
   Eye,
   Trash2,
-  Plus,
   AlertTriangle,
   Clock,
   Timer,
   DollarSign,
   Percent,
   Skull,
+  HelpCircle,
 } from "lucide-react"
-import { type CapitalOrder, type CapitalEfficiencyResponse, DEAD_CAPITAL_THRESHOLD_DAYS } from "@/types/market-seeder"
-import { Checkbox } from "@/components/ui/checkbox"
+import { type CapitalEfficiencyResponse, DEAD_CAPITAL_THRESHOLD_DAYS } from "@/types/market-seeder"
 import { EveItemIcon } from "@/components/eve-item-icon"
 import { ItemSearch, TradeableItem } from "@/components/market/item-search"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { FilterSidebar, FilterState, DEFAULT_FILTERS } from "@/components/market-seeder/filter-sidebar"
+import { ResultsTable, ProfitAnalysis } from "@/components/market-seeder/results-table"
+
+// Known alliance structures for the dropdown
+const KNOWN_STRUCTURES = [
+  { id: "1051567430261", name: "3T7-M8 Keepstar" },
+] as const
+
+const DEFAULT_STRUCTURE_ID = "1051567430261"
+
+// Supply duration presets for the dropdown
+const SUPPLY_DAYS_PRESETS = [
+  { value: "1", label: "1 day" },
+  { value: "3", label: "3 days" },
+  { value: "7", label: "1 week" },
+  { value: "30", label: "30 days" },
+] as const
+
+const DEFAULT_SUPPLY_DAYS = 7
 
 interface TokenData {
   access_token: string
@@ -106,35 +122,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData | nul
   }
 }
 
-interface ProfitAnalysis {
-  typeId: number
-  name: string
-  categoryName: string
-  groupName: string
-  volumePerUnit: number
-  jitaSellPrice: number
-  jitaSellPriceFormatted: string
-  transportCostPerUnit: number
-  transportCostFormatted: string
-  totalCostPerUnit: number
-  totalCostFormatted: string
-  hasCompetition: boolean
-  competitorLowestPrice: number | null
-  competitorLowestPriceFormatted: string | null
-  targetSellPrice: number
-  targetSellPriceFormatted: string
-  profitPerUnit: number
-  profitPerUnitFormatted: string
-  profitMarginPct: number
-  profitMarginPctFormatted: string
-  profitPerM3: number
-  profitPerM3Formatted: string
-  avgDailyVolume: number
-  totalVolume30d: number
-  trendDirection: "up" | "down" | "stable"
-  compositeScore: number
-  compositeScoreFormatted: string
-}
+// ProfitAnalysis is now imported from @/components/market-seeder/results-table
 
 interface AnalysisResponse {
   success: boolean
@@ -142,8 +130,8 @@ interface AnalysisResponse {
   config: {
     structureId: string
     transportCostPerM3: number
-    minMarginPct: number
     minProfitIsk: number
+    minDailyVolume: number
     daysAnalyzed: number
   }
   summary: {
@@ -154,16 +142,7 @@ interface AnalysisResponse {
     avgProfitMargin: number
     avgProfitPerM3: number
   }
-  topByCompositeScore: ProfitAnalysis[]
-  noCompetitionOpportunities: ProfitAnalysis[]
-  bestIskPerM3: ProfitAnalysis[]
-  trendingUp: ProfitAnalysis[]
-  byCategory: {
-    Module: ProfitAnalysis[]
-    Ship: ProfitAnalysis[]
-    Charge: ProfitAnalysis[]
-    Booster: ProfitAnalysis[]
-  }
+  items: ProfitAnalysis[]
   timing: {
     totalMs: number
   }
@@ -186,6 +165,12 @@ interface WatchlistItem {
   stock: number
   lowest_price: number | null
   needs_restock: boolean
+  // Depletion metrics
+  estimatedDailySales: number
+  daysUntilStockout: number | null
+  jitaPrice: number | null
+  profitPerUnit: number
+  dailyProfit: number
 }
 
 interface WatchlistResponse {
@@ -197,6 +182,11 @@ interface WatchlistResponse {
     total: number
     needs_restock: number
     in_stock: number
+    criticalCount: number
+    warningCount: number
+    okCount: number
+    noDataCount: number
+    totalDailyProfit: number
   }
 }
 
@@ -234,12 +224,6 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
   summary: BarChart3,
 }
 
-function TrendIcon({ direction }: { direction: string }) {
-  if (direction === "up") return <TrendingUp className="size-4 text-emerald-500" />
-  if (direction === "down") return <TrendingDown className="size-4 text-red-500" />
-  return <Minus className="size-4 text-muted-foreground" />
-}
-
 function ProgressBar({ progress }: { progress: ProgressState }) {
   const StageIcon = STAGE_ICONS[progress.stage] || Loader2
 
@@ -260,186 +244,29 @@ function ProgressBar({ progress }: { progress: ProgressState }) {
   )
 }
 
-interface ItemCardProps {
-  item: ProfitAnalysis
-  rank?: number
-  isSelected: boolean
-  onToggleSelect: (typeId: number) => void
-}
-
-function ItemCard({ item, rank, isSelected, onToggleSelect }: ItemCardProps) {
-  const [expanded, setExpanded] = useState(false)
-
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    onToggleSelect(item.typeId)
-  }
-
-  return (
-    <Card
-      className={`transition-all hover:shadow-md cursor-pointer ${
-        !item.hasCompetition ? "border-emerald-500/30 bg-emerald-500/5" : ""
-      } ${isSelected ? "ring-2 ring-primary" : ""}`}
-      onClick={() => setExpanded(!expanded)}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div 
-            className="shrink-0 flex items-center justify-center pt-1"
-            onClick={handleCheckboxClick}
-          >
-            <Checkbox 
-              checked={isSelected}
-              className="size-5"
-            />
-          </div>
-          {rank && (
-            <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-              {rank}
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <EveItemIcon typeId={item.typeId} size={32} className="size-5 shrink-0 rounded" />
-              <span className="font-medium truncate">{item.name}</span>
-              <TrendIcon direction={item.trendDirection} />
-            </div>
-            <div className="flex flex-wrap gap-2 text-sm">
-              <Badge variant={item.hasCompetition ? "secondary" : "default"}>
-                {item.hasCompetition ? "Competition" : "No Competition"}
-              </Badge>
-              <span className="text-emerald-500 font-medium">
-                +{item.profitMarginPctFormatted}
-              </span>
-              <span className="text-muted-foreground">
-                {item.profitPerUnitFormatted}/unit
-              </span>
-            </div>
-          </div>
-          <div className="text-right shrink-0">
-            <div className="text-lg font-bold text-primary">
-              {item.compositeScoreFormatted}
-            </div>
-            <div className="text-xs text-muted-foreground">score</div>
-          </div>
-          {expanded ? (
-            <ChevronUp className="size-4 text-muted-foreground shrink-0" />
-          ) : (
-            <ChevronDown className="size-4 text-muted-foreground shrink-0" />
-          )}
-        </div>
-
-        {expanded && (
-          <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Jita Price</p>
-              <p className="font-medium">{item.jitaSellPriceFormatted}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Transport</p>
-              <p className="font-medium">{item.transportCostFormatted}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Target Price</p>
-              <p className="font-medium">{item.targetSellPriceFormatted}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Profit/m³</p>
-              <p className="font-medium">{item.profitPerM3Formatted}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Volume</p>
-              <p className="font-medium">{item.volumePerUnit} m³</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Jita Daily Vol</p>
-              <p className="font-medium">{Math.round(item.avgDailyVolume).toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Category</p>
-              <p className="font-medium">{item.categoryName}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Group</p>
-              <p className="font-medium truncate">{item.groupName}</p>
-            </div>
-            {item.competitorLowestPriceFormatted && (
-              <div className="col-span-2">
-                <p className="text-muted-foreground">Competitor Price</p>
-                <p className="font-medium">{item.competitorLowestPriceFormatted}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-interface ItemListProps {
-  items: ProfitAnalysis[]
-  showRank?: boolean
-  selectedItems: Set<number>
-  onToggleSelect: (typeId: number) => void
-  onSelectAll: (items: ProfitAnalysis[]) => void
-}
-
-function ItemList({ items, showRank = true, selectedItems, onToggleSelect, onSelectAll }: ItemListProps) {
-  if (items.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No items match the current filters
-      </div>
-    )
-  }
-
-  const allSelected = items.every(item => selectedItems.has(item.typeId))
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 pb-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onSelectAll(items)}
-          className="gap-2"
-        >
-          {allSelected ? <CheckSquare className="size-4" /> : <Square className="size-4" />}
-          {allSelected ? "Deselect All" : "Select All"}
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          {items.filter(i => selectedItems.has(i.typeId)).length} of {items.length} selected
-        </span>
-      </div>
-      {items.map((item, index) => (
-        <ItemCard 
-          key={item.typeId} 
-          item={item} 
-          rank={showRank ? index + 1 : undefined}
-          isSelected={selectedItems.has(item.typeId)}
-          onToggleSelect={onToggleSelect}
-        />
-      ))}
-    </div>
-  )
-}
-
 /**
  * Generate buy text for Eve Online multibuy
- * Each item gets up to budget ISK worth, minimum 1 unit
+ * Each item gets specified days' supply at 5% of Vale volume
  */
-function generateBuyText(items: ProfitAnalysis[], budget: number): string {
-  return items.map(item => {
-    const qty = Math.max(1, Math.floor(budget / item.jitaSellPrice))
-    return `${item.name} ${qty}`
-  }).join('\n')
+/**
+ * Get minimum order quantity based on item price
+ * Cheaper items need higher minimum orders to be worth the effort
+ */
+function getMinOrderQuantity(jitaPrice: number): number {
+  if (jitaPrice < 10_000_000) return 20      // < 10M ISK: min 20 units
+  if (jitaPrice < 50_000_000) return 10      // < 50M ISK: min 10 units
+  if (jitaPrice < 100_000_000) return 5      // < 100M ISK: min 5 units
+  return 2                                    // >= 100M ISK: min 2 units
 }
 
-/**
- * Filter items by selected categories
- */
-function filterByCategory(items: ProfitAnalysis[], categories: Set<string>): ProfitAnalysis[] {
-  return items.filter(item => categories.has(item.categoryName))
+function generateBuyText(items: ProfitAnalysis[], days: number): string {
+  return items.map(item => {
+    // X days supply at 5% of Vale volume
+    const supplyVolume = item.avgDailyVolume * 0.05 * days
+    const minQty = getMinOrderQuantity(item.jitaSellPrice)
+    const qty = Math.max(minQty, Math.ceil(supplyVolume))
+    return `${item.name} ${qty}`
+  }).join('\n')
 }
 
 /**
@@ -459,18 +286,22 @@ function formatIskShort(value: number): string {
 }
 
 export default function MarketSeederPage() {
-  // Form state
-  const [structureId, setStructureId] = useState("")
+  // Search form state (sent to API)
+  const [structureId, setStructureId] = useState(DEFAULT_STRUCTURE_ID)
+  const [isCustomStructure, setIsCustomStructure] = useState(false)
   const [transportCost, setTransportCost] = useState("450")
-  const [minMargin, setMinMargin] = useState("10")
   const [minProfit, setMinProfit] = useState("100000")
   const [minVolume, setMinVolume] = useState("10") // Minimum daily volume
-  const [noCompetitionOnly, setNoCompetitionOnly] = useState(false) // Filter for 0 competition items
-  const [buyBudget, setBuyBudget] = useState("100") // 100M ISK default (in millions)
-  const [showSettings, setShowSettings] = useState(false)
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
-    new Set(['Module', 'Ship', 'Charge', 'Booster'])
-  )
+  const [supplyDays, setSupplyDays] = useState(DEFAULT_SUPPLY_DAYS) // Days of supply to buy
+  const [isCustomSupplyDays, setIsCustomSupplyDays] = useState(false)
+
+  // Sidebar filter state (client-side filtering)
+  const [filters, setFilters] = useState<FilterState>({
+    minMargin: DEFAULT_FILTERS.minMargin,
+    maxJitaCost: DEFAULT_FILTERS.maxJitaCost,
+    noCompetitionOnly: DEFAULT_FILTERS.noCompetitionOnly,
+    selectedCategories: new Set(DEFAULT_FILTERS.selectedCategories),
+  })
 
   // Analysis state
   const [isLoading, setIsLoading] = useState(false)
@@ -489,6 +320,7 @@ export default function MarketSeederPage() {
   const [watchlistError, setWatchlistError] = useState<string | null>(null)
   const [watchlistCheckedAt, setWatchlistCheckedAt] = useState<string | null>(null)
   const [addingItem, setAddingItem] = useState(false)
+  const [watchlistInitialized, setWatchlistInitialized] = useState(false)
 
   // Depletion predictor state
   const [depletionPredictions, setDepletionPredictions] = useState<DepletionPrediction[]>([])
@@ -516,15 +348,26 @@ export default function MarketSeederPage() {
     if (saved) {
       try {
         const settings = JSON.parse(saved)
-        if (settings.structureId) setStructureId(settings.structureId)
+        if (settings.structureId) {
+          setStructureId(settings.structureId)
+          // Check if it's a custom structure ID
+          if (!KNOWN_STRUCTURES.some(s => s.id === settings.structureId)) {
+            setIsCustomStructure(true)
+          }
+        }
         if (settings.transportCost) setTransportCost(settings.transportCost)
-        if (settings.minMargin) setMinMargin(settings.minMargin)
         if (settings.minProfit) setMinProfit(settings.minProfit)
         if (settings.minVolume) setMinVolume(settings.minVolume)
-        if (settings.noCompetitionOnly !== undefined) setNoCompetitionOnly(settings.noCompetitionOnly)
-        if (settings.buyBudget) setBuyBudget(settings.buyBudget)
-        if (settings.selectedCategories && Array.isArray(settings.selectedCategories)) {
-          setSelectedCategories(new Set(settings.selectedCategories))
+        // Load sidebar filter settings
+        if (settings.filters) {
+          setFilters({
+            minMargin: settings.filters.minMargin ?? DEFAULT_FILTERS.minMargin,
+            maxJitaCost: settings.filters.maxJitaCost ?? DEFAULT_FILTERS.maxJitaCost,
+            noCompetitionOnly: settings.filters.noCompetitionOnly ?? DEFAULT_FILTERS.noCompetitionOnly,
+            selectedCategories: settings.filters.selectedCategories 
+              ? new Set(settings.filters.selectedCategories) 
+              : new Set(DEFAULT_FILTERS.selectedCategories),
+          })
         }
       } catch {
         // Ignore invalid JSON
@@ -539,15 +382,17 @@ export default function MarketSeederPage() {
       JSON.stringify({ 
         structureId, 
         transportCost, 
-        minMargin, 
         minProfit, 
-        minVolume, 
-        noCompetitionOnly, 
-        buyBudget,
-        selectedCategories: Array.from(selectedCategories)
+        minVolume,
+        filters: {
+          minMargin: filters.minMargin,
+          maxJitaCost: filters.maxJitaCost,
+          noCompetitionOnly: filters.noCompetitionOnly,
+          selectedCategories: Array.from(filters.selectedCategories),
+        }
       })
     )
-  }, [structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, buyBudget, selectedCategories])
+  }, [structureId, transportCost, minProfit, minVolume, filters])
 
   // Selection helper functions
   const toggleItemSelection = useCallback((typeId: number) => {
@@ -583,55 +428,36 @@ export default function MarketSeederPage() {
     setSelectedItems(new Set())
   }, [])
 
+  // Wrapper to clear selection when filters change
+  const handleFiltersChange = useCallback((newFilters: FilterState) => {
+    setFilters(newFilters)
+    setSelectedItems(new Set())
+  }, [])
+
   // Get all selected items from the result
   const getSelectedItemsData = useCallback((): ProfitAnalysis[] => {
     if (!result) return []
-    
-    // Collect all unique items from all lists
-    const allItems = new Map<number, ProfitAnalysis>()
-    ;[
-      ...result.topByCompositeScore,
-      ...result.noCompetitionOpportunities,
-      ...result.bestIskPerM3,
-      ...result.trendingUp,
-      ...result.byCategory.Module,
-      ...result.byCategory.Ship,
-      ...result.byCategory.Charge,
-      ...result.byCategory.Booster,
-    ].forEach(item => {
-      if (selectedItems.has(item.typeId)) {
-        allItems.set(item.typeId, item)
-      }
-    })
-    
-    return Array.from(allItems.values())
+    return result.items.filter(item => selectedItems.has(item.typeId))
   }, [result, selectedItems])
 
-  // Filter results by selected categories
-  const filteredResults = useMemo(() => {
-    if (!result) return null
-    return {
-      topByCompositeScore: filterByCategory(result.topByCompositeScore, selectedCategories),
-      noCompetitionOpportunities: filterByCategory(result.noCompetitionOpportunities, selectedCategories),
-      bestIskPerM3: filterByCategory(result.bestIskPerM3, selectedCategories),
-      trendingUp: filterByCategory(result.trendingUp, selectedCategories),
-      byCategory: {
-        Module: result.byCategory.Module,
-        Ship: result.byCategory.Ship,
-        Charge: result.byCategory.Charge,
-        Booster: result.byCategory.Booster,
-      }
-    }
-  }, [result, selectedCategories])
+  // Filter items based on sidebar filters (client-side)
+  const filteredItems = useMemo(() => {
+    if (!result) return []
+    return result.items.filter(item => 
+      item.profitMarginPct >= filters.minMargin &&
+      (filters.maxJitaCost === null || item.jitaSellPrice <= filters.maxJitaCost) &&
+      filters.selectedCategories.has(item.categoryName) &&
+      (!filters.noCompetitionOnly || !item.hasCompetition)
+    )
+  }, [result, filters])
 
   // Copy buy text to clipboard
   const copyBuyText = useCallback(async () => {
     const items = getSelectedItemsData()
     if (items.length === 0) return
 
-    const budgetInMillions = parseFloat(buyBudget) || 100
-    const budget = budgetInMillions * 1_000_000 // Convert to ISK
-    const buyText = generateBuyText(items, budget)
+    // Calculate X days supply at 5% of Vale volume for each item
+    const buyText = generateBuyText(items, supplyDays)
 
     try {
       await navigator.clipboard.writeText(buyText)
@@ -640,7 +466,7 @@ export default function MarketSeederPage() {
     } catch (err) {
       console.error('Failed to copy:', err)
     }
-  }, [getSelectedItemsData, buyBudget])
+  }, [getSelectedItemsData, supplyDays])
 
   /**
    * Get a valid access token, refreshing if needed
@@ -693,27 +519,18 @@ export default function MarketSeederPage() {
     setIsLoading(true)
     setError(null)
     setProgress({ stage: "connecting", message: "Connecting to server...", percent: 0 })
+    clearSelection() // Reset selected items on new search
 
     try {
       const params = new URLSearchParams({
         structure_id: structureId,
         transportCost,
-        minMargin,
         minProfit,
         minVolume,
-        noCompetitionOnly: noCompetitionOnly ? "true" : "false",
         stream: "true",  // Enable SSE streaming
       })
 
-      // Use EventSource for SSE
-      const eventSource = new EventSource(
-        `/api/market-seeder/analyze?${params}`,
-        // Note: EventSource doesn't support custom headers, so we need a workaround
-        // We'll fall back to regular fetch with polling for auth
-      )
-
-      // Unfortunately EventSource doesn't support Authorization headers
-      // So we'll use fetch with streaming instead
+      // EventSource doesn't support Authorization headers, so we use fetch with streaming
       const response = await fetch(`/api/market-seeder/analyze?${params}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -809,7 +626,7 @@ export default function MarketSeederPage() {
       setIsLoading(false)
       setProgress(null)
     }
-  }, [structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, getValidToken])
+  }, [structureId, transportCost, minProfit, minVolume, getValidToken, clearSelection])
 
   // Watchlist functions
   const fetchWatchlist = useCallback(async (checkStock: boolean = true) => {
@@ -817,7 +634,7 @@ export default function MarketSeederPage() {
     setWatchlistError(null)
 
     try {
-      let url = '/api/watchlist'
+      const url = '/api/watchlist'
       
       if (checkStock && structureId) {
         const accessToken = await getValidToken()
@@ -856,6 +673,7 @@ export default function MarketSeederPage() {
       setWatchlistError(err instanceof Error ? err.message : "Failed to fetch watchlist")
     } finally {
       setWatchlistLoading(false)
+      setWatchlistInitialized(true)
     }
   }, [structureId, getValidToken])
 
@@ -1055,12 +873,12 @@ export default function MarketSeederPage() {
     }
   }, [activeMainTab, capitalData, capitalLoading, capitalError, fetchCapitalEfficiency])
 
-  // Load watchlist when switching to watchlist tab
+  // Load watchlist when switching to watchlist tab (only once per session)
   useEffect(() => {
-    if (activeMainTab === "watchlist" && watchlistItems.length === 0 && !watchlistLoading) {
+    if (activeMainTab === "watchlist" && !watchlistInitialized && !watchlistLoading) {
       fetchWatchlist(false)
     }
-  }, [activeMainTab, watchlistItems.length, watchlistLoading, fetchWatchlist])
+  }, [activeMainTab, watchlistInitialized, watchlistLoading, fetchWatchlist])
 
   // Get existing watchlist type IDs for filtering search results
   const existingWatchlistTypeIds = new Set(watchlistItems.map(item => item.type_id))
@@ -1165,15 +983,23 @@ export default function MarketSeederPage() {
                   </Alert>
                 )}
                 {capitalData && (
-                  <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4">
-                    <p className="font-medium mb-2">How metrics are calculated:</p>
-                    <ul className="space-y-1 text-xs">
-                      <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 5% (hub factor)</li>
-                      <li>• <strong>Days to Sell</strong> = Volume Remaining ÷ Est. Daily Sales</li>
-                      <li>• <strong>APY</strong> = (Profit ÷ Cost) × (365 ÷ Days to Sell) × 100</li>
-                      <li>• <strong>Dead Capital</strong> = Orders taking {`>`}{DEAD_CAPITAL_THRESHOLD_DAYS} days to sell</li>
-                    </ul>
-                  </div>
+                  <Collapsible>
+                    <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                      <HelpCircle className="size-4" />
+                      <span>How metrics are calculated</span>
+                      <ChevronDown className="size-4 transition-transform [[data-state=open]_&]:rotate-180" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4 mt-2">
+                        <ul className="space-y-1 text-xs">
+                          <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 5% (hub factor)</li>
+                          <li>• <strong>Days to Sell</strong> = Volume Remaining ÷ Est. Daily Sales</li>
+                          <li>• <strong>APY</strong> = (Profit ÷ Cost) × (365 ÷ Days to Sell) × 100</li>
+                          <li>• <strong>Dead Capital</strong> = Orders taking {`>`}{DEAD_CAPITAL_THRESHOLD_DAYS} days to sell</li>
+                        </ul>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
                 {capitalData?.analyzedAt && (
                   <p className="text-xs text-muted-foreground mt-4">
@@ -1423,67 +1249,62 @@ export default function MarketSeederPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="analysis" className="space-y-8">
-            {/* Configuration */}
+          <TabsContent value="analysis" className="space-y-6">
+            {/* Search Configuration */}
             <Card>
               <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Analysis Settings</CardTitle>
-                    <CardDescription>Configure your target structure and filters</CardDescription>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowSettings(!showSettings)}
-                  >
-                    <Settings2 className="size-4 mr-2" />
-                    {showSettings ? "Hide" : "Show"} Advanced
-                  </Button>
-                </div>
+                <CardTitle>Search Settings</CardTitle>
+                <CardDescription>Configure your target structure and search parameters</CardDescription>
               </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="structureId">Structure ID</Label>
-                <Input
-                  id="structureId"
-                  placeholder="e.g., 1051567430261"
-                  value={structureId}
-                  onChange={(e) => setStructureId(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Your alliance market hub structure ID
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="transportCost">Transport Cost (ISK/m³)</Label>
-                <Input
-                  id="transportCost"
-                  type="number"
-                  value={transportCost}
-                  onChange={(e) => setTransportCost(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Jump freighter rate per cubic meter
-                </p>
-              </div>
-            </div>
-
-            {showSettings && (
-              <div className="space-y-4 pt-4 border-t">
-                <div className="grid gap-4 md:grid-cols-3">
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-4">
                   <div className="space-y-2">
-                    <Label htmlFor="minMargin">Min Profit Margin (%)</Label>
+                    <Label htmlFor="structureId">Structure</Label>
+                    <Select
+                      value={isCustomStructure ? "custom" : structureId}
+                      onValueChange={(value) => {
+                        if (value === "custom") {
+                          setIsCustomStructure(true)
+                          setStructureId("")
+                        } else {
+                          setIsCustomStructure(false)
+                          setStructureId(value)
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a structure" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {KNOWN_STRUCTURES.map((structure) => (
+                          <SelectItem key={structure.id} value={structure.id}>
+                            {structure.name}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="custom">Other (Custom ID)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {isCustomStructure && (
+                      <Input
+                        id="structureId"
+                        placeholder="Enter structure ID"
+                        value={structureId}
+                        onChange={(e) => setStructureId(e.target.value)}
+                        className="mt-2"
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="transportCost">Transport Cost (ISK/m³)</Label>
                     <Input
-                      id="minMargin"
+                      id="transportCost"
                       type="number"
-                      value={minMargin}
-                      onChange={(e) => setMinMargin(e.target.value)}
+                      value={transportCost}
+                      onChange={(e) => setTransportCost(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="minProfit">Min Profit per Unit (ISK)</Label>
+                    <Label htmlFor="minProfit">Min Profit/Unit (ISK)</Label>
                     <Input
                       id="minProfit"
                       type="number"
@@ -1492,7 +1313,7 @@ export default function MarketSeederPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="minVolume">Min Volume/Day</Label>
+                    <Label htmlFor="minVolume">Min Vale Vol/Day</Label>
                     <Input
                       id="minVolume"
                       type="number"
@@ -1501,293 +1322,204 @@ export default function MarketSeederPage() {
                     />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="noCompetitionOnly"
-                    checked={noCompetitionOnly}
-                    onCheckedChange={(checked) => setNoCompetitionOnly(checked === true)}
-                  />
-                  <Label htmlFor="noCompetitionOnly" className="text-sm cursor-pointer">
-                    Show only items with no competition (tiered markup opportunities)
-                  </Label>
+
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Progress Bar */}
+                {progress && (
+                  <div className="pt-2">
+                    <ProgressBar progress={progress} />
+                  </div>
+                )}
+
+                <Button onClick={runAnalysis} disabled={isLoading} className="w-full md:w-auto">
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="size-4 mr-2" />
+                      Run Analysis
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Results with Sidebar */}
+            {result && (
+              <>
+                {/* Summary Stats */}
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-2xl font-bold">{result.items.length}</p>
+                      <p className="text-sm text-muted-foreground">Total Items</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-2xl font-bold text-primary">{filteredItems.length}</p>
+                      <p className="text-sm text-muted-foreground">Filtered Items</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-2xl font-bold text-emerald-500">
+                        {result.summary.itemsNoCompetition}
+                      </p>
+                      <p className="text-sm text-muted-foreground">No Competition</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-2xl font-bold">{result.summary.avgProfitMargin}%</p>
+                      <p className="text-sm text-muted-foreground">Avg Margin</p>
+                    </CardContent>
+                  </Card>
                 </div>
-                <div className="space-y-2 pt-2">
-                  <Label className="text-sm">Filter by Category</Label>
-                  <div className="flex flex-wrap gap-4">
-                    {[
-                      { id: 'Module', label: 'Modules' },
-                      { id: 'Ship', label: 'Ships' },
-                      { id: 'Charge', label: 'Ammo' },
-                      { id: 'Booster', label: 'Boosters' },
-                    ].map((category) => (
-                      <div key={category.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`category-${category.id}`}
-                          checked={selectedCategories.has(category.id)}
-                          onCheckedChange={(checked) => {
-                            setSelectedCategories(prev => {
-                              const next = new Set(prev)
-                              if (checked) {
-                                next.add(category.id)
+
+                {/* Selection Action Bar */}
+                {selectedItems.size > 0 && (
+                  <Card className="sticky top-4 z-10 border-primary/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                    <CardContent className="p-4">
+                      <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <CheckSquare className="size-5 text-primary" />
+                          <span className="font-medium">{selectedItems.size} items selected</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Supply:</span>
+                          <Select
+                            value={isCustomSupplyDays ? "custom" : supplyDays.toString()}
+                            onValueChange={(value) => {
+                              if (value === "custom") {
+                                setIsCustomSupplyDays(true)
                               } else {
-                                // Prevent deselecting all categories
-                                if (next.size > 1) {
-                                  next.delete(category.id)
-                                }
+                                setIsCustomSupplyDays(false)
+                                setSupplyDays(parseInt(value))
                               }
-                              return next
-                            })
-                          }}
-                        />
-                        <Label htmlFor={`category-${category.id}`} className="text-sm cursor-pointer">
-                          {category.label}
-                        </Label>
+                            }}
+                          >
+                            <SelectTrigger className="h-7 w-24 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SUPPLY_DAYS_PRESETS.map((preset) => (
+                                <SelectItem key={preset.value} value={preset.value}>
+                                  {preset.label}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="custom">Custom</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {isCustomSupplyDays && (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                min="1"
+                                value={supplyDays}
+                                onChange={(e) => setSupplyDays(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="h-7 w-16 text-xs"
+                              />
+                              <span className="text-xs text-muted-foreground">days</span>
+                            </div>
+                          )}
+                          <span className="text-xs text-muted-foreground">@ 5% Vale</span>
+                        </div>
+                        <div className="flex-1" />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={clearSelection}
+                            className="gap-2"
+                          >
+                            <X className="size-4" />
+                            Clear
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={copyBuyText}
+                            className="gap-2"
+                            disabled={copySuccess}
+                          >
+                            {copySuccess ? (
+                              <>
+                                <Check className="size-4" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="size-4" />
+                                Copy Buy Text
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                    ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Sidebar + Table Layout */}
+                <div className="flex gap-6">
+                  {/* Main Content - Table */}
+                  <div className="flex-1 min-w-0">
+                    <ResultsTable
+                      items={filteredItems}
+                      selectedItems={selectedItems}
+                      onToggleSelect={toggleItemSelection}
+                      onSelectAll={selectAllItems}
+                      supplyDays={supplyDays}
+                    />
+                  </div>
+
+                  {/* Sidebar - Filters */}
+                  <div className="w-64 shrink-0 hidden lg:block">
+                    <FilterSidebar
+                      filters={filters}
+                      onFiltersChange={handleFiltersChange}
+                      totalItems={result.items.length}
+                      filteredCount={filteredItems.length}
+                    />
                   </div>
                 </div>
-              </div>
-            )}
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="size-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Progress Bar */}
-            {progress && (
-              <div className="pt-2">
-                <ProgressBar progress={progress} />
-              </div>
-            )}
-
-            <Button onClick={runAnalysis} disabled={isLoading} className="w-full md:w-auto">
-              {isLoading ? (
-                <>
-                  <Loader2 className="size-4 mr-2 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="size-4 mr-2" />
-                  Run Analysis
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Results */}
-        {result && (
-          <>
-            {/* Summary Stats */}
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold">{result.summary.itemsPassingFilters}</p>
-                  <p className="text-sm text-muted-foreground">Profitable Items</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold text-emerald-500">
-                    {result.summary.itemsNoCompetition}
-                  </p>
-                  <p className="text-sm text-muted-foreground">No Competition</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold">{result.summary.avgProfitMargin}%</p>
-                  <p className="text-sm text-muted-foreground">Avg Margin</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold">
-                    {(result.timing.totalMs / 1000).toFixed(1)}s
-                  </p>
-                  <p className="text-sm text-muted-foreground">Analysis Time</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Selection Action Bar */}
-            {selectedItems.size > 0 && (
-              <Card className="sticky top-4 z-10 border-primary/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                <CardContent className="p-4">
-                  <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <CheckSquare className="size-5 text-primary" />
-                      <span className="font-medium">{selectedItems.size} items selected</span>
-                    </div>
-                    <div className="flex-1" />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="buyBudget" className="text-sm whitespace-nowrap">Budget:</Label>
-                        <Input
-                          id="buyBudget"
-                          type="number"
-                          value={buyBudget}
-                          onChange={(e) => setBuyBudget(e.target.value)}
-                          className="w-20 h-8"
-                        />
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">M</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearSelection}
-                        className="gap-2"
-                      >
-                        <X className="size-4" />
-                        Clear
+                {/* Mobile Filters (collapsible) */}
+                <div className="lg:hidden">
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" className="w-full gap-2">
+                        <Settings2 className="size-4" />
+                        Filters
+                        <ChevronDown className="size-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        onClick={copyBuyText}
-                        className="gap-2"
-                        disabled={copySuccess}
-                      >
-                        {copySuccess ? (
-                          <>
-                            <Check className="size-4" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="size-4" />
-                            Copy Buy Text
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-4">
+                      <FilterSidebar
+                        filters={filters}
+                        onFiltersChange={handleFiltersChange}
+                        totalItems={result.items.length}
+                        filteredCount={filteredItems.length}
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+
+                {/* Timestamp */}
+                <p className="text-xs text-muted-foreground text-center">
+                  Analysis generated at {new Date(result.generatedAt).toLocaleString()} • {(result.timing.totalMs / 1000).toFixed(1)}s
+                </p>
+              </>
             )}
-
-            {/* Tabbed Results */}
-            {filteredResults && (
-            <Tabs defaultValue="top" className="space-y-4">
-              <TabsList className="flex flex-wrap h-auto gap-2">
-                <TabsTrigger value="top">
-                  Top Items ({filteredResults.topByCompositeScore.length})
-                </TabsTrigger>
-                <TabsTrigger value="nocompetition">
-                  No Competition ({filteredResults.noCompetitionOpportunities.length})
-                </TabsTrigger>
-                <TabsTrigger value="efficiency">
-                  Best ISK/m³ ({filteredResults.bestIskPerM3.length})
-                </TabsTrigger>
-                <TabsTrigger value="trending">
-                  Trending Up ({filteredResults.trendingUp.length})
-                </TabsTrigger>
-                {selectedCategories.has('Module') && (
-                  <TabsTrigger value="modules">
-                    Modules ({filteredResults.byCategory.Module.length})
-                  </TabsTrigger>
-                )}
-                {selectedCategories.has('Ship') && (
-                  <TabsTrigger value="ships">
-                    Ships ({filteredResults.byCategory.Ship.length})
-                  </TabsTrigger>
-                )}
-                {selectedCategories.has('Charge') && (
-                  <TabsTrigger value="ammo">
-                    Ammo ({filteredResults.byCategory.Charge.length})
-                  </TabsTrigger>
-                )}
-                {selectedCategories.has('Booster') && (
-                  <TabsTrigger value="boosters">
-                    Boosters ({filteredResults.byCategory.Booster.length})
-                  </TabsTrigger>
-                )}
-              </TabsList>
-
-              <TabsContent value="top">
-                <ItemList 
-                  items={filteredResults.topByCompositeScore} 
-                  selectedItems={selectedItems}
-                  onToggleSelect={toggleItemSelection}
-                  onSelectAll={selectAllItems}
-                />
-              </TabsContent>
-              <TabsContent value="nocompetition">
-                <ItemList 
-                  items={filteredResults.noCompetitionOpportunities}
-                  selectedItems={selectedItems}
-                  onToggleSelect={toggleItemSelection}
-                  onSelectAll={selectAllItems}
-                />
-              </TabsContent>
-              <TabsContent value="efficiency">
-                <ItemList 
-                  items={filteredResults.bestIskPerM3}
-                  selectedItems={selectedItems}
-                  onToggleSelect={toggleItemSelection}
-                  onSelectAll={selectAllItems}
-                />
-              </TabsContent>
-              <TabsContent value="trending">
-                <ItemList 
-                  items={filteredResults.trendingUp}
-                  selectedItems={selectedItems}
-                  onToggleSelect={toggleItemSelection}
-                  onSelectAll={selectAllItems}
-                />
-              </TabsContent>
-              {selectedCategories.has('Module') && (
-                <TabsContent value="modules">
-                  <ItemList 
-                    items={filteredResults.byCategory.Module}
-                    selectedItems={selectedItems}
-                    onToggleSelect={toggleItemSelection}
-                    onSelectAll={selectAllItems}
-                  />
-                </TabsContent>
-              )}
-              {selectedCategories.has('Ship') && (
-                <TabsContent value="ships">
-                  <ItemList 
-                    items={filteredResults.byCategory.Ship}
-                    selectedItems={selectedItems}
-                    onToggleSelect={toggleItemSelection}
-                    onSelectAll={selectAllItems}
-                  />
-                </TabsContent>
-              )}
-              {selectedCategories.has('Charge') && (
-                <TabsContent value="ammo">
-                  <ItemList 
-                    items={filteredResults.byCategory.Charge}
-                    selectedItems={selectedItems}
-                    onToggleSelect={toggleItemSelection}
-                    onSelectAll={selectAllItems}
-                  />
-                </TabsContent>
-              )}
-              {selectedCategories.has('Booster') && (
-                <TabsContent value="boosters">
-                  <ItemList 
-                    items={filteredResults.byCategory.Booster}
-                    selectedItems={selectedItems}
-                    onToggleSelect={toggleItemSelection}
-                    onSelectAll={selectAllItems}
-                  />
-                </TabsContent>
-              )}
-            </Tabs>
-            )}
-
-            {/* Timestamp */}
-            <p className="text-xs text-muted-foreground text-center">
-              Analysis generated at {new Date(result.generatedAt).toLocaleString()}
-            </p>
-          </>
-        )}
           </TabsContent>
 
           {/* Watchlist Tab */}
@@ -1858,28 +1590,36 @@ export default function MarketSeederPage() {
             </Card>
 
             {/* Watchlist Summary */}
-            {watchlistItems.length > 0 && (
-              <div className="grid gap-4 md:grid-cols-3">
+            {watchlistItems.length > 0 && watchlistCheckedAt && (
+              <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                   <CardContent className="p-4">
                     <p className="text-2xl font-bold">{watchlistItems.length}</p>
-                    <p className="text-sm text-muted-foreground">Total Items</p>
+                    <p className="text-sm text-muted-foreground">Items Tracked</p>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="border-destructive/50">
                   <CardContent className="p-4">
                     <p className="text-2xl font-bold text-destructive">
-                      {watchlistItems.filter(i => i.needs_restock).length}
+                      {watchlistItems.filter(i => (i.stock ?? 0) === 0 || (i.daysUntilStockout !== null && i.daysUntilStockout < 3)).length}
                     </p>
-                    <p className="text-sm text-muted-foreground">Need Restock</p>
+                    <p className="text-sm text-muted-foreground">Critical (out/&lt;3 days)</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-amber-500/50">
+                  <CardContent className="p-4">
+                    <p className="text-2xl font-bold text-amber-500">
+                      {watchlistItems.filter(i => i.daysUntilStockout !== null && i.daysUntilStockout >= 3 && i.daysUntilStockout < 7).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Warning (3-7 days)</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
                     <p className="text-2xl font-bold text-emerald-500">
-                      {watchlistItems.filter(i => !i.needs_restock).length}
+                      {formatIskShort(watchlistItems.reduce((sum, i) => sum + (i.dailyProfit ?? 0), 0))}
                     </p>
-                    <p className="text-sm text-muted-foreground">In Stock</p>
+                    <p className="text-sm text-muted-foreground">Daily Profit Potential</p>
                   </CardContent>
                 </Card>
               </div>
@@ -1899,43 +1639,150 @@ export default function MarketSeederPage() {
                   </p>
                 </CardContent>
               </Card>
+            ) : !watchlistCheckedAt ? (
+              /* Stock not checked yet - show call-to-action then simplified list */
+              <div className="space-y-3">
+                <Card className="border-dashed">
+                  <CardContent className="py-8 text-center">
+                    <BarChart3 className="size-10 mx-auto text-muted-foreground/50 mb-3" />
+                    <p className="text-muted-foreground mb-4">
+                      Load stock levels and depletion metrics for your {watchlistItems.length} watchlist item{watchlistItems.length !== 1 ? 's' : ''}
+                    </p>
+                    <Button
+                      onClick={() => fetchWatchlist(true)}
+                      disabled={watchlistLoading || !structureId}
+                    >
+                      {watchlistLoading ? (
+                        <Loader2 className="size-4 animate-spin mr-2" />
+                      ) : (
+                        <RefreshCw className="size-4 mr-2" />
+                      )}
+                      Load Stock Data
+                    </Button>
+                    {!structureId && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Set a Structure ID in the Analysis tab first
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+                {watchlistItems.map((item) => (
+                  <Card key={item.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <EveItemIcon typeId={item.type_id} size={32} className="size-6 shrink-0 rounded" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{item.item_name}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {item.category_name} • {item.group_name}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeFromWatchlist(item.type_id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ) : (
               <div className="space-y-3">
-                {watchlistItems.map((item) => (
+                {watchlistItems.map((item) => {
+                  // Stock 0 = critical (already out), otherwise base on days until stockout
+                  const urgencyLevel = (item.stock ?? 0) === 0
+                    ? 'critical'
+                    : item.daysUntilStockout === null 
+                      ? 'none'
+                      : item.daysUntilStockout < 3 
+                        ? 'critical' 
+                        : item.daysUntilStockout < 7 
+                          ? 'warning' 
+                          : 'safe'
+                  
+                  return (
                     <Card
                       key={item.id}
                       className={
-                        item.needs_restock
+                        urgencyLevel === 'critical'
                           ? "border-destructive/50 bg-destructive/5"
-                          : "border-emerald-500/30 bg-emerald-500/5"
+                          : urgencyLevel === 'warning'
+                            ? "border-amber-500/50 bg-amber-500/5"
+                            : urgencyLevel === 'safe'
+                              ? "border-emerald-500/30 bg-emerald-500/5"
+                              : ""
                       }
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-start gap-4">
                           <EveItemIcon typeId={item.type_id} size={32} className="size-6 shrink-0 rounded" />
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">{item.item_name}</div>
                             <div className="text-xs text-muted-foreground truncate">
                               {item.category_name} • {item.group_name}
                             </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
+                              <div>
+                                <p className="text-muted-foreground text-xs">Current Stock</p>
+                                <p className="font-medium">{(item.stock ?? 0).toLocaleString()} units</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
+                                <p className="font-medium">{(item.estimatedDailySales ?? 0).toFixed(1)} units/day</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Days Until Stockout</p>
+                                <p className={`font-bold ${
+                                  urgencyLevel === 'critical' ? 'text-destructive' :
+                                  urgencyLevel === 'warning' ? 'text-amber-500' :
+                                  urgencyLevel === 'safe' ? 'text-emerald-500' :
+                                  'text-muted-foreground'
+                                }`}>
+                                  {item.daysUntilStockout !== null 
+                                    ? `${item.daysUntilStockout.toFixed(1)} days`
+                                    : 'No sales data'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Daily Profit</p>
+                                <p className="font-medium text-primary">{formatIskShort(item.dailyProfit ?? 0)} ISK</p>
+                              </div>
+                            </div>
                           </div>
                           <div className="text-right shrink-0">
-                            {item.needs_restock ? (
+                            {urgencyLevel === 'critical' && (item.stock ?? 0) === 0 && (
                               <Badge variant="destructive" className="gap-1">
                                 <AlertTriangle className="size-3" />
                                 Out of Stock
                               </Badge>
-                            ) : (
-                              <div>
-                                <p className="font-medium text-emerald-600">
-                                  {item.stock.toLocaleString()} units
-                                </p>
-                                {item.lowest_price && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {formatIskShort(item.lowest_price)} ISK
-                                  </p>
-                                )}
-                              </div>
+                            )}
+                            {urgencyLevel === 'critical' && (item.stock ?? 0) > 0 && (
+                              <Badge variant="destructive" className="gap-1">
+                                <AlertTriangle className="size-3" />
+                                Critical
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'warning' && (
+                              <Badge className="gap-1 bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
+                                <Clock className="size-3" />
+                                Low Stock
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'safe' && (
+                              <Badge variant="secondary" className="gap-1 bg-emerald-500/20 text-emerald-600">
+                                <Check className="size-3" />
+                                OK
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'none' && (
+                              <Badge variant="secondary" className="gap-1">
+                                <Minus className="size-3" />
+                                No Data
+                              </Badge>
                             )}
                           </div>
                           <Button
@@ -1949,7 +1796,8 @@ export default function MarketSeederPage() {
                         </div>
                       </CardContent>
                     </Card>
-                ))}
+                  )
+                })}
               </div>
             )}
           </TabsContent>

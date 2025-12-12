@@ -1,0 +1,42 @@
+Looking for env at: I:\Github\EveOnlineTracker\.env.local
+File exists: true
+Env file lines: 6
+Line: "NEXT_PUBLIC_SUPABASE_URL=https://yyphysbuoqfnqcnpufxr.supabase.co/"
+Loaded: NEXT_PUBLIC_SUPABASE_URL
+Line: "SUPABASE_SERVICE_ROLE_KEY=sb_publishable_kAQgnJVUHgKXvRePun5Axg_U4aWpVxA"
+Loaded: SUPABASE_SERVICE_ROLE_KEY
+Line: ""
+Line: "EVE_CLIENT_SECRET=eat_13csA7SClDkr5AISPUR13aVug6VCqB6fA_4NlSdG"
+Loaded: EVE_CLIENT_SECRET
+Line: "EVE_CLIENT_ID=48fc9b32de2b465ba2533c79ae315e3a"
+Loaded: EVE_CLIENT_ID
+Line: "JANICE_API_KEY=G9KwKq3465588VPd6747t95Zh94q3W2E"
+Loaded: JANICE_API_KEY
+Checking market history for test items...
+
+=== VALE OF THE SILENT (Region 10000015) ===
+
+Found 7 rows in Vale market history
+  ✓ Tengu: 7 days, latest 2025-12-07, total vol 7
+  ✗ Tengu Core - Obfuscation Manifold: NO DATA
+  ✗ Tengu Offensive - Magnetic Infusion Basin: NO DATA
+  ✗ Tengu Offensive - Support Processor: NO DATA
+  ✗ Tengu Propulsion - Chassis Optimization: NO DATA
+  ✗ Tengu Core - Augmented Graviton Reactor: NO DATA
+
+=== THE FORGE / JITA (Region 10000002) ===
+
+Found 50 rows in Jita market history
+  ✓ Tengu: 7 days, latest 2025-12-08, total vol 845
+  ✓ Tengu Core - Obfuscation Manifold: 9 days, latest 2025-12-11, total vol 186
+  ✓ Tengu Offensive - Magnetic Infusion Basin: 8 days, latest 2025-12-10, total vol 186
+  ✓ Tengu Offensive - Support Processor: 9 days, latest 2025-12-11, total vol 134
+  ✓ Tengu Propulsion - Chassis Optimization: 9 days, latest 2025-12-10, total vol 750
+  ✓ Tengu Core - Augmented Graviton Reactor: 8 days, latest 2025-12-10, total vol 1049
+
+=== Testing get_market_seeder_statistics RPC ===
+
+RPC returned: 1 items
+  Tengu: avg_daily_volume=1, avg_price=295800000
+
+=== Done ===

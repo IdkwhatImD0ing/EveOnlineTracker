@@ -8,12 +8,13 @@
  * 
  * Query Parameters:
  *   - structure_id (required): Target structure ID for the alliance market hub
- *   - limit (optional): Max items per ranked list (default: 50, max: 200)
- *   - minMargin (optional): Minimum profit margin % (default: 10)
  *   - minProfit (optional): Minimum profit per unit in ISK (default: 100000)
+ *   - minVolume (optional): Minimum Vale daily volume (default: 10)
  *   - transportCost (optional): ISK per m³ transport cost (default: 450)
  *   - days (optional): Days of market history to analyze (default: 30)
  *   - stream (optional): If 'true', returns Server-Sent Events with progress updates
+ * 
+ * Note: minMargin and category filtering are now handled client-side for better UX
  * 
  * Headers:
  *   - Authorization (required): Bearer token from EVE SSO (requires esi-markets.structure_markets.v1 scope)
@@ -25,7 +26,6 @@ import {
   generateRankedLists,
 } from '@/lib/market-seeder'
 import {
-  type MarketSeederResponse,
   type ProfitAnalysis,
   MARKET_SEEDER_DEFAULTS,
 } from '@/types/market-seeder'
@@ -80,23 +80,51 @@ function sendSSEEvent(
 }
 
 /**
+ * New simplified response type (all items in one array)
+ */
+interface AnalysisResponse {
+  success: boolean
+  generatedAt: string
+  config: {
+    structureId: string
+    transportCostPerM3: number
+    minProfitIsk: number
+    minDailyVolume: number
+    daysAnalyzed: number
+  }
+  summary: {
+    totalItemsAnalyzed: number
+    itemsPassingFilters: number
+    itemsWithCompetition: number
+    itemsNoCompetition: number
+    avgProfitMargin: number
+    avgProfitPerM3: number
+  }
+  items: ReturnType<typeof enrichProfitAnalysis>[]
+  timing: {
+    marketHistoryQueryMs: number
+    structureOrdersFetchMs: number
+    jitaPriceFetchMs: number
+    analysisMs: number
+    totalMs: number
+  }
+}
+
+/**
  * Handle streaming request with Server-Sent Events
  */
 async function handleStreamingRequest(
   params: {
     structureId: string
     authToken: string
-    limit: number
-    minMargin: number
     minProfit: number
     minVolume: number
-    noCompetitionOnly: boolean
     transportCost: number
     days: number
     startTime: number
   }
 ) {
-  const { structureId, authToken, limit, minMargin, minProfit, minVolume, noCompetitionOnly, transportCost, days, startTime } = params
+  const { structureId, authToken, minProfit, minVolume, transportCost, days, startTime } = params
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -117,54 +145,36 @@ async function handleStreamingRequest(
           structureId,
           authToken,
           transportCostPerM3: transportCost,
-          minMarginPct: minMargin,
           minProfitIsk: minProfit,
           minDailyVolume: minVolume,
-          noCompetitionOnly,
           days,
           onProgress
         })
 
-        // Generate ranked lists
-        onProgress('ranking', 'Generating ranked lists...', 95)
-        const rankedLists = generateRankedLists(result.items, limit)
+        // Generate ranked lists (returns all items sorted by score)
+        onProgress('ranking', 'Sorting results...', 95)
+        const rankedLists = generateRankedLists(result.items)
 
         // Enrich items with formatted values
-        const enrichedLists = {
-          topByCompositeScore: rankedLists.topByCompositeScore.map(enrichProfitAnalysis),
-          noCompetitionOpportunities: rankedLists.noCompetitionOpportunities.map(enrichProfitAnalysis),
-          bestIskPerM3: rankedLists.bestIskPerM3.map(enrichProfitAnalysis),
-          trendingUp: rankedLists.trendingUp.map(enrichProfitAnalysis),
-          byCategory: {
-            Module: rankedLists.byCategory.Module.map(enrichProfitAnalysis),
-            Ship: rankedLists.byCategory.Ship.map(enrichProfitAnalysis),
-            Charge: rankedLists.byCategory.Charge.map(enrichProfitAnalysis),
-            Booster: rankedLists.byCategory.Booster.map(enrichProfitAnalysis),
-          }
-        }
+        const enrichedItems = rankedLists.allItems.map(enrichProfitAnalysis)
 
         const totalTime = Date.now() - startTime
 
         // Build response
-        const response: MarketSeederResponse = {
+        const response: AnalysisResponse = {
           success: true,
           generatedAt: new Date().toISOString(),
           
           config: {
             structureId,
             transportCostPerM3: transportCost,
-            minMarginPct: minMargin,
             minProfitIsk: minProfit,
+            minDailyVolume: minVolume,
             daysAnalyzed: days
           },
           
           summary: result.summary,
-          
-          topByCompositeScore: enrichedLists.topByCompositeScore,
-          noCompetitionOpportunities: enrichedLists.noCompetitionOpportunities,
-          bestIskPerM3: enrichedLists.bestIskPerM3,
-          trendingUp: enrichedLists.trendingUp,
-          byCategory: enrichedLists.byCategory,
+          items: enrichedItems,
           
           timing: {
             marketHistoryQueryMs: result.timing.marketHistoryMs,
@@ -202,16 +212,10 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
   const searchParams = request.nextUrl.searchParams
   
-  // Parse query parameters
+  // Parse query parameters (removed minMargin and noCompetitionOnly - now client-side)
   const structureId = searchParams.get('structure_id')
-  const limit = Math.min(
-    parseInt(searchParams.get('limit') || String(MARKET_SEEDER_DEFAULTS.DEFAULT_LIMIT_PER_CATEGORY)),
-    MARKET_SEEDER_DEFAULTS.MAX_LIMIT
-  )
-  const minMargin = parseFloat(searchParams.get('minMargin') || String(MARKET_SEEDER_DEFAULTS.MIN_PROFIT_MARGIN_PCT))
   const minProfit = parseFloat(searchParams.get('minProfit') || String(MARKET_SEEDER_DEFAULTS.MIN_PROFIT_ISK))
   const minVolume = parseFloat(searchParams.get('minVolume') || String(MARKET_SEEDER_DEFAULTS.MIN_DAILY_VOLUME))
-  const noCompetitionOnly = searchParams.get('noCompetitionOnly') === 'true'
   const transportCost = parseFloat(searchParams.get('transportCost') || String(MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3))
   const days = parseInt(searchParams.get('days') || String(MARKET_SEEDER_DEFAULTS.DAYS_TO_ANALYZE))
   const streamMode = searchParams.get('stream') === 'true'
@@ -250,11 +254,8 @@ export async function GET(request: NextRequest) {
     return handleStreamingRequest({
       structureId,
       authToken,
-      limit,
-      minMargin,
       minProfit,
       minVolume,
-      noCompetitionOnly,
       transportCost,
       days,
       startTime
@@ -269,52 +270,34 @@ export async function GET(request: NextRequest) {
       structureId,
       authToken,
       transportCostPerM3: transportCost,
-      minMarginPct: minMargin,
       minProfitIsk: minProfit,
       minDailyVolume: minVolume,
-      noCompetitionOnly,
       days,
     })
     
-    // Generate ranked lists
-    const rankedLists = generateRankedLists(result.items, limit)
+    // Generate ranked lists (returns all items sorted by score)
+    const rankedLists = generateRankedLists(result.items)
     
     // Enrich items with formatted values
-    const enrichedLists = {
-      topByCompositeScore: rankedLists.topByCompositeScore.map(enrichProfitAnalysis),
-      noCompetitionOpportunities: rankedLists.noCompetitionOpportunities.map(enrichProfitAnalysis),
-      bestIskPerM3: rankedLists.bestIskPerM3.map(enrichProfitAnalysis),
-      trendingUp: rankedLists.trendingUp.map(enrichProfitAnalysis),
-      byCategory: {
-        Module: rankedLists.byCategory.Module.map(enrichProfitAnalysis),
-        Ship: rankedLists.byCategory.Ship.map(enrichProfitAnalysis),
-        Charge: rankedLists.byCategory.Charge.map(enrichProfitAnalysis),
-        Booster: rankedLists.byCategory.Booster.map(enrichProfitAnalysis),
-      }
-    }
+    const enrichedItems = rankedLists.allItems.map(enrichProfitAnalysis)
     
     const totalTime = Date.now() - startTime
     
     // Build response
-    const response: MarketSeederResponse = {
+    const response: AnalysisResponse = {
       success: true,
       generatedAt: new Date().toISOString(),
       
       config: {
         structureId,
         transportCostPerM3: transportCost,
-        minMarginPct: minMargin,
         minProfitIsk: minProfit,
+        minDailyVolume: minVolume,
         daysAnalyzed: days
       },
       
       summary: result.summary,
-      
-      topByCompositeScore: enrichedLists.topByCompositeScore,
-      noCompetitionOpportunities: enrichedLists.noCompetitionOpportunities,
-      bestIskPerM3: enrichedLists.bestIskPerM3,
-      trendingUp: enrichedLists.trendingUp,
-      byCategory: enrichedLists.byCategory,
+      items: enrichedItems,
       
       timing: {
         marketHistoryQueryMs: result.timing.marketHistoryMs,
@@ -325,7 +308,7 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    console.log(`[Market Seeder API] Analysis complete in ${totalTime}ms`)
+    console.log(`[Market Seeder API] Analysis complete in ${totalTime}ms - ${enrichedItems.length} items`)
     
     return NextResponse.json(response)
     

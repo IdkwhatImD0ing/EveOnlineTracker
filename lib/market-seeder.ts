@@ -645,23 +645,20 @@ export function calculateCompositeScores(items: ProfitAnalysis[]): void {
 }
 
 /**
- * Apply minimum threshold filters
+ * Apply minimum threshold filters (server-side)
+ * Note: minMargin and noCompetition are now filtered client-side for better UX
  */
 export function applyFilters(
   items: ProfitAnalysis[],
-  minMarginPct: number,
   minProfitIsk: number,
   minJitaPrice: number = MARKET_SEEDER_DEFAULTS.MIN_JITA_PRICE,
   minDailyVolume: number = MARKET_SEEDER_DEFAULTS.MIN_DAILY_VOLUME,
-  noCompetitionOnly: boolean = false
 ): ProfitAnalysis[] {
   return items.filter(item => 
-    item.profitMarginPct >= minMarginPct &&
     item.profitPerUnit >= minProfitIsk &&
     item.jitaSellPrice >= minJitaPrice &&
     item.avgDailyVolume >= minDailyVolume &&
-    item.profitPerUnit > 0 &&  // Must be profitable
-    (!noCompetitionOnly || !item.hasCompetition)  // Filter for no competition if enabled
+    item.profitPerUnit > 0  // Must be profitable
   )
 }
 
@@ -711,12 +708,9 @@ export interface AnalyzeOptions {
   structureId: string
   authToken: string
   transportCostPerM3?: number
-  minMarginPct?: number
   minProfitIsk?: number
   minDailyVolume?: number
-  noCompetitionOnly?: boolean
   days?: number
-  limit?: number
 }
 
 export interface AnalyzeOptionsWithProgress extends AnalyzeOptions {
@@ -745,10 +739,8 @@ export async function analyzeMarketWithProgress(options: AnalyzeOptionsWithProgr
     structureId,
     authToken,
     transportCostPerM3 = MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3,
-    minMarginPct = MARKET_SEEDER_DEFAULTS.MIN_PROFIT_MARGIN_PCT,
     minProfitIsk = MARKET_SEEDER_DEFAULTS.MIN_PROFIT_ISK,
     minDailyVolume = MARKET_SEEDER_DEFAULTS.MIN_DAILY_VOLUME,
-    noCompetitionOnly = false,
     days = MARKET_SEEDER_DEFAULTS.DAYS_TO_ANALYZE,
     onProgress
   } = options
@@ -815,9 +807,9 @@ export async function analyzeMarketWithProgress(options: AnalyzeOptionsWithProgr
     }
   }
   
-  // Step 6: Apply filters
+  // Step 6: Apply filters (server-side: minProfit, minVolume, minPrice)
   progress('filtering', 'Applying filters...', 90)
-  const filteredItems = applyFilters(allAnalyzed, minMarginPct, minProfitIsk, MARKET_SEEDER_DEFAULTS.MIN_JITA_PRICE, minDailyVolume, noCompetitionOnly)
+  const filteredItems = applyFilters(allAnalyzed, minProfitIsk, MARKET_SEEDER_DEFAULTS.MIN_JITA_PRICE, minDailyVolume)
   
   // Step 7: Calculate composite scores
   progress('scoring', 'Calculating composite scores...', 92)
@@ -856,54 +848,15 @@ export async function analyzeMarket(options: AnalyzeOptions): Promise<AnalyzeRes
 }
 
 /**
- * Sort and slice items for different ranking categories
+ * Sort items by composite score (returns all items, no slicing)
+ * Filtering and sorting is now handled client-side for better UX
  */
-export function generateRankedLists(items: ProfitAnalysis[], limit: number) {
-  // Top by composite score
-  const topByCompositeScore = [...items]
-    .sort((a, b) => b.compositeScore - a.compositeScore)
-    .slice(0, limit)
-  
-  // No competition opportunities
-  const noCompetitionOpportunities = [...items]
-    .filter(i => !i.hasCompetition)
-    .sort((a, b) => b.compositeScore - a.compositeScore)
-    .slice(0, Math.min(limit, 20))
-  
-  // Best ISK per m³
-  const bestIskPerM3 = [...items]
-    .sort((a, b) => b.profitPerM3 - a.profitPerM3)
-    .slice(0, Math.min(limit, 20))
-  
-  // Trending up
-  const trendingUp = [...items]
-    .filter(i => i.trendDirection === 'up')
-    .sort((a, b) => b.compositeScore - a.compositeScore)
-    .slice(0, Math.min(limit, 20))
-  
-  // By category
-  const categoryLimit = Math.min(limit, 10)
-  const byCategory = {
-    Module: items.filter(i => i.categoryName === 'Module')
-      .sort((a, b) => b.compositeScore - a.compositeScore)
-      .slice(0, categoryLimit),
-    Ship: items.filter(i => i.categoryName === 'Ship')
-      .sort((a, b) => b.compositeScore - a.compositeScore)
-      .slice(0, categoryLimit),
-    Charge: items.filter(i => i.categoryName === 'Charge')
-      .sort((a, b) => b.compositeScore - a.compositeScore)
-      .slice(0, categoryLimit),
-    Booster: items.filter(i => i.categoryName === 'Booster')
-      .sort((a, b) => b.compositeScore - a.compositeScore)
-      .slice(0, categoryLimit),
-  }
+export function generateRankedLists(items: ProfitAnalysis[]) {
+  // Return all items sorted by composite score (default sort)
+  const allItems = [...items].sort((a, b) => b.compositeScore - a.compositeScore)
   
   return {
-    topByCompositeScore,
-    noCompetitionOpportunities,
-    bestIskPerM3,
-    trendingUp,
-    byCategory
+    allItems
   }
 }
 

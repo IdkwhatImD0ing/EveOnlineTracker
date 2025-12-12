@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cached-data'
+import { REGION_IDS, VALE_HUB_FACTOR } from '@/types/market-seeder'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -24,6 +26,12 @@ interface WatchlistItemWithStock extends WatchlistItem {
   stock: number
   lowest_price: number | null
   needs_restock: boolean
+  // Depletion metrics
+  estimatedDailySales: number
+  daysUntilStockout: number | null
+  jitaPrice: number | null
+  profitPerUnit: number
+  dailyProfit: number
 }
 
 /**
@@ -65,6 +73,11 @@ export async function GET(request: NextRequest) {
         stock: 0,
         lowest_price: null,
         needs_restock: true, // Assume needs restock if we can't check
+        estimatedDailySales: 0,
+        daysUntilStockout: null,
+        jitaPrice: null,
+        profitPerUnit: 0,
+        dailyProfit: 0,
       }))
 
       return NextResponse.json({
@@ -111,24 +124,93 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Merge stock info with watchlist items
+    // Fetch market data for all watchlist items
+    const typeIds = (watchlistItems || []).map(item => item.type_id)
+    
+    // Fetch Vale volumes and Jita prices in parallel
+    const [valeData, jitaPrices] = await Promise.all([
+      getCachedMarketSeederStatistics(typeIds, 30, REGION_IDS.VALE_OF_SILENT),
+      getCachedJitaPrices(typeIds)
+    ])
+
+    // Merge stock info and market data with watchlist items
     const itemsWithStock: WatchlistItemWithStock[] = (watchlistItems || []).map(item => {
       const stockInfo = stockMap.get(item.type_id)
+      const valeStats = valeData.get(item.type_id)
+      const jitaPrice = jitaPrices.get(item.type_id)
+      
+      const stock = stockInfo?.volume ?? 0
+      const lowestPrice = stockInfo?.lowestPrice ?? null
+      
+      // Calculate depletion metrics
+      const avgDailyVolume = valeStats?.avgDailyVolume || 0
+      const estimatedDailySales = avgDailyVolume * VALE_HUB_FACTOR
+      
+      const daysUntilStockout = estimatedDailySales > 0 && stock > 0
+        ? stock / estimatedDailySales
+        : null
+      
+      const jitaBuyPrice = jitaPrice?.lowestSellPrice ?? null
+      const profitPerUnit = lowestPrice && jitaBuyPrice 
+        ? lowestPrice - jitaBuyPrice 
+        : 0
+      const dailyProfit = estimatedDailySales * Math.max(0, profitPerUnit)
+      
       return {
         ...item,
-        stock: stockInfo?.volume ?? 0,
-        lowest_price: stockInfo?.lowestPrice ?? null,
+        stock,
+        lowest_price: lowestPrice,
         needs_restock: !stockInfo || stockInfo.volume === 0,
+        estimatedDailySales,
+        daysUntilStockout,
+        jitaPrice: jitaBuyPrice,
+        profitPerUnit,
+        dailyProfit,
       }
     })
 
-    // Sort: items needing restock first, then alphabetically
+    // Sort: stock 0 first (out of stock), then by days until stockout, then alphabetically
     itemsWithStock.sort((a, b) => {
-      if (a.needs_restock !== b.needs_restock) {
-        return a.needs_restock ? -1 : 1
+      // Out of stock items come first
+      const aOutOfStock = a.stock === 0
+      const bOutOfStock = b.stock === 0
+      if (aOutOfStock !== bOutOfStock) {
+        return aOutOfStock ? -1 : 1
       }
+      // Both have stockout data - sort by urgency
+      if (a.daysUntilStockout !== null && b.daysUntilStockout !== null) {
+        return a.daysUntilStockout - b.daysUntilStockout
+      }
+      // Items with stockout data come before those without
+      if (a.daysUntilStockout !== null) return -1
+      if (b.daysUntilStockout !== null) return 1
       return a.item_name.localeCompare(b.item_name)
     })
+
+    // Calculate summary with depletion-style counts
+    // Stock 0 = critical (already out of stock)
+    let criticalCount = 0
+    let warningCount = 0
+    let okCount = 0
+    let noDataCount = 0
+    let totalDailyProfit = 0
+
+    for (const item of itemsWithStock) {
+      totalDailyProfit += item.dailyProfit
+      
+      // Stock 0 is always critical
+      if (item.stock === 0) {
+        criticalCount++
+      } else if (item.daysUntilStockout === null) {
+        noDataCount++
+      } else if (item.daysUntilStockout < 3) {
+        criticalCount++
+      } else if (item.daysUntilStockout < 7) {
+        warningCount++
+      } else {
+        okCount++
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -139,6 +221,11 @@ export async function GET(request: NextRequest) {
         total: itemsWithStock.length,
         needs_restock: itemsWithStock.filter(i => i.needs_restock).length,
         in_stock: itemsWithStock.filter(i => !i.needs_restock).length,
+        criticalCount,
+        warningCount,
+        okCount,
+        noDataCount,
+        totalDailyProfit,
       },
     })
 
