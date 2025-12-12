@@ -26,13 +26,21 @@ const CATEGORIES = [
   { id: "Ship", label: "Ships" },
   { id: "Charge", label: "Ammo" },
   { id: "Booster", label: "Boosters" },
+  { id: "Drone", label: "Drones" },
+  { id: "Fighter", label: "Fighters" },
+  { id: "Implant", label: "Implants" },
+  { id: "Deployable", label: "Deployables" },
+  { id: "Subsystem", label: "Subsystems" },
 ] as const
 
 const DEFAULT_FILTERS: FilterState = {
   minMargin: 10,
   maxJitaCost: null,  // No limit by default
   noCompetitionOnly: false,
-  selectedCategories: new Set(["Module", "Ship", "Charge", "Booster"]),
+  selectedCategories: new Set([
+    "Module", "Ship", "Charge", "Booster",
+    "Drone", "Fighter", "Implant", "Deployable", "Subsystem"
+  ]),
 }
 
 export function FilterSidebar({

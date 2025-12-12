@@ -133,7 +133,7 @@ After running an analysis, filter results using the sidebar on the right:
 |--------|-------------|
 | **Min Margin %** | Minimum profit margin percentage (client-side filter) |
 | **No Competition Only** | Show only items with no existing sell orders |
-| **Categories** | Checkboxes for Modules, Ships, Ammo, Boosters |
+| **Categories** | Checkboxes for Modules, Ships, Ammo, Boosters, Drones, Fighters, Implants, Deployables, Subsystems |
 | **Reset Filters** | Button to restore default filter values |
 
 ### Results Table
