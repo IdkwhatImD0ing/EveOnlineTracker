@@ -297,7 +297,7 @@ export const MARKET_SEEDER_DEFAULTS = {
  */
 export const REGION_IDS = {
   THE_FORGE: 10000002,      // Jita
-  VALE_OF_SILENT: 10000015, // Vale of the Silent (alliance hub)
+  VALE_OF_SILENT: 10000003, // Vale of the Silent (alliance hub)
   DOMAIN: 10000043,         // Amarr
   SINQ_LAISON: 10000032,    // Dodixie
   HEIMATAR: 10000030,       // Rens

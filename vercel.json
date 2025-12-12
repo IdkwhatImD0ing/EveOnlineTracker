@@ -6,7 +6,7 @@
       "schedule": "0 12 * * *"
     },
     {
-      "path": "/api/esi/market-history?mode=daily&region_id=10000015",
+      "path": "/api/esi/market-history?mode=daily&region_id=10000003",
       "schedule": "0 13 * * *"
     }
   ]

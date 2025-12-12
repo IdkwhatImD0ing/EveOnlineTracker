@@ -146,9 +146,11 @@ export async function GET(request: NextRequest) {
       const avgDailyVolume = valeStats?.avgDailyVolume || 0
       const estimatedDailySales = avgDailyVolume * VALE_HUB_FACTOR
       
-      const daysUntilStockout = estimatedDailySales > 0 && stock > 0
-        ? stock / estimatedDailySales
-        : null
+      const daysUntilStockout = stock === 0 
+        ? 0  // Already out of stock
+        : estimatedDailySales > 0 
+          ? stock / estimatedDailySales
+          : null  // Only null when there's truly no sales data
       
       const jitaBuyPrice = jitaPrice?.lowestSellPrice ?? null
       const profitPerUnit = lowestPrice && jitaBuyPrice 

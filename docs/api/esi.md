@@ -484,6 +484,107 @@ Runs daily at 12:00 UTC to append yesterday's data.
 
 ---
 
+### GET /api/esi/market-history-raw
+
+Debug endpoint to fetch raw market history for a single item in any region directly from ESI. Does NOT store to database - pure ESI debugging tool.
+
+**Authentication:** None required
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| type_id | integer | Yes | - | EVE type ID of the item |
+| region_id | integer | No | 10000002 | EVE region ID |
+| days | integer | No | 30 | Number of recent days to return |
+
+**Common Region IDs:**
+
+| Region | ID | Notes |
+|--------|-----|-------|
+| The Forge | 10000002 | Jita |
+| Vale of the Silent | 10000003 | Null-sec |
+| Domain | 10000043 | Amarr |
+| Sinq Laison | 10000032 | Dodixie |
+| Heimatar | 10000030 | Rens |
+| Metropolis | 10000042 | Hek |
+
+**Example Requests:**
+```bash
+# Tritanium in Jita
+curl -X GET "http://localhost:3000/api/esi/market-history-raw?type_id=34"
+
+# Legion subsystem in Vale of the Silent
+curl -X GET "http://localhost:3000/api/esi/market-history-raw?type_id=45610&region_id=10000003"
+
+# Last 7 days only
+curl -X GET "http://localhost:3000/api/esi/market-history-raw?type_id=34&days=7"
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "type_id": 45610,
+  "region_id": 10000003,
+  "region_name": "Vale of the Silent",
+  "esi_url": "https://esi.evetech.net/markets/10000003/history/?type_id=45610",
+  "total_entries_from_esi": 365,
+  "entries_in_date_range": 30,
+  "date_filter": {
+    "days_requested": 30,
+    "cutoff_date": "2025-11-12",
+    "oldest_in_response": "2025-11-12",
+    "newest_in_response": "2025-12-12"
+  },
+  "summary": {
+    "avg_price": 15000000,
+    "min_price": 14500000,
+    "max_price": 16000000,
+    "total_volume": 150,
+    "total_orders": 45,
+    "avg_daily_volume": 5,
+    "days_with_trades": 30
+  },
+  "data": [
+    {
+      "date": "2025-12-12",
+      "average": 15500000,
+      "highest": 16000000,
+      "lowest": 15000000,
+      "order_count": 3,
+      "volume": 5
+    }
+  ],
+  "all_esi_data": {
+    "oldest_date": "2024-12-12",
+    "newest_date": "2025-12-12",
+    "total_entries": 365
+  },
+  "duration_ms": 245
+}
+```
+
+**No Data Response:**
+```json
+{
+  "success": false,
+  "message": "No market history for this item in this region",
+  "type_id": 45610,
+  "region_id": 10000003,
+  "esi_status": 404,
+  "hint": "This item may not be traded in this region, or has no recent trade history",
+  "duration_ms": 150
+}
+```
+
+**Use Cases:**
+- Debug why specific items (like subsystems) aren't appearing in market history
+- Verify ESI is returning data for a region before running batch imports
+- Compare market data between regions (Jita vs Vale of the Silent)
+
+---
+
 ### GET /api/esi/market-history-test
 
 Test endpoint to fetch market history for a single item. Useful for validating the integration.
@@ -795,6 +896,7 @@ curl -X GET "http://localhost:3000/api/esi/character-orders?character_id=1234567
 - `app/api/sell-opportunities/route.ts` - Sell opportunities analysis
 - `app/api/esi/market-history/route.ts` - Market history batch implementation
 - `app/api/esi/market-history-test/route.ts` - Market history test implementation
+- `app/api/esi/market-history-raw/route.ts` - Raw market history debug endpoint
 - `data/tradeable-items.jsonl` - Source file for tradeable items
 - `vercel.json` - Cron job configuration
 

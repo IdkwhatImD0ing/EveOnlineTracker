@@ -470,13 +470,13 @@ curl "http://localhost:3000/api/market-seeder/market-data?type_ids=2048,3170,112
 Uses the `get_market_seeder_statistics` PostgreSQL function to efficiently query market history.
 Processes ~5,800 items in batches of 200 to avoid Supabase's 1000-row limit.
 
-**Vale of the Silent** (region 10000015) is used for demand estimation with a **5% hub factor**.
+**Vale of the Silent** (region 10000003) is used for demand estimation with a **5% hub factor**.
 
 ```sql
 -- Example RPC call for Vale demand data
 SELECT * FROM get_market_seeder_statistics(
   ARRAY[34, 35, 36]::BIGINT[],  -- type_ids
-  10000015,                       -- region_id (Vale of the Silent)
+  10000003,                       -- region_id (Vale of the Silent)
   30                              -- days_back
 );
 ```

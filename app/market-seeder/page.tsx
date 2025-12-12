@@ -39,6 +39,8 @@ import { EveItemIcon } from "@/components/eve-item-icon"
 import { ItemSearch, TradeableItem } from "@/components/market/item-search"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
 import { FilterSidebar, FilterState, DEFAULT_FILTERS } from "@/components/market-seeder/filter-sidebar"
 import { ResultsTable, ProfitAnalysis } from "@/components/market-seeder/results-table"
 
@@ -321,6 +323,11 @@ export default function MarketSeederPage() {
   const [watchlistCheckedAt, setWatchlistCheckedAt] = useState<string | null>(null)
   const [addingItem, setAddingItem] = useState(false)
   const [watchlistInitialized, setWatchlistInitialized] = useState(false)
+  const [watchlistCopySuccess, setWatchlistCopySuccess] = useState(false)
+  const [restockDays, setRestockDays] = useState(7)
+  const [restockTopN, setRestockTopN] = useState<number | null>(null) // null = all items
+  const [includeCritical, setIncludeCritical] = useState(true)
+  const [includeWarning, setIncludeWarning] = useState(true)
 
   // Depletion predictor state
   const [depletionPredictions, setDepletionPredictions] = useState<DepletionPrediction[]>([])
@@ -336,6 +343,11 @@ export default function MarketSeederPage() {
     noDataCount: number
     totalDailyProfit: number
   } | null>(null)
+  const [depletionCopySuccess, setDepletionCopySuccess] = useState(false)
+  const [depletionRestockDays, setDepletionRestockDays] = useState(7)
+  const [depletionRestockTopN, setDepletionRestockTopN] = useState<number | null>(null)
+  const [depletionIncludeCritical, setDepletionIncludeCritical] = useState(true)
+  const [depletionIncludeWarning, setDepletionIncludeWarning] = useState(true)
 
   // Capital efficiency state
   const [capitalData, setCapitalData] = useState<CapitalEfficiencyResponse | null>(null)
@@ -723,6 +735,115 @@ export default function MarketSeederPage() {
       setWatchlistError(err instanceof Error ? err.message : "Failed to remove item")
     }
   }, [])
+
+  // Categorize watchlist items by urgency level
+  const watchlistItemsByUrgency = useMemo(() => {
+    const critical: WatchlistItem[] = []
+    const warning: WatchlistItem[] = []
+    
+    for (const item of watchlistItems) {
+      // Stock 0 = critical, or < 3 days
+      if ((item.stock ?? 0) === 0) {
+        critical.push(item)
+      } else if (item.daysUntilStockout !== null) {
+        if (item.daysUntilStockout < 3) {
+          critical.push(item)
+        } else if (item.daysUntilStockout < 7) {
+          warning.push(item)
+        }
+      }
+    }
+    
+    return { critical, warning }
+  }, [watchlistItems])
+
+  // Get items that need restocking based on checkbox filters
+  const watchlistItemsToRestock = useMemo(() => {
+    const items: WatchlistItem[] = []
+    if (includeCritical) items.push(...watchlistItemsByUrgency.critical)
+    if (includeWarning) items.push(...watchlistItemsByUrgency.warning)
+    return items
+  }, [watchlistItemsByUrgency, includeCritical, includeWarning])
+
+  // Items that will actually be copied (after applying topN filter)
+  const watchlistItemsToCopy = useMemo(() => {
+    if (restockTopN !== null) {
+      return watchlistItemsToRestock.slice(0, restockTopN)
+    }
+    return watchlistItemsToRestock
+  }, [watchlistItemsToRestock, restockTopN])
+
+  // Copy watchlist restock items to clipboard
+  const copyWatchlistBuyText = useCallback(async () => {
+    if (watchlistItemsToCopy.length === 0) return
+
+    // Generate buy text with configurable days of supply
+    const buyText = watchlistItemsToCopy.map(item => {
+      const qty = Math.max(1, Math.ceil((item.estimatedDailySales ?? 0) * restockDays))
+      return `${item.item_name} ${qty}`
+    }).join('\n')
+
+    try {
+      await navigator.clipboard.writeText(buyText)
+      setWatchlistCopySuccess(true)
+      setTimeout(() => setWatchlistCopySuccess(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }, [watchlistItemsToCopy, restockDays])
+
+  // Categorize depletion predictions by urgency level
+  const depletionItemsByUrgency = useMemo(() => {
+    const critical: DepletionPrediction[] = []
+    const warning: DepletionPrediction[] = []
+    
+    for (const item of depletionPredictions) {
+      if (item.daysUntilStockout !== null) {
+        if (item.daysUntilStockout < 3) {
+          critical.push(item)
+        } else if (item.daysUntilStockout < 7) {
+          warning.push(item)
+        }
+      }
+    }
+    
+    return { critical, warning }
+  }, [depletionPredictions])
+
+  // Get depletion items to restock based on checkbox filters
+  const depletionItemsToRestock = useMemo(() => {
+    const items: DepletionPrediction[] = []
+    if (depletionIncludeCritical) items.push(...depletionItemsByUrgency.critical)
+    if (depletionIncludeWarning) items.push(...depletionItemsByUrgency.warning)
+    return items
+  }, [depletionItemsByUrgency, depletionIncludeCritical, depletionIncludeWarning])
+
+  // Depletion items that will actually be copied (after applying topN filter)
+  const depletionItemsToCopy = useMemo(() => {
+    if (depletionRestockTopN !== null) {
+      return depletionItemsToRestock.slice(0, depletionRestockTopN)
+    }
+    return depletionItemsToRestock
+  }, [depletionItemsToRestock, depletionRestockTopN])
+
+  // Copy depletion restock items to clipboard
+  const copyDepletionBuyText = useCallback(async () => {
+    if (depletionItemsToCopy.length === 0) return
+
+    // Generate buy text with configurable days of supply
+    const buyText = depletionItemsToCopy.map(item => {
+      const qty = Math.max(1, Math.ceil(item.estimatedDailySales * depletionRestockDays))
+      return `${item.name} ${qty}`
+    }).join('\n')
+
+    try {
+      await navigator.clipboard.writeText(buyText)
+      setDepletionCopySuccess(true)
+      setTimeout(() => setDepletionCopySuccess(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }, [depletionItemsToCopy, depletionRestockDays])
 
   // Depletion predictor analysis - analyzes ALL sell orders in structure with SSE progress
   const analyzeDepletion = useCallback(async () => {
@@ -1174,7 +1295,7 @@ export default function MarketSeederPage() {
                           >
                             <CardContent className="p-3">
                               <div className="flex items-start gap-3">
-                                <EveItemIcon typeId={order.typeId} size={32} className="size-6 shrink-0 rounded" />
+                                <EveItemIcon typeId={order.typeId} size={64} className="size-10 shrink-0 rounded" />
                                 <div className="flex-1 min-w-0">
                                   <div className="font-medium truncate">{order.itemName}</div>
                                   <div className="text-xs text-muted-foreground">
@@ -1535,6 +1656,114 @@ export default function MarketSeederPage() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
+                    {watchlistCheckedAt && (watchlistItemsByUrgency.critical.length > 0 || watchlistItemsByUrgency.warning.length > 0) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="default" size="sm">
+                            <Copy className="size-4" />
+                            <span className="ml-2">Copy Restock List</span>
+                            <ChevronDown className="size-3 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-64">
+                          {/* Include filters */}
+                          <div className="p-2 space-y-2">
+                            <Label className="text-xs text-muted-foreground">Include urgency levels</Label>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="includeCritical" 
+                                checked={includeCritical}
+                                onCheckedChange={(checked) => setIncludeCritical(checked === true)}
+                              />
+                              <label 
+                                htmlFor="includeCritical" 
+                                className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
+                              >
+                                <span className="text-destructive">Critical</span>
+                                <Badge variant="destructive" className="px-1.5 py-0 text-xs">
+                                  {watchlistItemsByUrgency.critical.length}
+                                </Badge>
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="includeWarning" 
+                                checked={includeWarning}
+                                onCheckedChange={(checked) => setIncludeWarning(checked === true)}
+                              />
+                              <label 
+                                htmlFor="includeWarning" 
+                                className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
+                              >
+                                <span className="text-amber-500">Warning</span>
+                                <Badge className="px-1.5 py-0 text-xs bg-amber-500/20 text-amber-600">
+                                  {watchlistItemsByUrgency.warning.length}
+                                </Badge>
+                              </label>
+                            </div>
+                          </div>
+                          <DropdownMenuSeparator />
+                          {/* Days of supply */}
+                          <div className="p-2 space-y-1">
+                            <Label className="text-xs text-muted-foreground">Days of supply</Label>
+                            <Select 
+                              value={restockDays.toString()} 
+                              onValueChange={(v) => setRestockDays(parseInt(v))}
+                            >
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">1 day</SelectItem>
+                                <SelectItem value="3">3 days</SelectItem>
+                                <SelectItem value="7">7 days (1 week)</SelectItem>
+                                <SelectItem value="14">14 days (2 weeks)</SelectItem>
+                                <SelectItem value="30">30 days</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {/* Top N items */}
+                          <div className="p-2 space-y-1">
+                            <Label className="text-xs text-muted-foreground">Limit items</Label>
+                            <Select 
+                              value={restockTopN?.toString() ?? "all"} 
+                              onValueChange={(v) => setRestockTopN(v === "all" ? null : parseInt(v))}
+                            >
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All matched ({watchlistItemsToRestock.length})</SelectItem>
+                                <SelectItem value="5">Top 5</SelectItem>
+                                <SelectItem value="10">Top 10</SelectItem>
+                                <SelectItem value="20">Top 20</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <DropdownMenuSeparator />
+                          {/* Copy button with count */}
+                          <div className="p-2">
+                            <Button 
+                              onClick={copyWatchlistBuyText} 
+                              className="w-full"
+                              disabled={watchlistCopySuccess || watchlistItemsToCopy.length === 0}
+                            >
+                              {watchlistCopySuccess ? (
+                                <>
+                                  <Check className="size-4 mr-2" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="size-4 mr-2" />
+                                  Copy {watchlistItemsToCopy.length} items
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1670,7 +1899,7 @@ export default function MarketSeederPage() {
                   <Card key={item.id}>
                     <CardContent className="p-4">
                       <div className="flex items-center gap-4">
-                        <EveItemIcon typeId={item.type_id} size={32} className="size-6 shrink-0 rounded" />
+                        <EveItemIcon typeId={item.type_id} size={64} className="size-10 shrink-0 rounded" />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">{item.item_name}</div>
                           <div className="text-xs text-muted-foreground truncate">
@@ -1719,7 +1948,7 @@ export default function MarketSeederPage() {
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-4">
-                          <EveItemIcon typeId={item.type_id} size={32} className="size-6 shrink-0 rounded" />
+                          <EveItemIcon typeId={item.type_id} size={64} className="size-10 shrink-0 rounded" />
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">{item.item_name}</div>
                             <div className="text-xs text-muted-foreground truncate">
@@ -1818,6 +2047,114 @@ export default function MarketSeederPage() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
+                    {depletionPredictions.length > 0 && (depletionItemsByUrgency.critical.length > 0 || depletionItemsByUrgency.warning.length > 0) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Copy className="size-4" />
+                            <span className="ml-2">Copy Restock List</span>
+                            <ChevronDown className="size-3 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-64">
+                          {/* Include filters */}
+                          <div className="p-2 space-y-2">
+                            <Label className="text-xs text-muted-foreground">Include urgency levels</Label>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="depletionIncludeCritical" 
+                                checked={depletionIncludeCritical}
+                                onCheckedChange={(checked) => setDepletionIncludeCritical(checked === true)}
+                              />
+                              <label 
+                                htmlFor="depletionIncludeCritical" 
+                                className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
+                              >
+                                <span className="text-destructive">Critical</span>
+                                <Badge variant="destructive" className="px-1.5 py-0 text-xs">
+                                  {depletionItemsByUrgency.critical.length}
+                                </Badge>
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="depletionIncludeWarning" 
+                                checked={depletionIncludeWarning}
+                                onCheckedChange={(checked) => setDepletionIncludeWarning(checked === true)}
+                              />
+                              <label 
+                                htmlFor="depletionIncludeWarning" 
+                                className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
+                              >
+                                <span className="text-amber-500">Warning</span>
+                                <Badge className="px-1.5 py-0 text-xs bg-amber-500/20 text-amber-600">
+                                  {depletionItemsByUrgency.warning.length}
+                                </Badge>
+                              </label>
+                            </div>
+                          </div>
+                          <DropdownMenuSeparator />
+                          {/* Days of supply */}
+                          <div className="p-2 space-y-1">
+                            <Label className="text-xs text-muted-foreground">Days of supply</Label>
+                            <Select 
+                              value={depletionRestockDays.toString()} 
+                              onValueChange={(v) => setDepletionRestockDays(parseInt(v))}
+                            >
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">1 day</SelectItem>
+                                <SelectItem value="3">3 days</SelectItem>
+                                <SelectItem value="7">7 days (1 week)</SelectItem>
+                                <SelectItem value="14">14 days (2 weeks)</SelectItem>
+                                <SelectItem value="30">30 days</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {/* Top N items */}
+                          <div className="p-2 space-y-1">
+                            <Label className="text-xs text-muted-foreground">Limit items</Label>
+                            <Select 
+                              value={depletionRestockTopN?.toString() ?? "all"} 
+                              onValueChange={(v) => setDepletionRestockTopN(v === "all" ? null : parseInt(v))}
+                            >
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All matched ({depletionItemsToRestock.length})</SelectItem>
+                                <SelectItem value="5">Top 5</SelectItem>
+                                <SelectItem value="10">Top 10</SelectItem>
+                                <SelectItem value="20">Top 20</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <DropdownMenuSeparator />
+                          {/* Copy button with count */}
+                          <div className="p-2">
+                            <Button 
+                              onClick={copyDepletionBuyText} 
+                              className="w-full"
+                              disabled={depletionCopySuccess || depletionItemsToCopy.length === 0}
+                            >
+                              {depletionCopySuccess ? (
+                                <>
+                                  <Check className="size-4 mr-2" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="size-4 mr-2" />
+                                  Copy {depletionItemsToCopy.length} items
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                     <Button
                       variant="default"
                       size="sm"
@@ -1958,7 +2295,7 @@ export default function MarketSeederPage() {
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start gap-4">
-                            <EveItemIcon typeId={prediction.typeId} size={32} className="size-6 shrink-0 rounded" />
+                            <EveItemIcon typeId={prediction.typeId} size={64} className="size-10 shrink-0 rounded" />
                             <div className="flex-1 min-w-0">
                               <div className="font-medium truncate">{prediction.name}</div>
                               <div className="text-xs text-muted-foreground truncate">

@@ -41,7 +41,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 // Region IDs
-const VALE_OF_SILENT = 10000015
+const VALE_OF_SILENT = 10000003
 const THE_FORGE = 10000002 // Jita
 
 // Test items from watchlist
@@ -60,7 +60,7 @@ async function checkMarketHistory() {
   const typeIds = TEST_ITEMS.map(i => i.typeId)
   
   // Check Vale of the Silent
-  console.log('=== VALE OF THE SILENT (Region 10000015) ===\n')
+  console.log('=== VALE OF THE SILENT (Region 10000003) ===\n')
   
   const { data: valeData, error: valeError } = await supabase
     .from('market_history')

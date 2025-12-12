@@ -6,7 +6,7 @@ interface EveItemIconProps {
   className?: string
 }
 
-export function EveItemIcon({ typeId, size = 32, className }: EveItemIconProps) {
+export function EveItemIcon({ typeId, size = 64, className }: EveItemIconProps) {
   // EVE API only supports 32, 64, 128 sizes - we fetch the requested size
   // and use CSS className to resize if needed
   return (

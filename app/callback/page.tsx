@@ -90,6 +90,19 @@ export default function CallbackPage() {
   // Define routes
   const routes: RouteConfig[] = [
     {
+      id: "market-history-raw",
+      method: "GET",
+      path: "/api/esi/market-history-raw",
+      title: "Raw Market History (Debug)",
+      description: "Fetches raw market history for an item in a region directly from ESI. Does NOT store to database - pure debugging tool. Useful for testing if items have trade data in specific regions like Vale of the Silent.",
+      requiresAuth: false,
+      parameters: [
+        { name: "type_id", type: "integer", description: "Item type ID (e.g., 45610 for Legion subsystem)", default: "", required: true },
+        { name: "region_id", type: "integer", description: "Region ID (10000002=Jita, 10000003=Vale, 10000043=Amarr)", default: "10000002", required: false },
+        { name: "days", type: "integer", description: "Number of recent days to return", default: "30", required: false },
+      ],
+    },
+    {
       id: "keepstar-3t7",
       method: "GET",
       path: "/api/esi/keepstar-3t7",

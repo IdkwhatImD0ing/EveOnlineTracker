@@ -388,6 +388,7 @@ import { EveItemIcon } from "@/components/eve-item-icon"
 - `app/api/esi/structure-orders/route.ts` - Market orders
 - `app/api/esi/market-history/route.ts` - Market history batch fetch
 - `app/api/esi/market-history-test/route.ts` - Market history test endpoint
+- `app/api/esi/market-history-raw/route.ts` - Raw market history debug endpoint (no DB storage)
 
 ## See Also
 

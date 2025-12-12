@@ -325,6 +325,37 @@ The Watchlist tab allows you to track specific items and monitor their stock lev
 - Requires Structure ID to be set (from Analysis tab)
 - Requires EVE SSO authentication
 
+#### Copy Restock List
+
+After checking stock levels, a **Copy Restock List** button appears when there are items needing restocking (Critical or Warning status). Click the button to open a dropdown with options.
+
+**Dropdown Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| Include Critical | Checkbox - include items with < 3 days stock | Checked |
+| Include Warning | Checkbox - include items with 3-7 days stock | Checked |
+| Days of supply | 1, 3, 7, 14, 30 days | 7 days (1 week) |
+| Limit items | All matched, Top 5, Top 10, Top 20 | All matched |
+
+Each checkbox shows a badge with the count of items in that urgency level.
+
+**Behavior:**
+- Filters items based on selected urgency checkboxes
+- Items are ranked by urgency (most critical first)
+- Copy button shows exact count of items that will be copied
+- Uses Eve Online multibuy format: `Item Name Quantity`
+- Quantity = estimatedDailySales × selected days (minimum 1)
+
+**Example output (7 days supply):**
+```
+Damage Control II 45
+Medium Shield Extender II 22
+Gyrostabilizer II 18
+```
+
+Click **Copy N items** in the dropdown, then paste directly into Eve Online's multibuy feature.
+
 ### Core Formulas
 
 The same formulas used in the Depletion tab:
@@ -376,7 +407,8 @@ Watchlist items are stored in Supabase (`watchlist_items` table) and persist acr
 3. Search and add items you want to track
 4. Click **Refresh Stock** to check current levels and depletion metrics
 5. Review items sorted by urgency (Critical first, then Warning)
-6. Focus restocking on Critical and Warning items
+6. Click **Copy Restock List** to copy all Critical/Warning items
+7. Paste in Eve Online multibuy to purchase 1 week's supply
 
 ### Data Sources
 
@@ -441,6 +473,30 @@ Each prediction card displays:
 - **Daily Profit**: Potential daily profit from this item
 - **Priority**: Ranking score for restock urgency
 
+### Copy Restock List
+
+After analyzing depletion, a **Copy Restock List** button appears when there are items needing restocking (Critical or Warning status). Click the button to open a dropdown with options.
+
+**Dropdown Options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| Include Critical | Checkbox - include items with < 3 days stock | Checked |
+| Include Warning | Checkbox - include items with 3-7 days stock | Checked |
+| Days of supply | 1, 3, 7, 14, 30 days | 7 days (1 week) |
+| Limit items | All matched, Top 5, Top 10, Top 20 | All matched |
+
+Each checkbox shows a badge with the count of items in that urgency level.
+
+**Behavior:**
+- Filters items based on selected urgency checkboxes
+- Items are ranked by urgency (most critical first)
+- Copy button shows exact count of items that will be copied
+- Uses Eve Online multibuy format: `Item Name Quantity`
+- Quantity = estimatedDailySales × selected days (minimum 1)
+
+Click **Copy N items** in the dropdown, then paste directly into Eve Online's multibuy feature.
+
 ### Requirements
 
 - **Structure ID**: Must be set in Analysis tab
@@ -452,8 +508,9 @@ Each prediction card displays:
 2. Switch to the Depletion tab
 3. Click **Analyze Depletion**
 4. Review items sorted by priority score
-5. Focus restocking on Critical and Warning items
-6. Re-analyze periodically to track changes
+5. Click **Copy Restock List** to copy Critical/Warning items
+6. Paste in Eve Online multibuy to purchase restocking quantities
+7. Re-analyze periodically to track changes
 
 ### Data Sources
 
