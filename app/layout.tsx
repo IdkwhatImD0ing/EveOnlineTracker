@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   applicationName: APP_NAME,
   title: APP_NAME,
   description: APP_DESCRIPTION,
-  manifest: "/manifest.json",
+  // manifest is auto-generated from app/manifest.ts
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

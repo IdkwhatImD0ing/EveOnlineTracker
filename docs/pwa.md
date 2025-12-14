@@ -94,21 +94,26 @@ serwist.addEventListeners();
 
 ### Web App Manifest
 
-Located at `public/manifest.json`:
+Located at `app/manifest.ts` (dynamic, typed):
 
-```json
-{
-  "name": "EVE Online Tracker",
-  "short_name": "EVE Tracker",
-  "description": "Track your EVE Online industry, trading, and market analysis",
-  "icons": [...],
-  "theme_color": "#1a1a2e",
-  "background_color": "#1a1a2e",
-  "start_url": "/",
-  "display": "standalone",
-  "orientation": "any"
+```typescript
+import type { MetadataRoute } from 'next'
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'EVE Online Tracker',
+    short_name: 'EVE Tracker',
+    description: 'Track your EVE Online industry, trading, and market analysis',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#1a1a2e',
+    theme_color: '#1a1a2e',
+    icons: [...],
+  }
 }
 ```
+
+This approach provides TypeScript types and allows dynamic values if needed (e.g., environment-based icons).
 
 ### Metadata
 
@@ -117,7 +122,7 @@ PWA metadata is configured in `app/layout.tsx` using Next.js Metadata API:
 ```typescript
 export const metadata: Metadata = {
   applicationName: "EVE Online Tracker",
-  manifest: "/manifest.json",
+  // manifest is auto-generated from app/manifest.ts
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -130,16 +135,40 @@ export const viewport: Viewport = {
 };
 ```
 
+### Security Headers
+
+Security headers are configured in `next.config.ts`:
+
+```typescript
+headers: async () => [
+  {
+    source: '/(.*)',
+    headers: [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'DENY' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+    ],
+  },
+  {
+    source: '/sw.js',
+    headers: [
+      { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+      { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+    ],
+  },
+]
+```
+
 ## File Structure
 
 ```
 app/
+├── manifest.ts           # Dynamic web app manifest (typed)
 ├── sw.ts                 # Service worker source
 └── ~offline/
     └── page.tsx          # Offline fallback page
 
 public/
-├── manifest.json         # Web app manifest
 ├── icons/
 │   ├── icon-192x192.svg  # Android icon
 │   ├── icon-512x512.svg  # Large icon for splash screens
