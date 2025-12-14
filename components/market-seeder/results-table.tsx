@@ -278,141 +278,156 @@ export function ResultsTable({
 
   return (
     <div className="space-y-4">
-      {/* Table */}
+      {/* Table - with horizontal scroll on mobile */}
       <div className="border rounded-lg overflow-hidden">
-        {/* Header */}
-        <div className="bg-muted/50 px-4 py-3 grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center text-sm border-b">
-          <Checkbox
-            checked={allSelected}
-            onCheckedChange={() => onSelectAll(paginatedItems)}
-            aria-label="Select all"
-          />
-          <SortableHeader
-            label="Name"
-            column="name"
-            currentColumn={sortColumn}
-            direction={sortDirection}
-            onSort={handleSort}
-          />
-          <SortableHeader
-            label="Score"
-            column="score"
-            currentColumn={sortColumn}
-            direction={sortDirection}
-            onSort={handleSort}
-            className="w-20 justify-end"
-          />
-          <SortableHeader
-            label="Margin"
-            column="margin"
-            currentColumn={sortColumn}
-            direction={sortDirection}
-            onSort={handleSort}
-            className="w-20 justify-end"
-          />
-          <SortableHeader
-            label="Profit/Unit"
-            column="profit"
-            currentColumn={sortColumn}
-            direction={sortDirection}
-            onSort={handleSort}
-            className="w-24 justify-end"
-          />
-          <SortableHeader
-            label="ISK/Day"
-            column="iskPerDay"
-            currentColumn={sortColumn}
-            direction={sortDirection}
-            onSort={handleSort}
-            className="w-24 justify-end"
-          />
-          <SortableHeader
-            label="Competition"
-            column="competition"
-            currentColumn={sortColumn}
-            direction={sortDirection}
-            onSort={handleSort}
-            className="w-28 justify-center"
-          />
-          <SortableHeader
-            label="Vol/Day"
-            column="volume"
-            currentColumn={sortColumn}
-            direction={sortDirection}
-            onSort={handleSort}
-            className="w-20 justify-end"
-          />
-        </div>
+        <div className="overflow-x-auto">
+          {/* Header */}
+          <div className="bg-muted/50 px-3 md:px-4 py-2.5 md:py-3 grid grid-cols-[auto_minmax(120px,1fr)_auto_auto_auto_auto] md:grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-2 md:gap-4 items-center text-xs md:text-sm border-b min-w-[500px] md:min-w-0">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={() => onSelectAll(paginatedItems)}
+              aria-label="Select all"
+            />
+            <SortableHeader
+              label="Name"
+              column="name"
+              currentColumn={sortColumn}
+              direction={sortDirection}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              label="Score"
+              column="score"
+              currentColumn={sortColumn}
+              direction={sortDirection}
+              onSort={handleSort}
+              className="w-14 md:w-20 justify-end"
+            />
+            <SortableHeader
+              label="Margin"
+              column="margin"
+              currentColumn={sortColumn}
+              direction={sortDirection}
+              onSort={handleSort}
+              className="w-14 md:w-20 justify-end"
+            />
+            <SortableHeader
+              label="ISK/Day"
+              column="iskPerDay"
+              currentColumn={sortColumn}
+              direction={sortDirection}
+              onSort={handleSort}
+              className="w-16 md:w-24 justify-end"
+            />
+            <div className="hidden md:block">
+              <SortableHeader
+                label="Profit/Unit"
+                column="profit"
+                currentColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+                className="w-24 justify-end"
+              />
+            </div>
+            <div className="hidden md:block">
+              <SortableHeader
+                label="Competition"
+                column="competition"
+                currentColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+                className="w-28 justify-center"
+              />
+            </div>
+            <div className="hidden md:block">
+              <SortableHeader
+                label="Vol/Day"
+                column="volume"
+                currentColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+                className="w-20 justify-end"
+              />
+            </div>
+          </div>
 
-        {/* Rows */}
-        <div className="divide-y">
-          {paginatedItems.map((item) => {
-            const isExpanded = expandedRows.has(item.typeId)
-            const isSelected = selectedItems.has(item.typeId)
+          {/* Rows */}
+          <div className="divide-y">
+            {paginatedItems.map((item) => {
+              const isExpanded = expandedRows.has(item.typeId)
+              const isSelected = selectedItems.has(item.typeId)
 
-            return (
-              <div
-                key={item.typeId}
-                className={`${
-                  !item.hasCompetition ? "bg-emerald-500/5" : ""
-                } ${isSelected ? "bg-primary/5" : ""}`}
-              >
+              return (
                 <div
-                  className="px-4 py-3 grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center text-sm cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={() => toggleRowExpand(item.typeId)}
+                  key={item.typeId}
+                  className={`${
+                    !item.hasCompetition ? "bg-emerald-500/5" : ""
+                  } ${isSelected ? "bg-primary/5" : ""}`}
                 >
                   <div
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onToggleSelect(item.typeId)
-                    }}
+                    className="px-3 md:px-4 py-2.5 md:py-3 grid grid-cols-[auto_minmax(120px,1fr)_auto_auto_auto_auto] md:grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-2 md:gap-4 items-center text-xs md:text-sm cursor-pointer hover:bg-muted/30 transition-colors min-w-[500px] md:min-w-0"
+                    onClick={() => toggleRowExpand(item.typeId)}
                   >
-                    <Checkbox checked={isSelected} />
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onToggleSelect(item.typeId)
+                      }}
+                    >
+                      <Checkbox checked={isSelected} />
+                    </div>
+                    <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+                      <EveItemIcon
+                        typeId={item.typeId}
+                        size={32}
+                        className="size-5 md:size-6 shrink-0 rounded"
+                      />
+                      <span className="truncate font-medium text-xs md:text-sm">{item.name}</span>
+                      <TrendIcon direction={item.trendDirection} />
+                      {/* Mobile-only competition indicator */}
+                      <Badge 
+                        variant={item.hasCompetition ? "secondary" : "default"} 
+                        className="md:hidden text-[10px] px-1 py-0"
+                      >
+                        {item.hasCompetition ? "C" : "NC"}
+                      </Badge>
+                    </div>
+                    <div className="w-14 md:w-20 text-right font-bold text-primary text-xs md:text-sm">
+                      {item.compositeScoreFormatted}
+                    </div>
+                    <div className="w-14 md:w-20 text-right text-emerald-500 font-medium text-xs md:text-sm">
+                      +{item.profitMarginPctFormatted}
+                    </div>
+                    <div className="w-16 md:w-24 text-right text-xs md:text-sm">{item.iskPerDayFormatted}</div>
+                    <div className="hidden md:block w-24 text-right">
+                      {item.profitPerUnitFormatted}
+                    </div>
+                    <div className="hidden md:flex w-28 justify-center">
+                      <Badge variant={item.hasCompetition ? "secondary" : "default"}>
+                        {item.hasCompetition ? "Yes" : "No"}
+                      </Badge>
+                    </div>
+                    <div className="hidden md:block w-20 text-right text-muted-foreground">
+                      {(item.avgDailyVolume * 0.05).toFixed(1)}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <EveItemIcon
-                      typeId={item.typeId}
-                      size={32}
-                      className="size-6 shrink-0 rounded"
-                    />
-                    <span className="truncate font-medium">{item.name}</span>
-                    <TrendIcon direction={item.trendDirection} />
-                  </div>
-                  <div className="w-20 text-right font-bold text-primary">
-                    {item.compositeScoreFormatted}
-                  </div>
-                  <div className="w-20 text-right text-emerald-500 font-medium">
-                    +{item.profitMarginPctFormatted}
-                  </div>
-                  <div className="w-24 text-right">
-                    {item.profitPerUnitFormatted}
-                  </div>
-                  <div className="w-24 text-right">{item.iskPerDayFormatted}</div>
-                  <div className="w-28 flex justify-center">
-                    <Badge variant={item.hasCompetition ? "secondary" : "default"}>
-                      {item.hasCompetition ? "Yes" : "No"}
-                    </Badge>
-                  </div>
-                  <div className="w-20 text-right text-muted-foreground">
-                    {(item.avgDailyVolume * 0.05).toFixed(1)}
-                  </div>
+                  {isExpanded && (
+                    <ExpandedRowDetails item={item} supplyDays={supplyDays} />
+                  )}
                 </div>
-                {isExpanded && (
-                  <ExpandedRowDetails item={item} supplyDays={supplyDays} />
-                )}
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="text-xs md:text-sm text-muted-foreground">
+            {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
             {Math.min(currentPage * ITEMS_PER_PAGE, sortedItems.length)} of{" "}
-            {sortedItems.length} items
+            {sortedItems.length}
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -433,8 +448,8 @@ export function ResultsTable({
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <div className="px-3 text-sm">
-              Page {currentPage} of {totalPages}
+            <div className="px-2 md:px-3 text-xs md:text-sm">
+              {currentPage}/{totalPages}
             </div>
             <Button
               variant="outline"

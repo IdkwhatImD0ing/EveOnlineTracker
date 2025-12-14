@@ -218,16 +218,16 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="mx-auto max-w-6xl space-y-8">
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="mx-auto max-w-6xl space-y-6 md:space-y-8">
         {/* Welcome Header */}
-        <header className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">
+        <header className="space-y-1 md:space-y-2">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             {characterInfo
               ? `Welcome back, ${characterInfo.character_name}`
               : "EVE Online Tracker"}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             Your command center for industry, trading, and market analysis
           </p>
         </header>
@@ -235,34 +235,34 @@ export default function Dashboard() {
         {/* Character Card or Login Prompt */}
         {characterInfo ? (
           <Card className="bg-gradient-to-r from-card to-card/50 border-primary/20">
-            <CardContent className="flex items-center gap-6 p-6">
+            <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 p-4 sm:p-6">
               <img
                 src={`https://images.evetech.net/characters/${characterInfo.character_id}/portrait?size=128`}
                 alt={characterInfo.character_name}
-                className="size-20 rounded-xl ring-2 ring-primary/30 shadow-lg"
+                className="size-16 sm:size-20 rounded-xl ring-2 ring-primary/30 shadow-lg"
               />
-              <div className="flex-1 space-y-1">
-                <h2 className="text-xl font-semibold">{characterInfo.character_name}</h2>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex-1 space-y-1 min-w-0">
+                <h2 className="text-lg sm:text-xl font-semibold truncate">{characterInfo.character_name}</h2>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <User className="size-4" />
+                    <User className="size-3 sm:size-4" />
                     ID: {characterInfo.character_id}
                   </span>
                   {walletData && (
                     <span className="flex items-center gap-1 text-emerald-500">
-                      <Wallet className="size-4" />
+                      <Wallet className="size-3 sm:size-4" />
                       {walletData.balance_formatted}
                     </span>
                   )}
                   {ordersData && (
                     <span className="flex items-center gap-1 text-blue-500">
-                      <Tag className="size-4" />
+                      <Tag className="size-3 sm:size-4" />
                       {ordersData.sell_orders.count} sell orders
                     </span>
                   )}
                 </div>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex sm:flex-col gap-2 self-end sm:self-auto">
                 <Button variant="outline" size="sm" onClick={refreshEsiData} disabled={isLoadingEsi}>
                   {isLoadingEsi ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -302,48 +302,49 @@ export default function Dashboard() {
             <Loader2 className="size-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
             {/* Wallet Balance */}
             <Card>
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="size-12 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <Wallet className="size-6 text-emerald-500" />
+              <CardContent className="flex items-center gap-2.5 md:gap-4 p-3 md:p-6">
+                <div className="size-9 md:size-12 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <Wallet className="size-4 md:size-6 text-emerald-500" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">
+                <div className="min-w-0">
+                  <p className="text-lg md:text-2xl font-bold truncate">
                     {isLoadingEsi ? (
-                      <Loader2 className="size-5 animate-spin" />
+                      <Loader2 className="size-4 md:size-5 animate-spin" />
                     ) : walletData ? (
                       walletData.balance_formatted.replace(' ISK', '')
                     ) : (
                       '—'
                     )}
                   </p>
-                  <p className="text-sm text-muted-foreground">Wallet Balance</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Wallet</p>
                 </div>
               </CardContent>
             </Card>
 
             {/* Sell Orders */}
             <Card>
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="size-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Tag className="size-6 text-blue-500" />
+              <CardContent className="flex items-center gap-2.5 md:gap-4 p-3 md:p-6">
+                <div className="size-9 md:size-12 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <Tag className="size-4 md:size-6 text-blue-500" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">
+                <div className="min-w-0">
+                  <p className="text-lg md:text-2xl font-bold">
                     {isLoadingEsi ? (
-                      <Loader2 className="size-5 animate-spin" />
+                      <Loader2 className="size-4 md:size-5 animate-spin" />
                     ) : ordersData ? (
                       ordersData.sell_orders.count
                     ) : (
                       '—'
                     )}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Sell Orders
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    <span className="hidden md:inline">Sell Orders</span>
+                    <span className="md:hidden">Sell</span>
                     {ordersData && (
-                      <span className="ml-1 text-xs text-emerald-500">
+                      <span className="ml-1 text-xs text-emerald-500 hidden lg:inline">
                         ({ordersData.sell_orders.total_value_formatted})
                       </span>
                     )}
@@ -354,24 +355,25 @@ export default function Dashboard() {
 
             {/* Buy Orders */}
             <Card>
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="size-12 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                  <ShoppingCart className="size-6 text-amber-500" />
+              <CardContent className="flex items-center gap-2.5 md:gap-4 p-3 md:p-6">
+                <div className="size-9 md:size-12 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <ShoppingCart className="size-4 md:size-6 text-amber-500" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">
+                <div className="min-w-0">
+                  <p className="text-lg md:text-2xl font-bold">
                     {isLoadingEsi ? (
-                      <Loader2 className="size-5 animate-spin" />
+                      <Loader2 className="size-4 md:size-5 animate-spin" />
                     ) : ordersData ? (
                       ordersData.buy_orders.count
                     ) : (
                       '—'
                     )}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Buy Orders
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    <span className="hidden md:inline">Buy Orders</span>
+                    <span className="md:hidden">Buy</span>
                     {ordersData && (
-                      <span className="ml-1 text-xs text-amber-500">
+                      <span className="ml-1 text-xs text-amber-500 hidden lg:inline">
                         ({ordersData.buy_orders.total_escrow_formatted})
                       </span>
                     )}
@@ -382,16 +384,16 @@ export default function Dashboard() {
 
             {/* Projects */}
             <Card>
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="size-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                  <Package className="size-6 text-purple-500" />
+              <CardContent className="flex items-center gap-2.5 md:gap-4 p-3 md:p-6">
+                <div className="size-9 md:size-12 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
+                  <Package className="size-4 md:size-6 text-purple-500" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{projectStats?.total || 0}</p>
-                  <p className="text-sm text-muted-foreground">
+                <div className="min-w-0">
+                  <p className="text-lg md:text-2xl font-bold">{projectStats?.total || 0}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">
                     Projects
                     {projectStats && projectStats.recentCount > 0 && (
-                      <span className="ml-1 text-xs text-purple-500">
+                      <span className="ml-1 text-xs text-purple-500 hidden md:inline">
                         (+{projectStats.recentCount} this week)
                       </span>
                     )}
@@ -403,24 +405,24 @@ export default function Dashboard() {
         )}
 
         {/* Features Grid */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Features</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-3 md:space-y-4">
+          <h2 className="text-lg md:text-xl font-semibold">Features</h2>
+          <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
               <Link key={feature.href} href={feature.href}>
-                <Card className="h-full transition-all hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30 cursor-pointer group">
-                  <CardContent className="flex items-start gap-4 p-6">
+                <Card className="h-full transition-all hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30 cursor-pointer group active:scale-[0.98]">
+                  <CardContent className="flex items-start gap-3 md:gap-4 p-4 md:p-6">
                     <div
-                      className={`size-12 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center shadow-lg shrink-0`}
+                      className={`size-10 md:size-12 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center shadow-lg shrink-0`}
                     >
-                      <feature.icon className="size-6 text-white" />
+                      <feature.icon className="size-5 md:size-6 text-white" />
                     </div>
                     <div className="flex-1 space-y-1 min-w-0">
-                      <h3 className="font-semibold group-hover:text-primary transition-colors flex items-center gap-2">
+                      <h3 className="text-sm md:text-base font-semibold group-hover:text-primary transition-colors flex items-center gap-2">
                         {feature.title}
-                        <ArrowRight className="size-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                        <ArrowRight className="size-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all hidden sm:block" />
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
                         {feature.description}
                       </p>
                     </div>

@@ -36,14 +36,14 @@ export default function ProjectsPage() {
   )
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="mx-auto max-w-5xl space-y-8">
-        <header className="flex items-center justify-between">
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="mx-auto max-w-5xl space-y-4 md:space-y-8">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-            <p className="text-muted-foreground">Track your manufacturing projects and materials</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Projects</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Track your manufacturing projects and materials</p>
           </div>
-          <Button asChild>
+          <Button asChild size="default" className="w-full sm:w-auto">
             <Link href="/projects/new">
               <Plus className="size-4 mr-2" />
               New Project
@@ -95,13 +95,13 @@ export default function ProjectsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredProjects.map((project) => (
               <Link key={project.id} href={`/projects/${project.id}`}>
-                <Card className="h-full transition-all hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30 cursor-pointer">
-                  <CardHeader>
-                    <CardTitle className="line-clamp-1">{project.name}</CardTitle>
-                    <CardDescription className="flex items-center gap-1">
+                <Card className="h-full transition-all hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30 cursor-pointer active:scale-[0.98]">
+                  <CardHeader className="p-4 md:p-6">
+                    <CardTitle className="line-clamp-1 text-base md:text-lg">{project.name}</CardTitle>
+                    <CardDescription className="flex items-center gap-1 text-xs md:text-sm">
                       <Calendar className="size-3" />
                       {new Date(project.created_at).toLocaleDateString()}
                     </CardDescription>

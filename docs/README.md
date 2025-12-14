@@ -12,6 +12,7 @@ Welcome to the comprehensive documentation for the EVE Online Industry Tracker. 
 | [Integrations](./integrations/README.md) | External service integrations |
 | [Database Schema](./database/schema.md) | Database tables and relationships |
 | [Caching Strategy](./caching.md) | Data caching with Next.js `"use cache"` |
+| [PWA Setup](./pwa.md) | Progressive Web App configuration |
 
 ## Project Overview
 

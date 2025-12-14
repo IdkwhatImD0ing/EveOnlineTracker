@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#1a1a2e"/>
+  <circle cx="96" cy="96" r="60" fill="none" stroke="#4a6fa5" stroke-width="4"/>
+  <circle cx="96" cy="96" r="40" fill="none" stroke="#6b8cce" stroke-width="3"/>
+  <circle cx="96" cy="96" r="20" fill="#4a6fa5"/>
+  <path d="M96 36 L106 66 L96 56 L86 66 Z" fill="#6b8cce"/>
+  <path d="M96 156 L86 126 L96 136 L106 126 Z" fill="#6b8cce"/>
+  <path d="M36 96 L66 86 L56 96 L66 106 Z" fill="#6b8cce"/>
+  <path d="M156 96 L126 106 L136 96 L126 86 Z" fill="#6b8cce"/>
+  <text x="96" y="180" text-anchor="middle" fill="#6b8cce" font-family="sans-serif" font-size="14" font-weight="bold">EVE</text>
+</svg>
+

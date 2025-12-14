@@ -1329,67 +1329,72 @@ export default function MarketSeederPage() {
   const existingWatchlistTypeIds = new Set(watchlistItems.map(item => item.type_id))
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <header className="flex items-center justify-between">
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="mx-auto max-w-6xl space-y-4 md:space-y-8">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <ShoppingCart className="size-8" />
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2 md:gap-3">
+              <ShoppingCart className="size-6 md:size-8" />
               Market Seeder
             </h1>
-            <p className="text-muted-foreground">
-              Find the most profitable items to import from Jita to your alliance hub
+            <p className="text-sm md:text-base text-muted-foreground">
+              Find profitable items to import from Jita
             </p>
           </div>
         </header>
 
         {/* Main Tabs: Capital / Analysis / Watchlist / Depletion / Market */}
-        <Tabs value={activeMainTab} onValueChange={(v: string) => setActiveMainTab(v as "capital" | "analysis" | "watchlist" | "depletion" | "market")} className="space-y-6">
-          <TabsList className="grid w-full max-w-4xl grid-cols-5">
-            <TabsTrigger value="capital" className="gap-2">
-              <DollarSign className="size-4" />
-              Capital
-              {capitalData && capitalData.summary.deadCapitalOrders > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0">
-                  {capitalData.summary.deadCapitalOrders}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="analysis" className="gap-2">
-              <BarChart3 className="size-4" />
-              Analysis
-            </TabsTrigger>
-            <TabsTrigger value="watchlist" className="gap-2">
-              <Eye className="size-4" />
-              Watchlist
-              {watchlistItems.filter(i => i.needs_restock).length > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0">
-                  {watchlistItems.filter(i => i.needs_restock).length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="depletion" className="gap-2">
-              <Timer className="size-4" />
-              Depletion
-              {depletionSummary && (depletionSummary.criticalCount > 0 || depletionSummary.warningCount > 0) && (
-                <Badge
-                  variant={depletionSummary.criticalCount > 0 ? "destructive" : "secondary"}
-                  className={depletionSummary.criticalCount > 0 ? "ml-1 px-1.5 py-0" : "ml-1 px-1.5 py-0 bg-amber-500/20 text-amber-600"}
-                >
-                  {depletionSummary.criticalCount + depletionSummary.warningCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="market" className="gap-2">
-              <ShoppingCart className="size-4" />
-              Market
-              {undercutData && undercutData.summary.undercut_count > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0">
-                  {undercutData.summary.undercut_count}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeMainTab} onValueChange={(v: string) => setActiveMainTab(v as "capital" | "analysis" | "watchlist" | "depletion" | "market")} className="space-y-4 md:space-y-6">
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:max-w-4xl md:grid-cols-5 h-auto">
+              <TabsTrigger value="capital" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5 px-3 md:px-4 whitespace-nowrap">
+                <DollarSign className="size-3.5 md:size-4" />
+                <span className="hidden sm:inline">Capital</span>
+                <span className="sm:hidden">Cap</span>
+                {capitalData && capitalData.summary.deadCapitalOrders > 0 && (
+                  <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                    {capitalData.summary.deadCapitalOrders}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="analysis" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5 px-3 md:px-4 whitespace-nowrap">
+                <BarChart3 className="size-3.5 md:size-4" />
+                Analysis
+              </TabsTrigger>
+              <TabsTrigger value="watchlist" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5 px-3 md:px-4 whitespace-nowrap">
+                <Eye className="size-3.5 md:size-4" />
+                <span className="hidden sm:inline">Watchlist</span>
+                <span className="sm:hidden">Watch</span>
+                {watchlistItems.filter(i => i.needs_restock).length > 0 && (
+                  <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                    {watchlistItems.filter(i => i.needs_restock).length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="depletion" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5 px-3 md:px-4 whitespace-nowrap">
+                <Timer className="size-3.5 md:size-4" />
+                <span className="hidden sm:inline">Depletion</span>
+                <span className="sm:hidden">Depl</span>
+                {depletionSummary && (depletionSummary.criticalCount > 0 || depletionSummary.warningCount > 0) && (
+                  <Badge
+                    variant={depletionSummary.criticalCount > 0 ? "destructive" : "secondary"}
+                    className={depletionSummary.criticalCount > 0 ? "ml-1 px-1.5 py-0 text-xs" : "ml-1 px-1.5 py-0 bg-amber-500/20 text-amber-600 text-xs"}
+                  >
+                    {depletionSummary.criticalCount + depletionSummary.warningCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="market" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5 px-3 md:px-4 whitespace-nowrap">
+                <ShoppingCart className="size-3.5 md:size-4" />
+                Market
+                {undercutData && undercutData.summary.undercut_count > 0 && (
+                  <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                    {undercutData.summary.undercut_count}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Capital Efficiency Tab */}
           <TabsContent value="capital" className="space-y-6">
@@ -2699,23 +2704,23 @@ export default function MarketSeederPage() {
           </TabsContent>
 
           {/* Market Tab - Contains Undercut and Sell sub-tabs */}
-          <TabsContent value="market" className="space-y-6">
-            <Tabs value={activeMarketSubTab} onValueChange={(v: string) => setActiveMarketSubTab(v as "undercut" | "sell")} className="space-y-6">
-              <TabsList className="grid w-full max-w-md grid-cols-2">
-                <TabsTrigger value="undercut" className="gap-2">
-                  <Minus className="size-4" />
+          <TabsContent value="market" className="space-y-4 md:space-y-6">
+            <Tabs value={activeMarketSubTab} onValueChange={(v: string) => setActiveMarketSubTab(v as "undercut" | "sell")} className="space-y-4 md:space-y-6">
+              <TabsList className="grid w-full max-w-md grid-cols-2 h-auto">
+                <TabsTrigger value="undercut" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5">
+                  <Minus className="size-3.5 md:size-4" />
                   Undercut
                   {undercutData && undercutData.summary.undercut_count > 0 && (
-                    <Badge variant="destructive" className="ml-1 px-1.5 py-0">
+                    <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
                       {undercutData.summary.undercut_count}
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="sell" className="gap-2">
-                  <ShoppingCart className="size-4" />
+                <TabsTrigger value="sell" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5">
+                  <ShoppingCart className="size-3.5 md:size-4" />
                   Sell
                   {sellOrderData && sellOrderData.summary.total_items > 0 && (
-                    <Badge variant="secondary" className="ml-1 px-1.5 py-0">
+                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
                       {sellOrderData.summary.total_items}
                     </Badge>
                   )}
@@ -3446,7 +3451,7 @@ export default function MarketSeederPage() {
                               <div className="space-y-1 max-h-48 overflow-y-auto">
                                 {doNotSellItems.existingOrders.map((item) => (
                                   <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-blue-500/5 rounded">
-                                    <EveItemIcon typeId={item.type_id} size={20} className="size-5 shrink-0" />
+                                    <EveItemIcon typeId={item.type_id} size={32} className="size-8 shrink-0" />
                                     <span className="flex-1 truncate">{item.type_name}</span>
                                     <span className="text-muted-foreground font-mono text-xs">{item.quantity.toLocaleString()}</span>
                                   </div>
@@ -3465,7 +3470,7 @@ export default function MarketSeederPage() {
                               <div className="space-y-1 max-h-48 overflow-y-auto">
                                 {doNotSellItems.filteredOut.map((item) => (
                                   <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-amber-500/5 rounded">
-                                    <EveItemIcon typeId={item.type_id} size={20} className="size-5 shrink-0" />
+                                    <EveItemIcon typeId={item.type_id} size={32} className="size-8 shrink-0" />
                                     <span className="flex-1 truncate">{item.type_name}</span>
                                     <span className="text-muted-foreground font-mono text-xs">{item.quantity.toLocaleString()}</span>
                                     <Badge variant="outline" className="text-xs">

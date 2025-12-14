@@ -61,18 +61,18 @@ export default function NewProjectPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="mx-auto max-w-4xl space-y-8">
-        <header className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="mx-auto max-w-4xl space-y-4 md:space-y-8">
+        <header className="flex items-center gap-3 md:gap-4">
+          <Button variant="ghost" size="icon" asChild className="shrink-0">
             <Link href="/">
               <ArrowLeft className="size-5" />
             </Link>
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">New Project</h1>
-            <p className="text-muted-foreground">
-              Create a new industry project by pasting your item lists
+          <div className="min-w-0">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">New Project</h1>
+            <p className="text-sm md:text-base text-muted-foreground">
+              Create a new project by pasting your item lists
             </p>
           </div>
         </header>

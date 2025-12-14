@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthGate } from "@/components/auth-gate";
@@ -14,9 +14,30 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const APP_NAME = "EVE Online Tracker";
+const APP_DESCRIPTION = "Track your EVE Online industry, trading, and market analysis";
+
 export const metadata: Metadata = {
-  title: "EVE Online Tracker",
-  description: "Track your EVE Online activities",
+  applicationName: APP_NAME,
+  title: APP_NAME,
+  description: APP_DESCRIPTION,
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "EVE Tracker",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: "/icons/icon-192x192.svg",
+    apple: "/icons/apple-touch-icon.svg",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1a1a2e",
 };
 
 export default function RootLayout({

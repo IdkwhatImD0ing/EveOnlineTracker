@@ -349,15 +349,15 @@ export default function CallbackPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
       <div className="border-b border-zinc-800 bg-zinc-900/50">
-        <div className="mx-auto max-w-5xl px-4 py-4">
-          <div className="flex items-center justify-between">
+        <div className="mx-auto max-w-5xl px-4 py-3 md:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h1 className="text-xl font-bold">ESI API Explorer</h1>
-              <p className="text-sm text-zinc-400">Test EVE Online ESI endpoints</p>
+              <h1 className="text-lg md:text-xl font-bold">ESI API Explorer</h1>
+              <p className="text-xs md:text-sm text-zinc-400">Test EVE Online ESI endpoints</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
               {characterInfo && (
-                <div className="text-sm">
+                <div className="text-xs md:text-sm">
                   Logged in as <span className="text-emerald-400 font-medium">{characterInfo.character_name}</span>
                 </div>
               )}

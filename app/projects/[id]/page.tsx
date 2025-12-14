@@ -186,7 +186,7 @@ export default function ProjectDetailPage() {
 
   if (error || !project) {
     return (
-      <div className="min-h-screen bg-background p-8">
+      <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="mx-auto max-w-4xl">
           <Alert variant="destructive">
             <AlertCircle className="size-4" />
@@ -201,18 +201,18 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" asChild>
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="mx-auto max-w-6xl space-y-4 md:space-y-8">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 md:gap-4">
+            <Button variant="ghost" size="icon" asChild className="shrink-0">
               <Link href="/">
                 <ArrowLeft className="size-5" />
               </Link>
             </Button>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
-              <p className="text-muted-foreground">
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-3xl font-bold tracking-tight truncate">{project.name}</h1>
+              <p className="text-sm md:text-base text-muted-foreground">
                 Created {new Date(project.created_at).toLocaleDateString()}
               </p>
             </div>

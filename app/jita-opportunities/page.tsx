@@ -32,16 +32,16 @@ export default function JitaOpportunitiesPage() {
   }, [pathname, router, searchParams, tab])
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <header className="flex items-center justify-between">
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-4 md:space-y-8">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <TrendingUp className="size-8" />
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2 md:gap-3">
+              <TrendingUp className="size-6 md:size-8" />
               Jita Opportunities
             </h1>
-            <p className="text-muted-foreground">
-              Sell timing for your assets + market opportunity discovery, in one place
+            <p className="text-sm md:text-base text-muted-foreground">
+              Sell timing for your assets + market opportunity discovery
             </p>
           </div>
         </header>
@@ -54,16 +54,16 @@ export default function JitaOpportunitiesPage() {
             params.set("tab", next)
             router.replace(`${pathname}?${params.toString()}`)
           }}
-          className="space-y-6"
+          className="space-y-4 md:space-y-6"
         >
-          <TabsList className="grid w-full max-w-xl grid-cols-2">
-            <TabsTrigger value="sell" className="gap-2">
-              <TrendingUp className="size-4" />
-              Sell Opportunities
+          <TabsList className="grid w-full max-w-xl grid-cols-2 h-auto">
+            <TabsTrigger value="sell" className="gap-1.5 md:gap-2 text-xs sm:text-sm py-2.5">
+              <TrendingUp className="size-3.5 md:size-4" />
+              <span className="hidden xs:inline">Sell</span> Opportunities
             </TabsTrigger>
-            <TabsTrigger value="market" className="gap-2">
-              <BarChart3 className="size-4" />
-              Market Opportunities
+            <TabsTrigger value="market" className="gap-1.5 md:gap-2 text-xs sm:text-sm py-2.5">
+              <BarChart3 className="size-3.5 md:size-4" />
+              <span className="hidden xs:inline">Market</span> Opportunities
             </TabsTrigger>
           </TabsList>
 

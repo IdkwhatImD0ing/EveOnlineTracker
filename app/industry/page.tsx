@@ -256,26 +256,26 @@ export default function IndustryCalculatorPage() {
       {/* Background pattern */}
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
       
-      <div className="mx-auto max-w-7xl p-6 space-y-6">
+      <div className="mx-auto max-w-7xl p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Header */}
-        <header className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+        <header className="flex items-center gap-3 md:gap-4">
+          <Button variant="ghost" size="icon" asChild className="shrink-0">
             <Link href="/">
               <ArrowLeft className="size-5" />
             </Link>
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <Calculator className="size-8 text-primary" />
-              Industry Calculator
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-3xl font-bold tracking-tight flex items-center gap-2 md:gap-3">
+              <Calculator className="size-6 md:size-8 text-primary shrink-0" />
+              <span className="truncate">Industry Calculator</span>
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm md:text-base text-muted-foreground hidden sm:block">
               Calculate manufacturing costs and material requirements
             </p>
           </div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-[400px_1fr]">
           {/* Settings Panel */}
           <div className="space-y-4">
             {/* Blueprint Selection */}

@@ -105,13 +105,46 @@ All pages follow consistent error handling:
 
 ## Responsive Design
 
-Pages are responsive with breakpoints:
+The application is fully responsive and optimized for both desktop and mobile (PWA) usage.
 
-| Breakpoint | Width | Behavior |
-|------------|-------|----------|
-| Mobile | < 768px | Single column, stacked layout |
-| Tablet | 768px - 1024px | 2 column grids |
-| Desktop | > 1024px | Full multi-column layouts |
+### Breakpoints
+
+| Breakpoint | Width | Tailwind Prefix | Behavior |
+|------------|-------|-----------------|----------|
+| Mobile | < 640px | (default) | Single column, hamburger menu |
+| Small | 640px+ | `sm:` | 2 column grids |
+| Tablet | 768px+ | `md:` | Sidebar visible, larger typography |
+| Desktop | 1024px+ | `lg:` | Full multi-column layouts |
+
+### Mobile Navigation
+
+On mobile devices (< 768px):
+- Fixed header bar with hamburger menu icon and app branding
+- Sidebar becomes an overlay drawer that slides in from the left
+- Backdrop overlay when menu is open (click to close)
+- Auto-close sidebar when navigating between pages
+- Character avatar shown in header when logged in
+
+### Responsive Patterns
+
+| Pattern | Mobile | Desktop |
+|---------|--------|---------|
+| Page padding | `p-4` | `p-8` |
+| Header text | `text-2xl` | `text-3xl` |
+| Card padding | `p-3`-`p-4` | `p-6` |
+| Stats grid | 2 columns | 4 columns |
+| Feature grid | 1-2 columns | 3 columns |
+| Tables | Horizontal scroll, hidden columns | Full columns |
+| Tabs | Scrollable, compact text | Full grid layout |
+
+### Component Conventions
+
+- Use `md:` prefix for desktop-specific styles
+- Hiding content: `hidden md:block` or `md:hidden`
+- Responsive text: `text-sm md:text-base`, `text-2xl md:text-3xl`
+- Responsive spacing: `gap-3 md:gap-4`, `p-4 md:p-8`
+- Touch targets: Minimum 44x44px on mobile (`py-2.5`, `size-10`)
+- Truncation: Apply `truncate` and `min-w-0` for text that may overflow
 
 ## Styling
 
@@ -122,4 +155,5 @@ All pages use Tailwind CSS with:
 - `text-muted-foreground` for secondary text
 - Custom gradients for visual interest
 - Consistent spacing with Tailwind's spacing scale
+- Active states with `active:scale-[0.98]` for touch feedback
 
