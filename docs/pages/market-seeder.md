@@ -10,7 +10,11 @@ The Market Seeder page helps identify the most profitable items to import from J
 
 ## Features
 
-The page has five main tabs: **Capital**, **Analysis**, **Watchlist**, **Depletion**, and **Undercut**.
+The page has five main tabs: **Capital**, **Analysis**, **Watchlist**, **Depletion**, and **Market**.
+
+The **Market** tab contains two sub-tabs:
+- **Undercut** - Track and respond to competitors undercutting your sell orders
+- **Sell** - Generate optimal sell prices for your 3T7 inventory
 
 ---
 
@@ -147,7 +151,7 @@ Results are displayed in a sortable, paginated table with 50 items per page:
 | Score | Composite profitability score | Yes (default) |
 | Margin | Profit margin percentage | Yes |
 | Profit/Unit | ISK profit per unit | Yes |
-| ISK/m³ | Profit per cubic meter (transport efficiency) | Yes |
+| ISK/Day | Estimated daily revenue (sell price × daily volume at 5% hub factor) | Yes |
 | Competition | Yes/No badge | Yes |
 | Vol/Day | Vale daily volume × 5% (estimated hub sales) | Yes |
 
@@ -530,15 +534,21 @@ Returns Jita daily volume, prices, and item info for calculating depletion metri
 
 ---
 
-## Undercut Tracker Tab
+## Market Tab
 
-The Undercut Tracker tab monitors your sell orders for competitors who have undercut your prices, and provides copy-pasteable prices to beat them while respecting EVE's tick size rules.
+The Market tab contains two sub-tabs for managing your market orders: **Undercut** and **Sell**.
 
-### Concept
+---
+
+### Undercut Sub-Tab
+
+The Undercut sub-tab monitors your sell orders for competitors who have undercut your prices, and provides copy-pasteable prices to beat them while respecting EVE's tick size rules.
+
+#### Concept
 
 Quickly identify when competitors have undercut your sell orders and get the exact price needed to undercut them by 1 tick. Respects EVE Online's 4 significant figure price precision introduced in March 2020.
 
-### How It Works
+#### How It Works
 
 1. Click **Check Undercuts** to analyze your orders
 2. The system fetches your character's sell orders from ESI
@@ -546,7 +556,7 @@ Quickly identify when competitors have undercut your sell orders and get the exa
 4. Compares against all structure sell orders
 5. For each item where a competitor has a lower price, calculates the 1-tick undercut price
 
-### Tick Size Rules
+#### Tick Size Rules
 
 EVE Online limits prices to 4 significant figures. The tick size depends on price magnitude:
 
@@ -561,7 +571,7 @@ EVE Online limits prices to 4 significant figures. The tick size depends on pric
 | 100M - 999M ISK | 10,000 ISK | 500,000,000 → 499,990,000 |
 | 1B+ ISK | 100,000 ISK | 5,000,000,000 → 4,999,900,000 |
 
-### Summary Cards
+#### Summary Cards
 
 | Card | Description |
 |------|-------------|
@@ -569,7 +579,7 @@ EVE Online limits prices to 4 significant figures. The tick size depends on pric
 | Lowest Price | Number of items where you have the lowest price |
 | Your Orders | Total sell orders you have in the structure |
 
-### Undercut Items List
+#### Undercut Items List
 
 Items being undercut are shown with red highlighting:
 - Item icon and name
@@ -580,30 +590,30 @@ Items being undercut are shown with red highlighting:
 
 Click the copy button, then paste directly into EVE's "Modify Order" dialog to update your price.
 
-### Safe Items List
+#### Safe Items List
 
 Items where you have the lowest price are shown with green highlighting:
 - Item icon and name
 - Your price
 - Next competitor price (if any)
 
-### Requirements
+#### Requirements
 
 **ESI Scopes:**
 - `esi-markets.read_character_orders.v1` - To read your character's orders
 - `esi-markets.structure_markets.v1` - To read structure market orders
 
-### Usage Flow
+#### Usage Flow
 
 1. Select Structure in the Analysis tab (3T7-M8 Keepstar is default)
-2. Switch to the Undercut tab
+2. Switch to the Market tab, then the Undercut sub-tab
 3. Click **Check Undercuts**
 4. Review items being undercut (red section)
 5. Click the copy button next to each undercut price
 6. In EVE, modify your order and paste the new price
 7. Re-check periodically to stay competitive
 
-### API Endpoint
+#### API Endpoint
 
 **GET /api/esi/undercut-check**
 
@@ -629,6 +639,125 @@ Items where you have the lowest price are shown with green highlighting:
     "undercut_count": 5,
     "safe_count": 12,
     "total_orders_in_structure": 17
+  }
+}
+```
+
+---
+
+### Sell Sub-Tab
+
+The Sell sub-tab generates optimal sell prices for your character's inventory in 3T7. It analyzes your assets, checks for competition, and calculates the best price for each item.
+
+#### Concept
+
+Quickly create sell orders for items in your 3T7 hangar with optimal pricing. Items with no competition use tiered markup pricing (higher margins for cheaper items), while items with competition use 1-tick undercut pricing.
+
+#### How It Works
+
+1. Click **Generate Sell Orders** to analyze your inventory
+2. The system fetches your character assets in 3T7
+3. Fetches your existing sell orders and filters out items you already have orders for
+4. Checks structure orders to determine competition status
+5. Fetches Jita prices as cost basis
+6. Calculates optimal sell price for each item
+7. Displays results sorted by ISK/day (highest first)
+
+#### Pricing Logic
+
+**No Competition (Tiered Markup):**
+
+| Jita Price | Multiplier | Effective Margin |
+|------------|------------|------------------|
+| < 500K ISK | 4.0x | ~300% |
+| < 2M ISK | 3.0x | ~200% |
+| < 10M ISK | 2.0x | ~100% |
+| < 50M ISK | 1.7x | ~70% |
+| >= 50M ISK | 1.4x | ~40% |
+
+**With Competition:**
+- Uses 1-tick undercut of the lowest competitor price
+
+#### Summary Cards
+
+| Card | Description |
+|------|-------------|
+| Total Items | Number of items in your 3T7 inventory with price data |
+| No Competition | Items where you'll be the only seller |
+| With Competition | Items where competitors exist |
+| Est. ISK/Day | Total estimated daily revenue from all items |
+
+#### Item Display
+
+Each item shows:
+- Item icon and name
+- Quantity in inventory
+- Competition badge (green = no competition, amber = competition)
+- **Sell Price** - The optimal price to list at
+- **Jita Price** - Current Jita price for reference
+- **Vol/Day (0.05%)** - Estimated daily sales (Vale volume × 5% hub factor)
+- **ISK/Day** - Estimated daily revenue (Vol/Day × Sell Price)
+
+#### Copy Buttons
+
+Each item has two copy buttons:
+- **Name** - Copies the item name
+- **Price** - Copies the sell price in EVE-pasteable format (e.g., "494,900.00")
+
+#### Requirements
+
+**ESI Scopes:**
+- `esi-assets.read_assets.v1` - To read your character's assets
+- `esi-markets.read_character_orders.v1` - To filter out items with existing orders
+- `esi-markets.structure_markets.v1` - To read structure market orders
+
+#### Usage Flow
+
+1. Select Structure in the Analysis tab (3T7-M8 Keepstar is default)
+2. Switch to the Market tab, then the Sell sub-tab
+3. Click **Generate Sell Orders**
+4. Review items sorted by ISK/day (highest revenue first)
+5. For each item you want to sell:
+   - Click **Name** to copy the item name
+   - Search for it in EVE's market
+   - Click the **Price** button to copy the optimal sell price
+   - Paste the price when creating your sell order
+6. Re-generate periodically as market conditions change
+
+#### API Endpoint
+
+**GET /api/esi/sell-order-generator**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| structure_id | string | No | Structure ID (default: 3T7-M8 Keepstar) |
+
+**Response:**
+
+```json
+{
+  "items": [{
+    "type_id": 2048,
+    "type_name": "Damage Control II",
+    "quantity": 50,
+    "has_competition": false,
+    "jita_price": 450000,
+    "jita_price_formatted": "450.00K ISK",
+    "sell_price": 1800000,
+    "sell_price_formatted": "1.80M ISK",
+    "sell_price_eve": "1,800,000.00",
+    "vale_daily_volume": 2500,
+    "estimated_daily_sales": 125,
+    "isk_per_day": 225000000,
+    "isk_per_day_formatted": "225.00M ISK"
+  }],
+  "summary": {
+    "total_items": 45,
+    "total_with_competition": 12,
+    "total_no_competition": 33,
+    "total_isk_per_day": 500000000,
+    "total_isk_per_day_formatted": "500.00M ISK",
+    "filtered_out_existing_orders": 23
   }
 }
 ```

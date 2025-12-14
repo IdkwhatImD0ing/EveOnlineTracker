@@ -50,8 +50,13 @@ function formatISK(value: number): string {
  * Enrich profit analysis with formatted values for API response
  */
 function enrichProfitAnalysis(item: ProfitAnalysis) {
+  // Calculate estimated daily revenue (sell price × estimated daily sales at 5% hub factor)
+  const iskPerDay = item.targetSellPrice * item.avgDailyVolume * 0.05
+  
   return {
     ...item,
+    iskPerDay,
+    iskPerDayFormatted: formatISK(iskPerDay),
     jitaSellPriceFormatted: formatISK(item.jitaSellPrice),
     transportCostFormatted: formatISK(item.transportCostPerUnit),
     totalCostFormatted: formatISK(item.totalCostPerUnit),

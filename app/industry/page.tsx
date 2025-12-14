@@ -66,8 +66,8 @@ const DEFAULTS = {
   runs: 1,
   blueprintMe: 0,
   blueprintTe: 0,
-  systemName: "Jita",
-  facilityTax: 0,
+  systemName: "3t7-m8",
+  facilityTax: 0.25,
   structureType: "raitaru",
   rigType: "t1",
   reactionStructure: "tatara",
@@ -81,9 +81,9 @@ export default function IndustryCalculatorPage() {
   const [runs, setRuns] = useState(1)
   const [blueprintMe, setBlueprintMe] = useState(0)
   const [blueprintTe, setBlueprintTe] = useState(0)
-  const [systemName, setSystemName] = useState("Jita")
-  const [systemSecurity, setSystemSecurity] = useState<number | null>(1.0)
-  const [facilityTax, setFacilityTax] = useState(0)
+  const [systemName, setSystemName] = useState("3t7-m8")
+  const [systemSecurity, setSystemSecurity] = useState<number | null>(-0.5)
+  const [facilityTax, setFacilityTax] = useState(0.25)
   const [structureType, setStructureType] = useState("raitaru")
   const [rigType, setRigType] = useState("t1")
   const [reactionStructure, setReactionStructure] = useState("tatara")

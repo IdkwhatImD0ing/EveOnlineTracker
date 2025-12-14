@@ -33,6 +33,8 @@ import {
   Percent,
   Skull,
   HelpCircle,
+  Ban,
+  Filter,
 } from "lucide-react"
 import { type CapitalEfficiencyResponse, DEAD_CAPITAL_THRESHOLD_DAYS } from "@/types/market-seeder"
 import { EveItemIcon } from "@/components/eve-item-icon"
@@ -258,6 +260,46 @@ interface UndercutData {
   }
 }
 
+interface SellOrderItem {
+  type_id: number
+  type_name: string
+  quantity: number
+  has_competition: boolean
+  jita_price: number
+  jita_price_formatted: string
+  competitor_price: number | null
+  competitor_price_formatted: string | null
+  sell_price: number
+  sell_price_formatted: string
+  sell_price_eve: string
+  vale_daily_volume: number
+  estimated_daily_sales: number
+  isk_per_day: number
+  isk_per_day_formatted: string
+}
+
+interface ExistingOrderItem {
+  type_id: number
+  type_name: string
+  quantity: number
+}
+
+interface SellOrderData {
+  items: SellOrderItem[]
+  items_with_existing_orders: ExistingOrderItem[]
+  summary: {
+    total_items: number
+    total_with_competition: number
+    total_no_competition: number
+    total_isk_per_day: number
+    total_isk_per_day_formatted: string
+    filtered_out_existing_orders: number
+  }
+  timing: {
+    total_ms: number
+  }
+}
+
 const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   loading: Package,
   market_history: Database,
@@ -274,6 +316,13 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
   market: Database,
   sorting: BarChart3,
   summary: BarChart3,
+  // Sell order generator stages
+  assets: Package,
+  structure: Globe,
+  jita: Globe,
+  vale: Database,
+  calculating: BarChart3,
+  complete: Check,
 }
 
 function ProgressBar({ progress }: { progress: ProgressState }) {
@@ -366,7 +415,7 @@ export default function MarketSeederPage() {
   const [copySuccess, setCopySuccess] = useState(false)
 
   // Watchlist state
-  const [activeMainTab, setActiveMainTab] = useState<"capital" | "analysis" | "watchlist" | "depletion" | "undercut">("capital")
+  const [activeMainTab, setActiveMainTab] = useState<"capital" | "analysis" | "watchlist" | "depletion" | "market">("capital")
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([])
   const [watchlistLoading, setWatchlistLoading] = useState(false)
   const [watchlistError, setWatchlistError] = useState<string | null>(null)
@@ -410,6 +459,20 @@ export default function MarketSeederPage() {
   const [undercutError, setUndercutError] = useState<string | null>(null)
   const [undercutCopiedId, setUndercutCopiedId] = useState<number | null>(null)
 
+  // Sell order generator state
+  const [sellOrderData, setSellOrderData] = useState<SellOrderData | null>(null)
+  const [sellOrderLoading, setSellOrderLoading] = useState(false)
+  const [sellOrderError, setSellOrderError] = useState<string | null>(null)
+  const [sellCopiedNameId, setSellCopiedNameId] = useState<number | null>(null)
+  const [sellCopiedPriceId, setSellCopiedPriceId] = useState<number | null>(null)
+  const [activeMarketSubTab, setActiveMarketSubTab] = useState<"undercut" | "sell">("undercut")
+  const [sellMinQuantity, setSellMinQuantity] = useState<number>(1)
+  const [sellProgress, setSellProgress] = useState<ProgressState | null>(null)
+  const [sellCompetitionFilter, setSellCompetitionFilter] = useState<"all" | "no_competition" | "with_competition">("all")
+  const [sellSortBy, setSellSortBy] = useState<"isk_per_day" | "volume" | "price">("isk_per_day")
+  const [sellMinIskPerDay, setSellMinIskPerDay] = useState<number>(0)
+  const [sellCopySuccess, setSellCopySuccess] = useState(false)
+
   // Load saved settings
   useEffect(() => {
     const saved = localStorage.getItem("market-seeder-settings")
@@ -432,8 +495,8 @@ export default function MarketSeederPage() {
             minMargin: settings.filters.minMargin ?? DEFAULT_FILTERS.minMargin,
             maxJitaCost: settings.filters.maxJitaCost ?? DEFAULT_FILTERS.maxJitaCost,
             noCompetitionOnly: settings.filters.noCompetitionOnly ?? DEFAULT_FILTERS.noCompetitionOnly,
-            selectedCategories: settings.filters.selectedCategories 
-              ? new Set(settings.filters.selectedCategories) 
+            selectedCategories: settings.filters.selectedCategories
+              ? new Set(settings.filters.selectedCategories)
               : new Set(DEFAULT_FILTERS.selectedCategories),
           })
         }
@@ -447,10 +510,10 @@ export default function MarketSeederPage() {
   useEffect(() => {
     localStorage.setItem(
       "market-seeder-settings",
-      JSON.stringify({ 
-        structureId, 
-        transportCost, 
-        minProfit, 
+      JSON.stringify({
+        structureId,
+        transportCost,
+        minProfit,
         minVolume,
         filters: {
           minMargin: filters.minMargin,
@@ -511,7 +574,7 @@ export default function MarketSeederPage() {
   // Filter items based on sidebar filters (client-side)
   const filteredItems = useMemo(() => {
     if (!result) return []
-    return result.items.filter(item => 
+    return result.items.filter(item =>
       item.profitMarginPct >= filters.minMargin &&
       (filters.maxJitaCost === null || item.jitaSellPrice <= filters.maxJitaCost) &&
       filters.selectedCategories.has(item.categoryName) &&
@@ -545,11 +608,11 @@ export default function MarketSeederPage() {
 
     try {
       const parsed = JSON.parse(savedTokens) as TokenData
-      
+
       // Check if token is expired
       if (isTokenExpired(parsed.access_token)) {
         console.log("[Market Seeder] Token expired, refreshing...")
-        
+
         // Try to refresh
         const newTokens = await refreshAccessToken(parsed.refresh_token)
         if (!newTokens) {
@@ -578,7 +641,7 @@ export default function MarketSeederPage() {
 
     // Get valid token (refresh if expired)
     const accessToken = await getValidToken()
-    
+
     if (!accessToken) {
       setError("Please login with EVE SSO first to access structure market data")
       return
@@ -612,7 +675,7 @@ export default function MarketSeederPage() {
 
       // Check if it's a streaming response
       const contentType = response.headers.get("content-type")
-      
+
       if (contentType?.includes("text/event-stream")) {
         // Handle SSE streaming
         const reader = response.body?.getReader()
@@ -627,7 +690,7 @@ export default function MarketSeederPage() {
             if (done) break
 
             buffer += decoder.decode(value, { stream: true })
-            
+
             // Process complete lines in buffer
             const lines = buffer.split("\n")
             buffer = lines.pop() || ""  // Keep incomplete line in buffer
@@ -642,7 +705,7 @@ export default function MarketSeederPage() {
                 if (currentEventType && currentEventData) {
                   try {
                     const data = JSON.parse(currentEventData)
-                    
+
                     if (currentEventType === "progress") {
                       setProgress({
                         stage: data.stage,
@@ -669,7 +732,7 @@ export default function MarketSeederPage() {
               }
             }
           }
-          
+
           // Process any remaining data after stream ends
           if (currentEventType && currentEventData) {
             try {
@@ -703,7 +766,7 @@ export default function MarketSeederPage() {
 
     try {
       const url = '/api/watchlist'
-      
+
       if (checkStock && structureId) {
         const accessToken = await getValidToken()
         if (!accessToken) {
@@ -711,7 +774,7 @@ export default function MarketSeederPage() {
           setWatchlistLoading(false)
           return
         }
-        
+
         const response = await fetch(`${url}?structure_id=${structureId}`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -796,7 +859,7 @@ export default function MarketSeederPage() {
   const watchlistItemsByUrgency = useMemo(() => {
     const critical: WatchlistItem[] = []
     const warning: WatchlistItem[] = []
-    
+
     for (const item of watchlistItems) {
       // Stock 0 = critical, or < 3 days
       if ((item.stock ?? 0) === 0) {
@@ -809,7 +872,7 @@ export default function MarketSeederPage() {
         }
       }
     }
-    
+
     return { critical, warning }
   }, [watchlistItems])
 
@@ -852,7 +915,7 @@ export default function MarketSeederPage() {
   const depletionItemsByUrgency = useMemo(() => {
     const critical: DepletionPrediction[] = []
     const warning: DepletionPrediction[] = []
-    
+
     for (const item of depletionPredictions) {
       if (item.daysUntilStockout !== null) {
         if (item.daysUntilStockout < 3) {
@@ -862,7 +925,7 @@ export default function MarketSeederPage() {
         }
       }
     }
-    
+
     return { critical, warning }
   }, [depletionPredictions])
 
@@ -881,6 +944,58 @@ export default function MarketSeederPage() {
     }
     return depletionItemsToRestock
   }, [depletionItemsToRestock, depletionRestockTopN])
+
+  // Filter sell order items by minimum quantity (client-side)
+  const filteredSellItems = useMemo(() => {
+    if (!sellOrderData) return []
+    const filtered = sellOrderData.items.filter(item => {
+      // Quantity filter
+      if (item.quantity < sellMinQuantity) return false
+      // Competition filter
+      if (sellCompetitionFilter === "no_competition" && item.has_competition) return false
+      if (sellCompetitionFilter === "with_competition" && !item.has_competition) return false
+      // Min ISK/day filter
+      if (item.isk_per_day < sellMinIskPerDay) return false
+      return true
+    })
+    // Sort based on selected option
+    return filtered.sort((a, b) => {
+      switch (sellSortBy) {
+        case "volume":
+          return b.estimated_daily_sales - a.estimated_daily_sales
+        case "price":
+          return b.sell_price - a.sell_price
+        case "isk_per_day":
+        default:
+          return b.isk_per_day - a.isk_per_day
+      }
+    })
+  }, [sellOrderData, sellMinQuantity, sellCompetitionFilter, sellSortBy, sellMinIskPerDay])
+
+  // Compute "Do Not Sell" items - filtered out items + existing orders
+  const doNotSellItems = useMemo(() => {
+    if (!sellOrderData) return { filteredOut: [], existingOrders: [] }
+
+    // Items filtered out by current filters
+    const filteredOutIds = new Set(filteredSellItems.map(i => i.type_id))
+    const filteredOut = sellOrderData.items
+      .filter(item => !filteredOutIds.has(item.type_id))
+      .map(item => ({
+        type_id: item.type_id,
+        type_name: item.type_name,
+        quantity: item.quantity,
+        reason: item.quantity < sellMinQuantity ? 'quantity'
+          : item.isk_per_day < sellMinIskPerDay ? 'isk_per_day'
+            : sellCompetitionFilter === 'no_competition' && item.has_competition ? 'competition'
+              : sellCompetitionFilter === 'with_competition' && !item.has_competition ? 'no_competition'
+                : 'other'
+      }))
+
+    // Items with existing sell orders
+    const existingOrders = sellOrderData.items_with_existing_orders || []
+
+    return { filteredOut, existingOrders }
+  }, [sellOrderData, filteredSellItems, sellMinQuantity, sellMinIskPerDay, sellCompetitionFilter])
 
   // Copy depletion restock items to clipboard
   const copyDepletionBuyText = useCallback(async () => {
@@ -946,7 +1061,7 @@ export default function MarketSeederPage() {
           if (done) break
 
           buffer += decoder.decode(value, { stream: true })
-          
+
           // Process complete lines in buffer
           const lines = buffer.split("\n")
           buffer = lines.pop() || ""
@@ -961,7 +1076,7 @@ export default function MarketSeederPage() {
               if (currentEventType && currentEventData) {
                 try {
                   const data = JSON.parse(currentEventData)
-                  
+
                   if (currentEventType === "progress") {
                     setDepletionProgress({
                       stage: data.stage,
@@ -1094,6 +1209,108 @@ export default function MarketSeederPage() {
     setTimeout(() => setUndercutCopiedId(null), 2000)
   }, [])
 
+  // Fetch sell order recommendations with streaming progress
+  const fetchSellOrders = useCallback(async () => {
+    const accessToken = await getValidToken()
+    if (!accessToken) {
+      setSellOrderError("Please login with EVE SSO first")
+      return
+    }
+
+    setSellOrderLoading(true)
+    setSellOrderError(null)
+    setSellOrderData(null)
+    setSellProgress({ stage: "starting", message: "Starting...", percent: 0 })
+
+    try {
+      const params = new URLSearchParams({
+        structure_id: structureId,
+        stream: "true",
+      })
+
+      const response = await fetch(`/api/esi/sell-order-generator?${params}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to generate sell orders")
+      }
+
+      // Parse SSE stream
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error("No response body")
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() || ""
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            // Event type line, skip
+          } else if (line.startsWith("data: ")) {
+            const jsonStr = line.slice(6)
+            try {
+              const data = JSON.parse(jsonStr)
+
+              if (data.stage) {
+                // Progress event
+                setSellProgress({
+                  stage: data.stage,
+                  message: data.message,
+                  percent: data.percent,
+                })
+              }
+
+              if (data.items !== undefined) {
+                // Complete event
+                setSellOrderData(data as SellOrderData)
+              }
+
+              if (data.error) {
+                // Error event
+                throw new Error(data.error)
+              }
+            } catch (parseError) {
+              // Ignore parse errors for incomplete JSON
+            }
+          }
+        }
+      }
+
+    } catch (err) {
+      setSellOrderError(err instanceof Error ? err.message : "Failed to generate sell orders")
+    } finally {
+      setSellOrderLoading(false)
+      setSellProgress(null)
+    }
+  }, [getValidToken, structureId])
+
+  // Copy item name to clipboard
+  const copySellItemName = useCallback((item: SellOrderItem) => {
+    navigator.clipboard.writeText(item.type_name)
+    setSellCopiedNameId(item.type_id)
+    setTimeout(() => setSellCopiedNameId(null), 2000)
+  }, [])
+
+  // Copy sell price to clipboard
+  const copySellPrice = useCallback((item: SellOrderItem) => {
+    navigator.clipboard.writeText(item.sell_price_eve)
+    setSellCopiedPriceId(item.type_id)
+    setTimeout(() => setSellCopiedPriceId(null), 2000)
+  }, [])
+
   // Load capital data when switching to capital tab
   useEffect(() => {
     if (activeMainTab === "capital" && !capitalData && !capitalLoading && !capitalError) {
@@ -1126,8 +1343,8 @@ export default function MarketSeederPage() {
           </div>
         </header>
 
-        {/* Main Tabs: Capital / Analysis / Watchlist / Depletion */}
-        <Tabs value={activeMainTab} onValueChange={(v: string) => setActiveMainTab(v as "capital" | "analysis" | "watchlist" | "depletion" | "undercut")} className="space-y-6">
+        {/* Main Tabs: Capital / Analysis / Watchlist / Depletion / Market */}
+        <Tabs value={activeMainTab} onValueChange={(v: string) => setActiveMainTab(v as "capital" | "analysis" | "watchlist" | "depletion" | "market")} className="space-y-6">
           <TabsList className="grid w-full max-w-4xl grid-cols-5">
             <TabsTrigger value="capital" className="gap-2">
               <DollarSign className="size-4" />
@@ -1155,17 +1372,17 @@ export default function MarketSeederPage() {
               <Timer className="size-4" />
               Depletion
               {depletionSummary && (depletionSummary.criticalCount > 0 || depletionSummary.warningCount > 0) && (
-                <Badge 
-                  variant={depletionSummary.criticalCount > 0 ? "destructive" : "secondary"} 
+                <Badge
+                  variant={depletionSummary.criticalCount > 0 ? "destructive" : "secondary"}
                   className={depletionSummary.criticalCount > 0 ? "ml-1 px-1.5 py-0" : "ml-1 px-1.5 py-0 bg-amber-500/20 text-amber-600"}
                 >
                   {depletionSummary.criticalCount + depletionSummary.warningCount}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="undercut" className="gap-2">
-              <Minus className="size-4" />
-              Undercut
+            <TabsTrigger value="market" className="gap-2">
+              <ShoppingCart className="size-4" />
+              Market
               {undercutData && undercutData.summary.undercut_count > 0 && (
                 <Badge variant="destructive" className="ml-1 px-1.5 py-0">
                   {undercutData.summary.undercut_count}
@@ -1310,7 +1527,7 @@ export default function MarketSeederPage() {
                         <div className="flex-1">
                           <p className="font-medium text-destructive">Dead Capital Alert</p>
                           <p className="text-sm text-muted-foreground">
-                            {capitalData.summary.deadCapitalOrders} orders ({formatIskShort(capitalData.summary.deadCapitalValue)} ISK) 
+                            {capitalData.summary.deadCapitalOrders} orders ({formatIskShort(capitalData.summary.deadCapitalValue)} ISK)
                             are estimated to take {`>`}{DEAD_CAPITAL_THRESHOLD_DAYS} days to sell
                           </p>
                         </div>
@@ -1336,7 +1553,7 @@ export default function MarketSeederPage() {
                       <div className="flex items-center gap-4">
                         <div className="w-24 text-sm font-medium text-emerald-600">Fast</div>
                         <div className="flex-1 h-6 bg-secondary rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className="h-full bg-emerald-500 transition-all"
                             style={{ width: `${capitalData.summary.totalCapitalDeployed > 0 ? (capitalData.summary.fastCapital / capitalData.summary.totalCapitalDeployed) * 100 : 0}%` }}
                           />
@@ -1348,7 +1565,7 @@ export default function MarketSeederPage() {
                       <div className="flex items-center gap-4">
                         <div className="w-24 text-sm font-medium text-amber-600">Moderate</div>
                         <div className="flex-1 h-6 bg-secondary rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className="h-full bg-amber-500 transition-all"
                             style={{ width: `${capitalData.summary.totalCapitalDeployed > 0 ? (capitalData.summary.moderateCapital / capitalData.summary.totalCapitalDeployed) * 100 : 0}%` }}
                           />
@@ -1360,7 +1577,7 @@ export default function MarketSeederPage() {
                       <div className="flex items-center gap-4">
                         <div className="w-24 text-sm font-medium text-orange-600">Slow</div>
                         <div className="flex-1 h-6 bg-secondary rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className="h-full bg-orange-500 transition-all"
                             style={{ width: `${capitalData.summary.totalCapitalDeployed > 0 ? (capitalData.summary.slowCapital / capitalData.summary.totalCapitalDeployed) * 100 : 0}%` }}
                           />
@@ -1372,7 +1589,7 @@ export default function MarketSeederPage() {
                       <div className="flex items-center gap-4">
                         <div className="w-24 text-sm font-medium text-destructive">Dead</div>
                         <div className="flex-1 h-6 bg-secondary rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className="h-full bg-destructive transition-all"
                             style={{ width: `${capitalData.summary.totalCapitalDeployed > 0 ? (capitalData.summary.deadCapitalValue / capitalData.summary.totalCapitalDeployed) * 100 : 0}%` }}
                           />
@@ -1395,83 +1612,83 @@ export default function MarketSeederPage() {
                   <CardContent>
                     <div className="space-y-2">
                       {capitalData.orders.map((order) => (
-                          <Card
-                            key={order.orderId}
-                            className={
-                              order.efficiency === 'dead'
-                                ? "border-destructive/50 bg-destructive/5"
-                                : order.efficiency === 'slow'
-                                  ? "border-orange-500/50 bg-orange-500/5"
-                                  : order.efficiency === 'moderate'
-                                    ? "border-amber-500/30 bg-amber-500/5"
-                                    : order.efficiency === 'fast'
-                                      ? "border-emerald-500/30 bg-emerald-500/5"
-                                      : ""
-                            }
-                          >
-                            <CardContent className="p-3">
-                              <div className="flex items-start gap-3">
-                                <EveItemIcon typeId={order.typeId} size={64} className="size-10 shrink-0 rounded" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium truncate">{order.itemName}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {order.volumeRemain.toLocaleString()} units @ {formatIskShort(order.price)} each
-                                  </div>
-                                </div>
-                                <div className="text-right shrink-0 space-y-1">
-                                  <div className="text-sm font-medium">{formatIskShort(order.capitalDeployed)}</div>
-                                  <div className="flex items-center justify-end gap-2">
-                                    {order.daysToSell !== null ? (
-                                      <Badge 
-                                        variant={order.efficiency === 'dead' ? 'destructive' : 'secondary'}
-                                        className={
-                                          order.efficiency === 'fast' ? 'bg-emerald-500/20 text-emerald-600' :
-                                          order.efficiency === 'moderate' ? 'bg-amber-500/20 text-amber-600' :
-                                          order.efficiency === 'slow' ? 'bg-orange-500/20 text-orange-600' :
-                                          ''
-                                        }
-                                      >
-                                        {order.daysToSell.toFixed(0)}d to sell
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="secondary">
-                                        No volume data
-                                      </Badge>
-                                    )}
-                                    {order.effectiveAPY !== null && (
-                                      <Badge variant="outline" className="gap-1">
-                                        <Percent className="size-3" />
-                                        {order.effectiveAPY.toFixed(0)}% APY
-                                      </Badge>
-                                    )}
-                                  </div>
+                        <Card
+                          key={order.orderId}
+                          className={
+                            order.efficiency === 'dead'
+                              ? "border-destructive/50 bg-destructive/5"
+                              : order.efficiency === 'slow'
+                                ? "border-orange-500/50 bg-orange-500/5"
+                                : order.efficiency === 'moderate'
+                                  ? "border-amber-500/30 bg-amber-500/5"
+                                  : order.efficiency === 'fast'
+                                    ? "border-emerald-500/30 bg-emerald-500/5"
+                                    : ""
+                          }
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <EveItemIcon typeId={order.typeId} size={64} className="size-10 shrink-0 rounded" />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{order.itemName}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {order.volumeRemain.toLocaleString()} units @ {formatIskShort(order.price)} each
                                 </div>
                               </div>
-                              {/* Expanded details for slow/dead capital */}
-                              {(order.efficiency === 'dead' || order.efficiency === 'slow') && (
-                                <div className="mt-2 pt-2 border-t grid grid-cols-4 gap-2 text-xs">
-                                  <div>
-                                    <span className="text-muted-foreground">Est. Daily Sales:</span>
-                                    <span className="ml-1 font-medium">{order.estimatedDailySales.toFixed(1)}/day</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Days Listed:</span>
-                                    <span className="ml-1 font-medium">{order.daysListed}d</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Jita Price:</span>
-                                    <span className="ml-1 font-medium">{order.jitaBuyPrice ? formatIskShort(order.jitaBuyPrice) : 'N/A'}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Profit/Unit:</span>
-                                    <span className={`ml-1 font-medium ${order.profitPerUnit && order.profitPerUnit > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                                      {order.profitPerUnit ? formatIskShort(order.profitPerUnit) : 'N/A'}
-                                    </span>
-                                  </div>
+                              <div className="text-right shrink-0 space-y-1">
+                                <div className="text-sm font-medium">{formatIskShort(order.capitalDeployed)}</div>
+                                <div className="flex items-center justify-end gap-2">
+                                  {order.daysToSell !== null ? (
+                                    <Badge
+                                      variant={order.efficiency === 'dead' ? 'destructive' : 'secondary'}
+                                      className={
+                                        order.efficiency === 'fast' ? 'bg-emerald-500/20 text-emerald-600' :
+                                          order.efficiency === 'moderate' ? 'bg-amber-500/20 text-amber-600' :
+                                            order.efficiency === 'slow' ? 'bg-orange-500/20 text-orange-600' :
+                                              ''
+                                      }
+                                    >
+                                      {order.daysToSell.toFixed(0)}d to sell
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary">
+                                      No volume data
+                                    </Badge>
+                                  )}
+                                  {order.effectiveAPY !== null && (
+                                    <Badge variant="outline" className="gap-1">
+                                      <Percent className="size-3" />
+                                      {order.effectiveAPY.toFixed(0)}% APY
+                                    </Badge>
+                                  )}
                                 </div>
-                              )}
-                            </CardContent>
-                          </Card>
+                              </div>
+                            </div>
+                            {/* Expanded details for slow/dead capital */}
+                            {(order.efficiency === 'dead' || order.efficiency === 'slow') && (
+                              <div className="mt-2 pt-2 border-t grid grid-cols-4 gap-2 text-xs">
+                                <div>
+                                  <span className="text-muted-foreground">Est. Daily Sales:</span>
+                                  <span className="ml-1 font-medium">{order.estimatedDailySales.toFixed(1)}/day</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Days Listed:</span>
+                                  <span className="ml-1 font-medium">{order.daysListed}d</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Jita Price:</span>
+                                  <span className="ml-1 font-medium">{order.jitaBuyPrice ? formatIskShort(order.jitaBuyPrice) : 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Profit/Unit:</span>
+                                  <span className={`ml-1 font-medium ${order.profitPerUnit && order.profitPerUnit > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                                    {order.profitPerUnit ? formatIskShort(order.profitPerUnit) : 'N/A'}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
                       ))}
                       {capitalData.orders.length === 0 && (
                         <div className="text-center py-8 text-muted-foreground">
@@ -1786,13 +2003,13 @@ export default function MarketSeederPage() {
                           <div className="p-2 space-y-2">
                             <Label className="text-xs text-muted-foreground">Include urgency levels</Label>
                             <div className="flex items-center space-x-2">
-                              <Checkbox 
-                                id="includeCritical" 
+                              <Checkbox
+                                id="includeCritical"
                                 checked={includeCritical}
                                 onCheckedChange={(checked) => setIncludeCritical(checked === true)}
                               />
-                              <label 
-                                htmlFor="includeCritical" 
+                              <label
+                                htmlFor="includeCritical"
                                 className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
                               >
                                 <span className="text-destructive">Critical</span>
@@ -1802,13 +2019,13 @@ export default function MarketSeederPage() {
                               </label>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Checkbox 
-                                id="includeWarning" 
+                              <Checkbox
+                                id="includeWarning"
                                 checked={includeWarning}
                                 onCheckedChange={(checked) => setIncludeWarning(checked === true)}
                               />
-                              <label 
-                                htmlFor="includeWarning" 
+                              <label
+                                htmlFor="includeWarning"
                                 className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
                               >
                                 <span className="text-amber-500">Warning</span>
@@ -1822,8 +2039,8 @@ export default function MarketSeederPage() {
                           {/* Days of supply */}
                           <div className="p-2 space-y-1">
                             <Label className="text-xs text-muted-foreground">Days of supply</Label>
-                            <Select 
-                              value={restockDays.toString()} 
+                            <Select
+                              value={restockDays.toString()}
                               onValueChange={(v) => setRestockDays(parseInt(v))}
                             >
                               <SelectTrigger className="h-8">
@@ -1841,8 +2058,8 @@ export default function MarketSeederPage() {
                           {/* Top N items */}
                           <div className="p-2 space-y-1">
                             <Label className="text-xs text-muted-foreground">Limit items</Label>
-                            <Select 
-                              value={restockTopN?.toString() ?? "all"} 
+                            <Select
+                              value={restockTopN?.toString() ?? "all"}
                               onValueChange={(v) => setRestockTopN(v === "all" ? null : parseInt(v))}
                             >
                               <SelectTrigger className="h-8">
@@ -1859,8 +2076,8 @@ export default function MarketSeederPage() {
                           <DropdownMenuSeparator />
                           {/* Copy button with count */}
                           <div className="p-2">
-                            <Button 
-                              onClick={copyWatchlistBuyText} 
+                            <Button
+                              onClick={copyWatchlistBuyText}
                               className="w-full"
                               disabled={watchlistCopySuccess || watchlistItemsToCopy.length === 0}
                             >
@@ -2041,14 +2258,14 @@ export default function MarketSeederPage() {
                   // Stock 0 = critical (already out), otherwise base on days until stockout
                   const urgencyLevel = (item.stock ?? 0) === 0
                     ? 'critical'
-                    : item.daysUntilStockout === null 
+                    : item.daysUntilStockout === null
                       ? 'none'
-                      : item.daysUntilStockout < 3 
-                        ? 'critical' 
-                        : item.daysUntilStockout < 7 
-                          ? 'warning' 
+                      : item.daysUntilStockout < 3
+                        ? 'critical'
+                        : item.daysUntilStockout < 7
+                          ? 'warning'
                           : 'safe'
-                  
+
                   return (
                     <Card
                       key={item.id}
@@ -2081,13 +2298,12 @@ export default function MarketSeederPage() {
                               </div>
                               <div>
                                 <p className="text-muted-foreground text-xs">Days Until Stockout</p>
-                                <p className={`font-bold ${
-                                  urgencyLevel === 'critical' ? 'text-destructive' :
+                                <p className={`font-bold ${urgencyLevel === 'critical' ? 'text-destructive' :
                                   urgencyLevel === 'warning' ? 'text-amber-500' :
-                                  urgencyLevel === 'safe' ? 'text-emerald-500' :
-                                  'text-muted-foreground'
-                                }`}>
-                                  {item.daysUntilStockout !== null 
+                                    urgencyLevel === 'safe' ? 'text-emerald-500' :
+                                      'text-muted-foreground'
+                                  }`}>
+                                  {item.daysUntilStockout !== null
                                     ? `${item.daysUntilStockout.toFixed(1)} days`
                                     : 'No sales data'}
                                 </p>
@@ -2177,13 +2393,13 @@ export default function MarketSeederPage() {
                           <div className="p-2 space-y-2">
                             <Label className="text-xs text-muted-foreground">Include urgency levels</Label>
                             <div className="flex items-center space-x-2">
-                              <Checkbox 
-                                id="depletionIncludeCritical" 
+                              <Checkbox
+                                id="depletionIncludeCritical"
                                 checked={depletionIncludeCritical}
                                 onCheckedChange={(checked) => setDepletionIncludeCritical(checked === true)}
                               />
-                              <label 
-                                htmlFor="depletionIncludeCritical" 
+                              <label
+                                htmlFor="depletionIncludeCritical"
                                 className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
                               >
                                 <span className="text-destructive">Critical</span>
@@ -2193,13 +2409,13 @@ export default function MarketSeederPage() {
                               </label>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Checkbox 
-                                id="depletionIncludeWarning" 
+                              <Checkbox
+                                id="depletionIncludeWarning"
                                 checked={depletionIncludeWarning}
                                 onCheckedChange={(checked) => setDepletionIncludeWarning(checked === true)}
                               />
-                              <label 
-                                htmlFor="depletionIncludeWarning" 
+                              <label
+                                htmlFor="depletionIncludeWarning"
                                 className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
                               >
                                 <span className="text-amber-500">Warning</span>
@@ -2213,8 +2429,8 @@ export default function MarketSeederPage() {
                           {/* Days of supply */}
                           <div className="p-2 space-y-1">
                             <Label className="text-xs text-muted-foreground">Days of supply</Label>
-                            <Select 
-                              value={depletionRestockDays.toString()} 
+                            <Select
+                              value={depletionRestockDays.toString()}
                               onValueChange={(v) => setDepletionRestockDays(parseInt(v))}
                             >
                               <SelectTrigger className="h-8">
@@ -2232,8 +2448,8 @@ export default function MarketSeederPage() {
                           {/* Top N items */}
                           <div className="p-2 space-y-1">
                             <Label className="text-xs text-muted-foreground">Limit items</Label>
-                            <Select 
-                              value={depletionRestockTopN?.toString() ?? "all"} 
+                            <Select
+                              value={depletionRestockTopN?.toString() ?? "all"}
                               onValueChange={(v) => setDepletionRestockTopN(v === "all" ? null : parseInt(v))}
                             >
                               <SelectTrigger className="h-8">
@@ -2250,8 +2466,8 @@ export default function MarketSeederPage() {
                           <DropdownMenuSeparator />
                           {/* Copy button with count */}
                           <div className="p-2">
-                            <Button 
-                              onClick={copyDepletionBuyText} 
+                            <Button
+                              onClick={copyDepletionBuyText}
                               className="w-full"
                               disabled={depletionCopySuccess || depletionItemsToCopy.length === 0}
                             >
@@ -2388,221 +2604,344 @@ export default function MarketSeederPage() {
               <div className="space-y-3">
                 {/* Already sorted by days until stockout (critical first) from API */}
                 {depletionPredictions.map((prediction) => {
-                    const urgencyLevel = prediction.daysUntilStockout === null 
-                      ? 'none'
-                      : prediction.daysUntilStockout < 3 
-                        ? 'critical' 
-                        : prediction.daysUntilStockout < 7 
-                          ? 'warning' 
-                          : 'safe'
-                    
-                    return (
-                      <Card
-                        key={prediction.typeId}
-                        className={
-                          urgencyLevel === 'critical'
-                            ? "border-destructive/50 bg-destructive/5"
-                            : urgencyLevel === 'warning'
-                              ? "border-amber-500/50 bg-amber-500/5"
-                              : urgencyLevel === 'safe'
-                                ? "border-emerald-500/30 bg-emerald-500/5"
-                                : ""
-                        }
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-4">
-                            <EveItemIcon typeId={prediction.typeId} size={64} className="size-10 shrink-0 rounded" />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">{prediction.name}</div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {prediction.categoryName} • {prediction.groupName}
-                              </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
-                                <div>
-                                  <p className="text-muted-foreground text-xs">Current Stock</p>
-                                  <p className="font-medium">{prediction.currentStock.toLocaleString()} units</p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
-                                  <p className="font-medium">{prediction.estimatedDailySales.toFixed(1)} units/day</p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs">Days Until Stockout</p>
-                                  <p className={`font-bold ${
-                                    urgencyLevel === 'critical' ? 'text-destructive' :
-                                    urgencyLevel === 'warning' ? 'text-amber-500' :
-                                    urgencyLevel === 'safe' ? 'text-emerald-500' :
-                                    'text-muted-foreground'
-                                  }`}>
-                                    {prediction.daysUntilStockout !== null 
-                                      ? `${prediction.daysUntilStockout.toFixed(1)} days`
-                                      : 'No sales data'}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs">Daily Profit</p>
-                                  <p className="font-medium text-primary">{formatIskShort(prediction.dailyProfitPotential)} ISK</p>
-                                </div>
-                              </div>
+                  const urgencyLevel = prediction.daysUntilStockout === null
+                    ? 'none'
+                    : prediction.daysUntilStockout < 3
+                      ? 'critical'
+                      : prediction.daysUntilStockout < 7
+                        ? 'warning'
+                        : 'safe'
+
+                  return (
+                    <Card
+                      key={prediction.typeId}
+                      className={
+                        urgencyLevel === 'critical'
+                          ? "border-destructive/50 bg-destructive/5"
+                          : urgencyLevel === 'warning'
+                            ? "border-amber-500/50 bg-amber-500/5"
+                            : urgencyLevel === 'safe'
+                              ? "border-emerald-500/30 bg-emerald-500/5"
+                              : ""
+                      }
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          <EveItemIcon typeId={prediction.typeId} size={64} className="size-10 shrink-0 rounded" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{prediction.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {prediction.categoryName} • {prediction.groupName}
                             </div>
-                            <div className="text-right shrink-0">
-                              {urgencyLevel === 'critical' && (
-                                <Badge variant="destructive" className="gap-1">
-                                  <AlertTriangle className="size-3" />
-                                  Critical
-                                </Badge>
-                              )}
-                              {urgencyLevel === 'warning' && (
-                                <Badge className="gap-1 bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
-                                  <Clock className="size-3" />
-                                  Low Stock
-                                </Badge>
-                              )}
-                              {urgencyLevel === 'safe' && (
-                                <Badge variant="secondary" className="gap-1 bg-emerald-500/20 text-emerald-600">
-                                  <Check className="size-3" />
-                                  OK
-                                </Badge>
-                              )}
-                              {urgencyLevel === 'none' && (
-                                <Badge variant="secondary" className="gap-1">
-                                  <Minus className="size-3" />
-                                  No Data
-                                </Badge>
-                              )}
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Priority: {prediction.priorityScore.toFixed(0)}
-                              </p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
+                              <div>
+                                <p className="text-muted-foreground text-xs">Current Stock</p>
+                                <p className="font-medium">{prediction.currentStock.toLocaleString()} units</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
+                                <p className="font-medium">{prediction.estimatedDailySales.toFixed(1)} units/day</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Days Until Stockout</p>
+                                <p className={`font-bold ${urgencyLevel === 'critical' ? 'text-destructive' :
+                                  urgencyLevel === 'warning' ? 'text-amber-500' :
+                                    urgencyLevel === 'safe' ? 'text-emerald-500' :
+                                      'text-muted-foreground'
+                                  }`}>
+                                  {prediction.daysUntilStockout !== null
+                                    ? `${prediction.daysUntilStockout.toFixed(1)} days`
+                                    : 'No sales data'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Daily Profit</p>
+                                <p className="font-medium text-primary">{formatIskShort(prediction.dailyProfitPotential)} ISK</p>
+                              </div>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
+                          <div className="text-right shrink-0">
+                            {urgencyLevel === 'critical' && (
+                              <Badge variant="destructive" className="gap-1">
+                                <AlertTriangle className="size-3" />
+                                Critical
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'warning' && (
+                              <Badge className="gap-1 bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
+                                <Clock className="size-3" />
+                                Low Stock
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'safe' && (
+                              <Badge variant="secondary" className="gap-1 bg-emerald-500/20 text-emerald-600">
+                                <Check className="size-3" />
+                                OK
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'none' && (
+                              <Badge variant="secondary" className="gap-1">
+                                <Minus className="size-3" />
+                                No Data
+                              </Badge>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Priority: {prediction.priorityScore.toFixed(0)}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             )}
           </TabsContent>
 
-          {/* Undercut Tracker Tab */}
-          <TabsContent value="undercut" className="space-y-6">
-            {/* Header Card */}
-            <Card>
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Minus className="size-5" />
-                      Undercut Tracker
-                    </CardTitle>
-                    <CardDescription>
-                      Check if competitors have undercut your sell orders and get copy-pasteable prices to beat them
-                    </CardDescription>
-                  </div>
-                  <Button
-                    onClick={fetchUndercuts}
-                    disabled={undercutLoading}
-                    size="lg"
-                  >
-                    {undercutLoading ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin mr-2" />
-                        Checking...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="size-4 mr-2" />
-                        Check Undercuts
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-            </Card>
+          {/* Market Tab - Contains Undercut and Sell sub-tabs */}
+          <TabsContent value="market" className="space-y-6">
+            <Tabs value={activeMarketSubTab} onValueChange={(v: string) => setActiveMarketSubTab(v as "undercut" | "sell")} className="space-y-6">
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="undercut" className="gap-2">
+                  <Minus className="size-4" />
+                  Undercut
+                  {undercutData && undercutData.summary.undercut_count > 0 && (
+                    <Badge variant="destructive" className="ml-1 px-1.5 py-0">
+                      {undercutData.summary.undercut_count}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="sell" className="gap-2">
+                  <ShoppingCart className="size-4" />
+                  Sell
+                  {sellOrderData && sellOrderData.summary.total_items > 0 && (
+                    <Badge variant="secondary" className="ml-1 px-1.5 py-0">
+                      {sellOrderData.summary.total_items}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Error display */}
-            {undercutError && (
-              <Alert variant="destructive">
-                <AlertCircle className="size-4" />
-                <AlertDescription>{undercutError}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Summary Cards */}
-            {undercutData && (
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card className={undercutData.summary.undercut_count > 0 ? "border-red-500/50" : ""}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-lg ${undercutData.summary.undercut_count > 0 ? "bg-red-500/10" : "bg-muted"}`}>
-                        <AlertTriangle className={`size-6 ${undercutData.summary.undercut_count > 0 ? "text-red-500" : "text-muted-foreground"}`} />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold">{undercutData.summary.undercut_count}</p>
-                        <p className="text-sm text-muted-foreground">Being Undercut</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-emerald-500/50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-emerald-500/10">
-                        <Check className="size-6 text-emerald-500" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold">{undercutData.summary.safe_count}</p>
-                        <p className="text-sm text-muted-foreground">Lowest Price</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              {/* Undercut Sub-Tab */}
+              <TabsContent value="undercut" className="space-y-6">
+                {/* Header Card */}
                 <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-muted">
-                        <Package className="size-6 text-muted-foreground" />
-                      </div>
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-2xl font-bold">{undercutData.summary.total_orders_in_structure}</p>
-                        <p className="text-sm text-muted-foreground">Your Orders</p>
+                        <CardTitle className="flex items-center gap-2">
+                          <Minus className="size-5" />
+                          Undercut Tracker
+                        </CardTitle>
+                        <CardDescription>
+                          Check if competitors have undercut your sell orders and get copy-pasteable prices to beat them
+                        </CardDescription>
                       </div>
+                      <Button
+                        onClick={fetchUndercuts}
+                        disabled={undercutLoading}
+                        size="lg"
+                      >
+                        {undercutLoading ? (
+                          <>
+                            <Loader2 className="size-4 animate-spin mr-2" />
+                            Checking...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="size-4 mr-2" />
+                            Check Undercuts
+                          </>
+                        )}
+                      </Button>
                     </div>
-                  </CardContent>
+                  </CardHeader>
                 </Card>
-              </div>
-            )}
 
-            {/* Undercut Items List */}
-            {undercutData && undercutData.undercut_items.length > 0 && (
-              <Card className="border-red-500/30">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2 text-red-500">
-                    <AlertTriangle className="size-5" />
-                    Items Being Undercut ({undercutData.undercut_items.length})
-                  </CardTitle>
-                  <CardDescription>
-                    Sorted by days until your order becomes lowest. Click undercut price to copy.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {undercutData.undercut_items.map((item) => {
-                      // Color coding for days to lowest
-                      const daysColor = item.days_to_lowest === null 
-                        ? "text-muted-foreground"
-                        : item.days_to_lowest > 30 
-                          ? "text-red-500" 
-                          : item.days_to_lowest > 7 
-                            ? "text-amber-500" 
-                            : "text-emerald-500"
-                      
-                      return (
-                        <div
-                          key={item.your_order_id}
-                          className="p-4 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 transition-colors"
-                        >
-                          {/* Top row: Item info and Days to Lowest badge */}
-                          <div className="flex items-center gap-4 mb-3">
+                {/* Error display */}
+                {undercutError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{undercutError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Summary Cards */}
+                {undercutData && (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Card className={undercutData.summary.undercut_count > 0 ? "border-red-500/50" : ""}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-3 rounded-lg ${undercutData.summary.undercut_count > 0 ? "bg-red-500/10" : "bg-muted"}`}>
+                            <AlertTriangle className={`size-6 ${undercutData.summary.undercut_count > 0 ? "text-red-500" : "text-muted-foreground"}`} />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">{undercutData.summary.undercut_count}</p>
+                            <p className="text-sm text-muted-foreground">Being Undercut</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-emerald-500/50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-emerald-500/10">
+                            <Check className="size-6 text-emerald-500" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">{undercutData.summary.safe_count}</p>
+                            <p className="text-sm text-muted-foreground">Lowest Price</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-muted">
+                            <Package className="size-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">{undercutData.summary.total_orders_in_structure}</p>
+                            <p className="text-sm text-muted-foreground">Your Orders</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Undercut Items List */}
+                {undercutData && undercutData.undercut_items.length > 0 && (
+                  <Card className="border-red-500/30">
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2 text-red-500">
+                        <AlertTriangle className="size-5" />
+                        Items Being Undercut ({undercutData.undercut_items.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Sorted by days until your order becomes lowest. Click undercut price to copy.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {undercutData.undercut_items.map((item) => {
+                          // Color coding for days to lowest
+                          const daysColor = item.days_to_lowest === null
+                            ? "text-muted-foreground"
+                            : item.days_to_lowest > 30
+                              ? "text-red-500"
+                              : item.days_to_lowest > 7
+                                ? "text-amber-500"
+                                : "text-emerald-500"
+
+                          return (
+                            <div
+                              key={item.your_order_id}
+                              className="p-4 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 transition-colors"
+                            >
+                              {/* Top row: Item info and Days to Lowest badge */}
+                              <div className="flex items-center gap-4 mb-3">
+                                <EveItemIcon typeId={item.type_id} size={32} className="size-8 rounded" />
+                                <div className="flex-1 min-w-0">
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(item.type_name)
+                                    }}
+                                    className="font-medium truncate hover:underline cursor-pointer text-left"
+                                    title="Click to copy item name"
+                                  >
+                                    {item.type_name}
+                                  </button>
+                                  <p className="text-xs text-muted-foreground">
+                                    {item.your_volume_remain} units remaining
+                                  </p>
+                                </div>
+                                <Badge
+                                  variant="secondary"
+                                  className={`${item.days_to_lowest !== null && item.days_to_lowest > 30 ? "bg-red-500/20" : item.days_to_lowest !== null && item.days_to_lowest > 7 ? "bg-amber-500/20" : "bg-emerald-500/20"} ${daysColor} gap-1`}
+                                >
+                                  <Clock className="size-3" />
+                                  {item.days_to_lowest !== null
+                                    ? `${Math.ceil(item.days_to_lowest)} days`
+                                    : "No data"}
+                                </Badge>
+                              </div>
+
+                              {/* Bottom row: Stats and copy button */}
+                              <div className="flex items-center gap-4 text-sm">
+                                <div className="flex-1 grid grid-cols-5 gap-4">
+                                  <div>
+                                    <p className="text-muted-foreground text-xs">Your Price</p>
+                                    <p className="font-medium">{item.your_price_formatted}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs">Lowest Competitor</p>
+                                    <p className="font-medium text-red-500">{item.competitor_price_formatted}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs">Competitors Below</p>
+                                    <p className="font-medium">{item.competitors_below_count} orders ({item.competitors_below_volume} units)</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
+                                    <p className="font-medium">{item.estimated_daily_sales.toFixed(1)} units</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground text-xs">Days to Lowest</p>
+                                    <p className={`font-medium ${daysColor}`}>
+                                      {item.days_to_lowest !== null
+                                        ? `${Math.ceil(item.days_to_lowest)} days`
+                                        : "—"}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="min-w-[140px] font-mono"
+                                  onClick={() => copyUndercutPrice(item)}
+                                >
+                                  {undercutCopiedId === item.your_order_id ? (
+                                    <>
+                                      <Check className="size-4 mr-2 text-emerald-500" />
+                                      Copied!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="size-4 mr-2" />
+                                      {item.undercut_price_eve}
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Safe Items List */}
+                {undercutData && undercutData.safe_items.length > 0 && (
+                  <Card className="border-emerald-500/30">
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2 text-emerald-600">
+                        <Check className="size-5" />
+                        Lowest Price ({undercutData.safe_items.length})
+                      </CardTitle>
+                      <CardDescription>
+                        You have the lowest price on these items
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {undercutData.safe_items.map((item) => (
+                          <div
+                            key={item.your_order_id}
+                            className="flex items-center gap-4 p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5"
+                          >
                             <EveItemIcon typeId={item.type_id} size={32} className="size-8 rounded" />
                             <div className="flex-1 min-w-0">
                               <button
@@ -2618,173 +2957,544 @@ export default function MarketSeederPage() {
                                 {item.your_volume_remain} units remaining
                               </p>
                             </div>
-                            <Badge 
-                              variant="secondary" 
-                              className={`${item.days_to_lowest !== null && item.days_to_lowest > 30 ? "bg-red-500/20" : item.days_to_lowest !== null && item.days_to_lowest > 7 ? "bg-amber-500/20" : "bg-emerald-500/20"} ${daysColor} gap-1`}
-                            >
-                              <Clock className="size-3" />
-                              {item.days_to_lowest !== null 
-                                ? `${Math.ceil(item.days_to_lowest)} days` 
-                                : "No data"}
+                            <div className="text-right">
+                              <p className="text-sm text-muted-foreground">Your Price</p>
+                              <p className="font-medium text-emerald-600">{item.your_price_formatted}</p>
+                            </div>
+                            {item.next_competitor_price_formatted && (
+                              <div className="text-right">
+                                <p className="text-sm text-muted-foreground">Next Competitor</p>
+                                <p className="font-medium">{item.next_competitor_price_formatted}</p>
+                              </div>
+                            )}
+                            <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-600">
+                              <Check className="size-3 mr-1" />
+                              Lowest
                             </Badge>
                           </div>
-                          
-                          {/* Bottom row: Stats and copy button */}
-                          <div className="flex items-center gap-4 text-sm">
-                            <div className="flex-1 grid grid-cols-5 gap-4">
-                              <div>
-                                <p className="text-muted-foreground text-xs">Your Price</p>
-                                <p className="font-medium">{item.your_price_formatted}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Lowest Competitor</p>
-                                <p className="font-medium text-red-500">{item.competitor_price_formatted}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Competitors Below</p>
-                                <p className="font-medium">{item.competitors_below_count} orders ({item.competitors_below_volume} units)</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
-                                <p className="font-medium">{item.estimated_daily_sales.toFixed(1)} units</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Days to Lowest</p>
-                                <p className={`font-medium ${daysColor}`}>
-                                  {item.days_to_lowest !== null 
-                                    ? `${Math.ceil(item.days_to_lowest)} days` 
-                                    : "—"}
-                                </p>
-                              </div>
-                            </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Empty state */}
+                {!undercutData && !undercutLoading && !undercutError && (
+                  <Card className="border-dashed">
+                    <CardContent className="py-12">
+                      <div className="text-center space-y-4">
+                        <div className="mx-auto size-12 rounded-full bg-muted flex items-center justify-center">
+                          <Minus className="size-6 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">Check Your Orders</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Click &quot;Check Undercuts&quot; to see if competitors have undercut your sell orders in the structure
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* No undercuts state */}
+                {undercutData && undercutData.undercut_items.length === 0 && undercutData.safe_items.length > 0 && (
+                  <Alert>
+                    <Check className="size-4 text-emerald-500" />
+                    <AlertDescription>
+                      All your orders have the lowest price! No action needed.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* No orders in structure */}
+                {undercutData && undercutData.summary.total_orders_in_structure === 0 && (
+                  <Alert>
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                      You have no sell orders in this structure. Place some orders first to track undercuts.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Tick size info */}
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <HelpCircle className="size-4" />
+                  <span>
+                    Undercut prices respect EVE&apos;s 4 significant figure tick size (e.g., 1M ISK items have 100 ISK ticks)
+                  </span>
+                </div>
+              </TabsContent>
+
+              {/* Sell Sub-Tab */}
+              <TabsContent value="sell" className="space-y-6">
+                {/* Header Card */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <ShoppingCart className="size-5" />
+                          Sell Order Generator
+                        </CardTitle>
+                        <CardDescription>
+                          Generate optimal sell prices for your inventory in 3T7. Uses tiered markup for items with no competition.
+                        </CardDescription>
+                      </div>
+                      <Button
+                        onClick={fetchSellOrders}
+                        disabled={sellOrderLoading}
+                        size="lg"
+                      >
+                        {sellOrderLoading ? (
+                          <>
+                            <Loader2 className="size-4 animate-spin mr-2" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="size-4 mr-2" />
+                            Generate Sell Orders
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                </Card>
+
+                {/* Progress Bar */}
+                {sellProgress && (
+                  <Card>
+                    <CardContent className="pt-6 pb-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          {STAGE_ICONS[sellProgress.stage] ? (
+                            (() => {
+                              const IconComponent = STAGE_ICONS[sellProgress.stage]
+                              return <IconComponent className="size-5 text-muted-foreground animate-pulse" />
+                            })()
+                          ) : (
+                            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                          )}
+                          <span className="text-sm font-medium">{sellProgress.message}</span>
+                          <span className="text-sm text-muted-foreground ml-auto">{sellProgress.percent}%</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-full bg-primary transition-all duration-300 ease-out"
+                            style={{ width: `${sellProgress.percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Filter Controls */}
+                {sellOrderData && sellOrderData.items.length > 0 && (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-6 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="min-quantity" className="whitespace-nowrap">Min Quantity:</Label>
+                          <Input
+                            id="min-quantity"
+                            type="number"
+                            min={1}
+                            value={sellMinQuantity}
+                            onChange={(e) => setSellMinQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                            className="w-24"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="whitespace-nowrap">Competition:</Label>
+                          <div className="flex gap-1">
                             <Button
-                              variant="outline"
+                              variant={sellCompetitionFilter === "all" ? "default" : "outline"}
                               size="sm"
-                              className="min-w-[140px] font-mono"
-                              onClick={() => copyUndercutPrice(item)}
+                              onClick={() => setSellCompetitionFilter("all")}
                             >
-                              {undercutCopiedId === item.your_order_id ? (
-                                <>
-                                  <Check className="size-4 mr-2 text-emerald-500" />
-                                  Copied!
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="size-4 mr-2" />
-                                  {item.undercut_price_eve}
-                                </>
-                              )}
+                              All
+                            </Button>
+                            <Button
+                              variant={sellCompetitionFilter === "no_competition" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSellCompetitionFilter("no_competition")}
+                              className={sellCompetitionFilter === "no_competition" ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                            >
+                              No Competition
+                            </Button>
+                            <Button
+                              variant={sellCompetitionFilter === "with_competition" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSellCompetitionFilter("with_competition")}
+                              className={sellCompetitionFilter === "with_competition" ? "bg-amber-600 hover:bg-amber-700" : ""}
+                            >
+                              With Competition
                             </Button>
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                        <div className="flex items-center gap-2">
+                          <Label className="whitespace-nowrap">Sort by:</Label>
+                          <div className="flex gap-1">
+                            <Button
+                              variant={sellSortBy === "isk_per_day" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSellSortBy("isk_per_day")}
+                            >
+                              ISK/Day
+                            </Button>
+                            <Button
+                              variant={sellSortBy === "volume" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSellSortBy("volume")}
+                            >
+                              Volume
+                            </Button>
+                            <Button
+                              variant={sellSortBy === "price" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSellSortBy("price")}
+                            >
+                              Price
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="min-isk-day" className="whitespace-nowrap">Min ISK/Day:</Label>
+                          <Input
+                            id="min-isk-day"
+                            type="number"
+                            min={0}
+                            step={1000}
+                            value={sellMinIskPerDay}
+                            onChange={(e) => setSellMinIskPerDay(Math.max(0, parseInt(e.target.value) || 0))}
+                            className="w-28"
+                            placeholder="0"
+                          />
+                        </div>
+                        <span className="text-sm text-muted-foreground ml-auto">
+                          Showing {filteredSellItems.length} of {sellOrderData.items.length} items
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            const text = filteredSellItems
+                              .map(item => `${item.type_name} ${item.sell_price_eve}`)
+                              .join('\n')
+                            await navigator.clipboard.writeText(text)
+                            setSellCopySuccess(true)
+                            setTimeout(() => setSellCopySuccess(false), 2000)
+                          }}
+                          disabled={filteredSellItems.length === 0}
+                          className="gap-2"
+                        >
+                          {sellCopySuccess ? (
+                            <>
+                              <Check className="size-4" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="size-4" />
+                              Copy All ({filteredSellItems.length})
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-            {/* Safe Items List */}
-            {undercutData && undercutData.safe_items.length > 0 && (
-              <Card className="border-emerald-500/30">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2 text-emerald-600">
-                    <Check className="size-5" />
-                    Lowest Price ({undercutData.safe_items.length})
-                  </CardTitle>
-                  <CardDescription>
-                    You have the lowest price on these items
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {undercutData.safe_items.map((item) => (
-                      <div
-                        key={item.your_order_id}
-                        className="flex items-center gap-4 p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5"
-                      >
-                        <EveItemIcon typeId={item.type_id} size={32} className="size-8 rounded" />
-                        <div className="flex-1 min-w-0">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(item.type_name)
-                            }}
-                            className="font-medium truncate hover:underline cursor-pointer text-left"
-                            title="Click to copy item name"
+                {/* Error display */}
+                {sellOrderError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{sellOrderError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Summary Cards */}
+                {sellOrderData && (
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-muted">
+                            <Package className="size-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">{sellOrderData.summary.total_items}</p>
+                            <p className="text-sm text-muted-foreground">Total Items</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-emerald-500/50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-emerald-500/10">
+                            <Check className="size-6 text-emerald-500" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">{sellOrderData.summary.total_no_competition}</p>
+                            <p className="text-sm text-muted-foreground">No Competition</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-amber-500/50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-amber-500/10">
+                            <AlertTriangle className="size-6 text-amber-500" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">{sellOrderData.summary.total_with_competition}</p>
+                            <p className="text-sm text-muted-foreground">With Competition</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-blue-500/50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-blue-500/10">
+                            <DollarSign className="size-6 text-blue-500" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">{sellOrderData.summary.total_isk_per_day_formatted}</p>
+                            <p className="text-sm text-muted-foreground">Est. ISK/Day</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Sell Order Items Table */}
+                {sellOrderData && filteredSellItems.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <ShoppingCart className="size-5" />
+                        Sell Orders ({filteredSellItems.length} items)
+                      </CardTitle>
+                      <CardDescription>
+                        Sorted by ISK/day (highest first). Items with no competition use tiered markup pricing.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {filteredSellItems.map((item) => (
+                          <div
+                            key={item.type_id}
+                            className={`p-4 rounded-lg border transition-colors ${item.has_competition
+                              ? "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10"
+                              : "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10"
+                              }`}
                           >
-                            {item.type_name}
-                          </button>
-                          <p className="text-xs text-muted-foreground">
-                            {item.your_volume_remain} units remaining
+                            {/* Top row: Item info */}
+                            <div className="flex items-center gap-4 mb-3">
+                              <EveItemIcon typeId={item.type_id} size={32} className="size-8 rounded" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{item.type_name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.quantity.toLocaleString()} units in inventory
+                                </p>
+                              </div>
+                              <Badge
+                                variant="secondary"
+                                className={item.has_competition ? "bg-amber-500/20 text-amber-600" : "bg-emerald-500/20 text-emerald-600"}
+                              >
+                                {item.has_competition ? "Competition" : "No Competition"}
+                              </Badge>
+                            </div>
+
+                            {/* Stats row */}
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="flex-1 grid grid-cols-4 gap-4">
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Sell Price</p>
+                                  <p className="font-medium">{item.sell_price_formatted}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Jita Price</p>
+                                  <p className="font-medium text-muted-foreground">{item.jita_price_formatted}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Vol/Day (0.05%)</p>
+                                  <p className="font-medium">{item.estimated_daily_sales.toFixed(2)} units</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">ISK/Day</p>
+                                  <p className="font-medium text-blue-500">{item.isk_per_day_formatted}</p>
+                                </div>
+                              </div>
+
+                              {/* Copy buttons */}
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="min-w-[100px]"
+                                  onClick={() => copySellItemName(item)}
+                                >
+                                  {sellCopiedNameId === item.type_id ? (
+                                    <>
+                                      <Check className="size-4 mr-2 text-emerald-500" />
+                                      Copied!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="size-4 mr-2" />
+                                      Name
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="min-w-[140px] font-mono"
+                                  onClick={() => copySellPrice(item)}
+                                >
+                                  {sellCopiedPriceId === item.type_id ? (
+                                    <>
+                                      <Check className="size-4 mr-2 text-emerald-500" />
+                                      Copied!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="size-4 mr-2" />
+                                      {item.sell_price_eve}
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Empty state */}
+                {!sellOrderData && !sellOrderLoading && !sellOrderError && (
+                  <Card className="border-dashed">
+                    <CardContent className="py-12">
+                      <div className="text-center space-y-4">
+                        <div className="mx-auto size-12 rounded-full bg-muted flex items-center justify-center">
+                          <ShoppingCart className="size-6 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">Generate Sell Orders</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Click &quot;Generate Sell Orders&quot; to analyze your 3T7 inventory and get optimal sell prices
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm text-muted-foreground">Your Price</p>
-                          <p className="font-medium text-emerald-600">{item.your_price_formatted}</p>
-                        </div>
-                        {item.next_competitor_price_formatted && (
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">Next Competitor</p>
-                            <p className="font-medium">{item.next_competitor_price_formatted}</p>
-                          </div>
-                        )}
-                        <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-600">
-                          <Check className="size-3 mr-1" />
-                          Lowest
-                        </Badge>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                    </CardContent>
+                  </Card>
+                )}
 
-            {/* Empty state */}
-            {!undercutData && !undercutLoading && !undercutError && (
-              <Card className="border-dashed">
-                <CardContent className="py-12">
-                  <div className="text-center space-y-4">
-                    <div className="mx-auto size-12 rounded-full bg-muted flex items-center justify-center">
-                      <Minus className="size-6 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Check Your Orders</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Click &quot;Check Undercuts&quot; to see if competitors have undercut your sell orders in the structure
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                {/* No items state */}
+                {sellOrderData && sellOrderData.items.length === 0 && (
+                  <Alert>
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                      No sellable items found in your 3T7 inventory. Items need Jita price data to generate sell orders.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-            {/* No undercuts state */}
-            {undercutData && undercutData.undercut_items.length === 0 && undercutData.safe_items.length > 0 && (
-              <Alert>
-                <Check className="size-4 text-emerald-500" />
-                <AlertDescription>
-                  All your orders have the lowest price! No action needed.
-                </AlertDescription>
-              </Alert>
-            )}
+                {/* All items filtered out */}
+                {sellOrderData && sellOrderData.items.length > 0 && filteredSellItems.length === 0 && (
+                  <Alert>
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                      All {sellOrderData.items.length} items filtered out. Try lowering the minimum quantity filter.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-            {/* No orders in structure */}
-            {undercutData && undercutData.summary.total_orders_in_structure === 0 && (
-              <Alert>
-                <AlertCircle className="size-4" />
-                <AlertDescription>
-                  You have no sell orders in this structure. Place some orders first to track undercuts.
-                </AlertDescription>
-              </Alert>
-            )}
+                {/* Do Not Sell Section */}
+                {sellOrderData && (doNotSellItems.existingOrders.length > 0 || doNotSellItems.filteredOut.length > 0) && (
+                  <Collapsible>
+                    <Card className="border-muted">
+                      <CollapsibleTrigger asChild>
+                        <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Ban className="size-4 text-muted-foreground" />
+                              Do Not Sell ({doNotSellItems.existingOrders.length + doNotSellItems.filteredOut.length} items)
+                            </CardTitle>
+                            <ChevronDown className="size-4 text-muted-foreground" />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="pt-0 space-y-4">
+                          {/* Existing Orders */}
+                          {doNotSellItems.existingOrders.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                                <ShoppingCart className="size-4 text-blue-500" />
+                                Has Existing Orders ({doNotSellItems.existingOrders.length})
+                              </h4>
+                              <div className="space-y-1 max-h-48 overflow-y-auto">
+                                {doNotSellItems.existingOrders.map((item) => (
+                                  <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-blue-500/5 rounded">
+                                    <EveItemIcon typeId={item.type_id} size={20} className="size-5 shrink-0" />
+                                    <span className="flex-1 truncate">{item.type_name}</span>
+                                    <span className="text-muted-foreground font-mono text-xs">{item.quantity.toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-            {/* Tick size info */}
-            <div className="text-xs text-muted-foreground flex items-center gap-2">
-              <HelpCircle className="size-4" />
-              <span>
-                Undercut prices respect EVE&apos;s 4 significant figure tick size (e.g., 1M ISK items have 100 ISK ticks)
-              </span>
-            </div>
+                          {/* Filtered Out */}
+                          {doNotSellItems.filteredOut.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                                <Filter className="size-4 text-amber-500" />
+                                Filtered Out ({doNotSellItems.filteredOut.length})
+                              </h4>
+                              <div className="space-y-1 max-h-48 overflow-y-auto">
+                                {doNotSellItems.filteredOut.map((item) => (
+                                  <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-amber-500/5 rounded">
+                                    <EveItemIcon typeId={item.type_id} size={20} className="size-5 shrink-0" />
+                                    <span className="flex-1 truncate">{item.type_name}</span>
+                                    <span className="text-muted-foreground font-mono text-xs">{item.quantity.toLocaleString()}</span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {item.reason === 'quantity' ? 'Low Qty'
+                                        : item.reason === 'isk_per_day' ? 'Low ISK/Day'
+                                          : item.reason === 'competition' ? 'Has Competition'
+                                            : item.reason === 'no_competition' ? 'No Competition'
+                                              : 'Filter'}
+                                    </Badge>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                )}
+
+                {/* Pricing info */}
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <HelpCircle className="size-4" />
+                  <span>
+                    No competition: tiered markup (4x for &lt;500K, 3x for &lt;2M, 2x for &lt;10M, 1.7x for &lt;50M, 1.4x for ≥50M). With competition: 1-tick undercut.
+                  </span>
+                </div>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </div>

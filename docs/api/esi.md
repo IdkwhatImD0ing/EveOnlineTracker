@@ -997,6 +997,110 @@ Examples:
 
 ---
 
+### GET /api/esi/sell-order-generator
+
+Generates optimal sell prices for character assets in a structure. Uses tiered markup for items with no competition and 1-tick undercut for items with competition. Items that already have existing sell orders are excluded from results.
+
+**Authentication:** Required (EVE SSO Bearer token)
+
+**Required Scopes:**
+- `esi-assets.read_assets.v1` - To read your character's assets
+- `esi-markets.read_character_orders.v1` - To check your existing sell orders
+- `esi-markets.structure_markets.v1` - To read structure market orders
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| structure_id | string | No | 1051567430261 | Structure ID (default: 3T7-M8 Keepstar) |
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| Authorization | Yes | Bearer token from EVE SSO |
+
+**Example Request:**
+```bash
+curl -X GET "http://localhost:3000/api/esi/sell-order-generator?structure_id=1051567430261" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Success Response (200):**
+```json
+{
+  "items": [
+    {
+      "type_id": 2048,
+      "type_name": "Damage Control II",
+      "quantity": 50,
+      "has_competition": false,
+      "jita_price": 450000,
+      "jita_price_formatted": "450.00K ISK",
+      "competitor_price": null,
+      "competitor_price_formatted": null,
+      "sell_price": 1800000,
+      "sell_price_formatted": "1.80M ISK",
+      "sell_price_eve": "1,800,000.00",
+      "vale_daily_volume": 2500,
+      "estimated_daily_sales": 125,
+      "isk_per_day": 225000000,
+      "isk_per_day_formatted": "225.00M ISK"
+    }
+  ],
+  "summary": {
+    "total_items": 45,
+    "total_with_competition": 12,
+    "total_no_competition": 33,
+    "total_isk_per_day": 500000000,
+    "total_isk_per_day_formatted": "500.00M ISK"
+  },
+  "timing": {
+    "total_ms": 3500
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| items | array | Array of sell order recommendations, sorted by isk_per_day descending |
+| summary.total_items | number | Total items with price data |
+| summary.total_with_competition | number | Items with existing sell orders |
+| summary.total_no_competition | number | Items with no existing sell orders |
+| summary.total_isk_per_day | number | Estimated total daily revenue |
+| summary.filtered_out_existing_orders | number | Items excluded because you have sell orders |
+
+**Item Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| type_id | number | EVE type ID |
+| type_name | string | Item name |
+| quantity | number | Quantity in inventory at the structure |
+| has_competition | boolean | Whether there are existing sell orders |
+| jita_price | number | Current Jita sell price |
+| sell_price | number | Recommended sell price |
+| sell_price_eve | string | Copy-pasteable format for EVE (e.g., "1,800,000.00") |
+| vale_daily_volume | number | Average daily volume in Vale of the Silent |
+| estimated_daily_sales | number | Vale volume × 5% hub factor |
+| isk_per_day | number | estimated_daily_sales × sell_price |
+
+**Pricing Logic:**
+
+No Competition (Tiered Markup based on Jita price):
+- < 500K ISK: 4.0x markup (~300% margin)
+- < 2M ISK: 3.0x markup (~200% margin)
+- < 10M ISK: 2.0x markup (~100% margin)
+- < 50M ISK: 1.7x markup (~70% margin)
+- >= 50M ISK: 1.4x markup (~40% margin)
+
+With Competition:
+- Price = Lowest competitor price - 1 tick (respects EVE's 4 significant figure precision)
+
+---
+
 ## Related Files
 
 - `app/api/esi/keepstar-3t7/route.ts` - Keepstar search implementation
@@ -1005,11 +1109,13 @@ Examples:
 - `app/api/esi/wallet/route.ts` - Character wallet balance
 - `app/api/esi/character-orders/route.ts` - Character market orders
 - `app/api/esi/undercut-check/route.ts` - Undercut tracker implementation
+- `app/api/esi/sell-order-generator/route.ts` - Sell order generator implementation
 - `app/api/sell-opportunities/route.ts` - Sell opportunities analysis
 - `app/api/esi/market-history/route.ts` - Market history batch implementation
 - `app/api/esi/market-history-test/route.ts` - Market history test implementation
 - `app/api/esi/market-history-raw/route.ts` - Raw market history debug endpoint
 - `lib/market-analysis.ts` - Market analysis utilities including tick size calculations
+- `lib/market-seeder.ts` - Market seeder utilities including tiered markup pricing
 - `data/tradeable-items.jsonl` - Source file for tradeable items
 - `vercel.json` - Cron job configuration
 

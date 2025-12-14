@@ -163,7 +163,7 @@ const [blueprintTe, setBlueprintTe] = useState(0)
 // Location
 const [systemName, setSystemName] = useState("3t7-m8")
 const [systemSecurity, setSystemSecurity] = useState<number | null>(-0.5)
-const [facilityTax, setFacilityTax] = useState(0)
+const [facilityTax, setFacilityTax] = useState(0.25)
 
 // Structure
 const [structureType, setStructureType] = useState("sotiyo")

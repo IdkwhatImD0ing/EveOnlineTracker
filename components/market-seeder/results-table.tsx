@@ -42,6 +42,8 @@ export interface ProfitAnalysis {
   profitMarginPctFormatted: string
   profitPerM3: number
   profitPerM3Formatted: string
+  iskPerDay: number
+  iskPerDayFormatted: string
   avgDailyVolume: number
   totalVolume30d: number
   trendDirection: "up" | "down" | "stable"
@@ -54,7 +56,7 @@ export type SortColumn =
   | "score"
   | "margin"
   | "profit"
-  | "iskPerM3"
+  | "iskPerDay"
   | "competition"
   | "volume"
 
@@ -209,8 +211,8 @@ export function ResultsTable({
         case "profit":
           comparison = a.profitPerUnit - b.profitPerUnit
           break
-        case "iskPerM3":
-          comparison = a.profitPerM3 - b.profitPerM3
+        case "iskPerDay":
+          comparison = a.iskPerDay - b.iskPerDay
           break
         case "competition":
           comparison = (a.hasCompetition ? 1 : 0) - (b.hasCompetition ? 1 : 0)
@@ -317,8 +319,8 @@ export function ResultsTable({
             className="w-24 justify-end"
           />
           <SortableHeader
-            label="ISK/m³"
-            column="iskPerM3"
+            label="ISK/Day"
+            column="iskPerDay"
             currentColumn={sortColumn}
             direction={sortDirection}
             onSort={handleSort}
@@ -385,7 +387,7 @@ export function ResultsTable({
                   <div className="w-24 text-right">
                     {item.profitPerUnitFormatted}
                   </div>
-                  <div className="w-24 text-right">{item.profitPerM3Formatted}</div>
+                  <div className="w-24 text-right">{item.iskPerDayFormatted}</div>
                   <div className="w-28 flex justify-center">
                     <Badge variant={item.hasCompetition ? "secondary" : "default"}>
                       {item.hasCompetition ? "Yes" : "No"}
