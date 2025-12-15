@@ -1,79 +1,85 @@
 # Authentication API
 
-EVE SSO (Single Sign-On) authentication endpoints for obtaining OAuth tokens.
+EVE SSO (Single Sign-On) authentication endpoints with multi-account (alt) support.
 
 ## Overview
 
-These endpoints implement EVE Online's OAuth 2.0 Authorization Code flow. They are primarily used to obtain refresh tokens for use in external scripts or cron jobs.
+The application uses EVE Online's OAuth 2.0 Authorization Code flow for authentication. Users authenticate with their EVE character, which becomes their main. They can link additional alt characters to their account.
+
+Access is controlled via an `allowed` flag in the database - new users start with `allowed = false` and must be approved by an administrator.
+
+## Authentication Flow
+
+```
+┌──────────┐     1. Visit app        ┌─────────────────────┐
+│  Client  │ ───────────────────────> │    AuthGate         │
+└──────────┘                         └─────────────────────┘
+                                              │
+                                    2. Check session cookie
+                                              │
+                                              ▼
+                                    ┌─────────────────────┐
+                                    │ Session exists?     │
+                                    └─────────────────────┘
+                                       │            │
+                                      No           Yes
+                                       │            │
+                                       ▼            ▼
+                            ┌──────────────┐  ┌──────────────┐
+                            │ Show Login   │  │ User allowed?│
+                            └──────────────┘  └──────────────┘
+                                   │               │     │
+                                   │              No    Yes
+                                   │               │     │
+                                   ▼               ▼     ▼
+                            EVE SSO OAuth   Pending   Show App
+                                   │        Approval
+                                   ▼
+                            ┌──────────────────┐
+                            │ Character exists │
+                            │ in database?     │
+                            └──────────────────┘
+                               │            │
+                              Yes           No
+                               │            │
+                               ▼            ▼
+                         Login user    Create new user
+                         (set cookie)  (allowed=false)
+```
 
 ## Endpoints
 
 ### GET /api/auth/eve/login
 
-Initiates the EVE SSO authentication flow by redirecting to EVE's authorization page.
+Initiates the EVE SSO authentication flow for login.
 
-**Authentication:** None required
-
-**Response:** 302 Redirect to `https://login.eveonline.com/v2/oauth/authorize`
+**Response:** 302 Redirect to EVE SSO authorization page
 
 **Flow:**
-1. Generates a random state for CSRF protection
-2. Stores state in an HTTP-only cookie (10 minute expiry)
+1. Generates random state for CSRF protection
+2. Stores state in HTTP-only cookie (10 minute expiry)
 3. Redirects to EVE SSO with configured scopes
 
-**Configured Scopes:**
+---
 
-The login endpoint requests a comprehensive set of ESI scopes to enable full functionality:
+### GET /api/auth/eve/add-alt
 
-| Category | Scopes |
-|----------|--------|
-| **Public** | `publicData` |
-| **Calendar** | `esi-calendar.respond_calendar_events.v1`, `esi-calendar.read_calendar_events.v1` |
-| **Location** | `esi-location.read_location.v1`, `esi-location.read_ship_type.v1`, `esi-location.read_online.v1` |
-| **Mail** | `esi-mail.organize_mail.v1`, `esi-mail.read_mail.v1`, `esi-mail.send_mail.v1` |
-| **Skills** | `esi-skills.read_skills.v1`, `esi-skills.read_skillqueue.v1` |
-| **Wallet** | `esi-wallet.read_character_wallet.v1`, `esi-wallet.read_corporation_wallet.v1`, `esi-wallet.read_corporation_wallets.v1` |
-| **Search & Universe** | `esi-search.search_structures.v1`, `esi-universe.read_structures.v1` |
-| **Clones** | `esi-clones.read_clones.v1`, `esi-clones.read_implants.v1` |
-| **Characters** | `esi-characters.read_contacts.v1`, `esi-characters.write_contacts.v1`, `esi-characters.read_loyalty.v1`, `esi-characters.read_chat_channels.v1`, `esi-characters.read_medals.v1`, `esi-characters.read_standings.v1`, `esi-characters.read_agents_research.v1`, `esi-characters.read_blueprints.v1`, `esi-characters.read_corporation_roles.v1`, `esi-characters.read_fatigue.v1`, `esi-characters.read_notifications.v1`, `esi-characters.read_titles.v1`, `esi-characters.read_fw_stats.v1`, `esi-characters.read_freelance_jobs.v1` |
-| **Killmails** | `esi-killmails.read_killmails.v1`, `esi-killmails.read_corporation_killmails.v1` |
-| **Corporations** | `esi-corporations.read_corporation_membership.v1`, `esi-corporations.read_structures.v1`, `esi-corporations.track_members.v1`, `esi-corporations.read_divisions.v1`, `esi-corporations.read_contacts.v1`, `esi-corporations.read_titles.v1`, `esi-corporations.read_blueprints.v1`, `esi-corporations.read_standings.v1`, `esi-corporations.read_starbases.v1`, `esi-corporations.read_container_logs.v1`, `esi-corporations.read_facilities.v1`, `esi-corporations.read_medals.v1`, `esi-corporations.read_fw_stats.v1`, `esi-corporations.read_projects.v1`, `esi-corporations.read_freelance_jobs.v1` |
-| **Assets** | `esi-assets.read_assets.v1`, `esi-assets.read_corporation_assets.v1` |
-| **Planets (PI)** | `esi-planets.manage_planets.v1`, `esi-planets.read_customs_offices.v1` |
-| **Fleets** | `esi-fleets.read_fleet.v1`, `esi-fleets.write_fleet.v1` |
-| **UI** | `esi-ui.open_window.v1`, `esi-ui.write_waypoint.v1` |
-| **Fittings** | `esi-fittings.read_fittings.v1`, `esi-fittings.write_fittings.v1` |
-| **Markets** | `esi-markets.structure_markets.v1`, `esi-markets.read_character_orders.v1`, `esi-markets.read_corporation_orders.v1` |
-| **Industry** | `esi-industry.read_character_jobs.v1`, `esi-industry.read_corporation_jobs.v1`, `esi-industry.read_character_mining.v1`, `esi-industry.read_corporation_mining.v1` |
-| **Contracts** | `esi-contracts.read_character_contracts.v1`, `esi-contracts.read_corporation_contracts.v1` |
-| **Alliances** | `esi-alliances.read_contacts.v1` |
+Initiates the EVE SSO authentication flow to add an alt character.
 
-> **Note:** These scopes must also be enabled in your EVE Developer Application at [developers.eveonline.com](https://developers.eveonline.com)
+**Authentication:** Requires active session (user must be logged in)
 
-**Environment Variables Required:**
-- `EVE_CLIENT_ID` - Your EVE application client ID
+**Response:** 302 Redirect to EVE SSO authorization page
 
-> Note: The callback URL is auto-detected based on the environment. Locally it uses `http://localhost:3000/callback`, on Vercel production it uses `https://eve.art3m1s.me/callback`.
-
-**Example Usage:**
-```html
-<a href="/api/auth/eve/login">Login with EVE SSO</a>
-```
-
-**Error Response (500):**
-```json
-{
-  "error": "EVE_CLIENT_ID not configured"
-}
-```
+**Flow:**
+1. Verifies user is authenticated
+2. Generates state with `add_alt` marker
+3. Redirects to EVE SSO
 
 ---
 
 ### POST /api/auth/eve/callback
 
-Exchanges the authorization code for access and refresh tokens.
-
-**Authentication:** None required (uses state cookie for CSRF protection)
+Exchanges the authorization code for tokens and creates/updates user.
 
 **Request Body:**
 ```json
@@ -83,168 +89,214 @@ Exchanges the authorization code for access and refresh tokens.
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| code | string | Yes | Authorization code from EVE SSO callback |
-| state | string | Yes | State parameter for CSRF validation |
-
-**Success Response (200):**
+**Success Response (Login):**
 ```json
 {
-  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "gEy...refresh_token_value",
+  "success": true,
+  "mode": "login",
+  "user": {
+    "id": "uuid",
+    "main_character_name": "Character Name",
+    "allowed": true
+  },
+  "is_new": false
+}
+```
+
+**Success Response (Add Alt):**
+```json
+{
+  "success": true,
+  "mode": "add_alt",
+  "character": {
+    "character_id": 12345678,
+    "character_name": "Alt Character"
+  }
+}
+```
+
+**Behavior:**
+- For login: Creates user if new, updates tokens if existing
+- For add_alt: Links character to current user's account
+- Sets session cookie on successful login
+
+---
+
+### GET /api/auth/session
+
+Returns the current user's session information.
+
+**Success Response (Authenticated):**
+```json
+{
+  "authenticated": true,
+  "user": {
+    "id": "uuid",
+    "main_character_id": 12345678,
+    "main_character_name": "Main Character",
+    "allowed": true
+  },
+  "characters": [
+    {
+      "id": "uuid",
+      "character_id": 12345678,
+      "character_name": "Main Character",
+      "is_main": true
+    },
+    {
+      "id": "uuid",
+      "character_id": 87654321,
+      "character_name": "Alt Character",
+      "is_main": false
+    }
+  ]
+}
+```
+
+**Response (Not Authenticated):**
+```json
+{
+  "authenticated": false
+}
+```
+
+---
+
+### POST /api/auth/logout
+
+Clears the session cookie and logs the user out.
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+---
+
+### POST /api/auth/eve/refresh
+
+Refreshes an EVE SSO access token using a refresh token.
+
+**Request Body:**
+```json
+{
+  "refresh_token": "..."
+}
+```
+
+**Success Response:**
+```json
+{
+  "access_token": "new_access_token",
+  "refresh_token": "new_refresh_token",
   "expires_in": 1199,
   "token_type": "Bearer"
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| access_token | string | JWT access token for ESI calls (valid ~20 minutes) |
-| refresh_token | string | Long-lived token to obtain new access tokens |
-| expires_in | number | Seconds until access token expires |
-| token_type | string | Always "Bearer" |
-
-**Error Responses:**
-
-*Missing code (400):*
-```json
-{
-  "error": "Authorization code is required"
-}
-```
-
-*Invalid state (400):*
-```json
-{
-  "error": "Invalid state parameter - possible CSRF attack"
-}
-```
-
-*Token exchange failed (500):*
-```json
-{
-  "error": "Token exchange failed: invalid_grant"
-}
-```
-
-**Environment Variables Required:**
-- `EVE_CLIENT_ID` - Your EVE application client ID
-- `EVE_CLIENT_SECRET` - Your EVE application client secret
-
 ---
 
-## OAuth Flow Diagram
+## Character Management
 
-```
-┌──────────┐     1. Click Login     ┌─────────────────────┐
-│  Client  │ ─────────────────────> │ /api/auth/eve/login │
-└──────────┘                        └─────────────────────┘
-                                              │
-                                    2. Generate state,
-                                       set cookie,
-                                       redirect
-                                              │
-                                              ▼
-                                    ┌─────────────────────┐
-                                    │   EVE SSO Server    │
-                                    │ login.eveonline.com │
-                                    └─────────────────────┘
-                                              │
-                                    3. User authenticates,
-                                       grants permissions
-                                              │
-                                              ▼
-┌──────────┐     4. Redirect with   ┌─────────────────────┐
-│  Client  │ <───── code & state ── │      /callback      │
-└──────────┘                        └─────────────────────┘
-      │
-      │ 5. POST code & state
-      ▼
-┌───────────────────────────┐
-│ /api/auth/eve/callback    │
-└───────────────────────────┘
-      │
-      │ 6. Validate state cookie
-      │ 7. Exchange code for tokens
-      │
-      ▼
-┌───────────────────────────┐
-│  Return tokens to client  │
-└───────────────────────────┘
+### GET /api/characters
+
+Returns all characters linked to the current user.
+
+**Success Response:**
+```json
+{
+  "characters": [
+    {
+      "id": "uuid",
+      "character_id": 12345678,
+      "character_name": "Character Name",
+      "is_main": true,
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  ]
+}
 ```
 
 ---
 
-## Using Tokens
+### DELETE /api/characters
 
-### Access Token
+Removes a character from the user's account.
 
-Use the access token for ESI API calls:
-
-```typescript
-const response = await fetch('https://esi.evetech.net/latest/characters/123456/', {
-  headers: {
-    'Authorization': `Bearer ${accessToken}`,
-    'Accept': 'application/json'
-  }
-})
+**Request Body:**
+```json
+{
+  "character_id": 87654321
+}
 ```
 
-### Refresh Token
+**Note:** Cannot remove the main character. Set a different main first.
 
-Use the refresh token to get new access tokens when they expire:
+---
 
-```typescript
-const response = await fetch('https://login.eveonline.com/v2/oauth/token', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-    'Content-Type': 'application/x-www-form-urlencoded',
-  },
-  body: new URLSearchParams({
-    grant_type: 'refresh_token',
-    refresh_token: storedRefreshToken,
-  }),
-})
+### POST /api/characters/[id]/main
+
+Sets the specified character as the user's main character.
+
+**URL Parameter:** `id` - EVE character ID
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Main character updated successfully"
+}
 ```
 
 ---
 
-## Parsing the Access Token
+## Session Management
 
-The access token is a JWT containing character information:
+Sessions are stored in HTTP-only cookies for security:
 
-```typescript
-function parseJWT(token: string) {
-  const base64Url = token.split('.')[1]
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-  const payload = JSON.parse(atob(base64))
-  
-  return {
-    character_id: parseInt(payload.sub.split(':')[2]),
-    character_name: payload.name,
-    scopes: payload.scp,
-    expires: new Date(payload.exp * 1000)
-  }
-}
-```
+- **Cookie Name:** `eve_session`
+- **Contents:** User ID (UUID)
+- **Max Age:** 30 days
+- **Flags:** HttpOnly, Secure (in production), SameSite=Lax
+
+Tokens are stored in the database:
+- Access tokens are cached and refreshed automatically when expired
+- Refresh tokens are stored securely per character
+
+---
+
+## Access Control
+
+New users are created with `allowed = false`. To grant access:
+
+1. Login to Supabase dashboard
+2. Navigate to the `users` table
+3. Find the user by `main_character_name`
+4. Set `allowed = true`
 
 ---
 
 ## Security Considerations
 
-1. **State Parameter**: Always validate the state parameter matches the cookie to prevent CSRF attacks
-2. **HTTP-Only Cookie**: The state is stored in an HTTP-only cookie to prevent XSS access
-3. **Token Storage**: Store refresh tokens securely; they grant access to your EVE account
-4. **Client Secret**: Never expose the client secret in client-side code
+1. **Session Cookies**: HTTP-only cookies prevent XSS access
+2. **CSRF Protection**: State parameter validated on callback
+3. **Token Storage**: Refresh tokens stored in database, not client
+4. **Service Role**: Database access uses server-side service role key
 
 ---
 
 ## Related Files
 
+- `lib/auth.ts` - Auth utilities and session management
 - `lib/eve-sso.ts` - SSO helper functions
-- `app/api/auth/eve/login/route.ts` - Login route implementation
-- `app/api/auth/eve/callback/route.ts` - Callback route implementation
-- `app/callback/page.tsx` - Callback UI page
-
+- `types/auth.ts` - TypeScript types
+- `app/api/auth/eve/login/route.ts` - Login route
+- `app/api/auth/eve/add-alt/route.ts` - Add alt route
+- `app/api/auth/eve/callback/route.ts` - Callback route
+- `app/api/auth/session/route.ts` - Session route
+- `app/api/auth/logout/route.ts` - Logout route
+- `app/api/characters/route.ts` - Character management
+- `components/auth-gate.tsx` - Auth gate component

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSystemCostIndex } from '@/lib/esi'
+import { getAuthenticatedUser } from '@/lib/auth'
 
 // Pre-defined popular systems
 const POPULAR_SYSTEMS = [
@@ -13,6 +14,16 @@ const POPULAR_SYSTEMS = [
 ]
 
 export async function GET(request: NextRequest) {
+  const session = await getAuthenticatedUser()
+
+  if (!session) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  if (!session.user.allowed) {
+    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  }
+
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get('q') || ''
   
@@ -33,6 +44,16 @@ export async function GET(request: NextRequest) {
 // Get cost index for a specific system by name
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const { systemName, activityId = 1 } = await request.json()
     
     if (!systemName) {

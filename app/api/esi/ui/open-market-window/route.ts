@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -10,14 +11,20 @@ const ESI_BASE = 'https://esi.evetech.net'
  * 
  * Query Parameters:
  * - type_id: The item type ID to open in the market window
- * 
- * Headers:
- * - Authorization: Bearer token with esi-ui.open_window.v1 scope
  */
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const typeId = request.nextUrl.searchParams.get('type_id')
-    const authHeader = request.headers.get('authorization')
 
     if (!typeId) {
       return NextResponse.json(
@@ -26,9 +33,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!authHeader) {
+    // Get access token from session
+    const authToken = await getValidAccessToken()
+    
+    if (!authToken) {
       return NextResponse.json(
-        { error: 'Authorization header is required' },
+        { error: 'Not authenticated. Login with EVE SSO first.' },
         { status: 401 }
       )
     }
@@ -39,7 +49,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch(esiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': authHeader,
+        'Authorization': `Bearer ${authToken}`,
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'X-Compatibility-Date': '2025-11-06',

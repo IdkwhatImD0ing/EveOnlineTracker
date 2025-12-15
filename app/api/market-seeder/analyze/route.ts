@@ -29,6 +29,7 @@ import {
   type ProfitAnalysis,
   MARKET_SEEDER_DEFAULTS,
 } from '@/types/market-seeder'
+import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
 
 /**
  * Format ISK value with proper formatting
@@ -214,6 +215,16 @@ async function handleStreamingRequest(
 }
 
 export async function GET(request: NextRequest) {
+  const session = await getAuthenticatedUser()
+
+  if (!session) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  if (!session.user.allowed) {
+    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  }
+
   const startTime = Date.now()
   const searchParams = request.nextUrl.searchParams
   
@@ -224,9 +235,6 @@ export async function GET(request: NextRequest) {
   const transportCost = parseFloat(searchParams.get('transportCost') || String(MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3))
   const days = parseInt(searchParams.get('days') || String(MARKET_SEEDER_DEFAULTS.DAYS_TO_ANALYZE))
   const streamMode = searchParams.get('stream') === 'true'
-  
-  // Get authorization header
-  const authHeader = request.headers.get('authorization')
   
   // Validate required parameters
   if (!structureId) {
@@ -240,19 +248,19 @@ export async function GET(request: NextRequest) {
     )
   }
   
-  if (!authHeader) {
+  // Get access token from session
+  const authToken = await getValidAccessToken()
+  
+  if (!authToken) {
     return NextResponse.json(
       { 
         success: false,
-        error: 'Authorization header required',
+        error: 'Not authenticated',
         details: 'Login with EVE SSO first (requires esi-markets.structure_markets.v1 scope)'
       },
       { status: 401 }
     )
   }
-  
-  // Extract token from Bearer header
-  const authToken = authHeader.replace(/^Bearer\s+/i, '')
 
   // If streaming mode, use SSE
   if (streamMode) {

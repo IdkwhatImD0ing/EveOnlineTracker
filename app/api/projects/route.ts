@@ -2,11 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAppraisal } from '@/lib/janice'
 import { getGroupNamesBatch } from '@/lib/sde'
+import { getAuthenticatedUser } from '@/lib/auth'
 import type { CreateProjectRequest, Project } from '@/types/database'
 
 // GET /api/projects - List all projects
 export async function GET() {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const supabase = createClient()
 
     const { data: projects, error } = await supabase
@@ -31,6 +42,16 @@ export async function GET() {
 // POST /api/projects - Create a new project
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const body: CreateProjectRequest = await request.json()
     const { name, rawMaterialsInput, componentsInput, structuredData } = body
 

@@ -12,6 +12,7 @@ import {
 } from '@/lib/blueprints'
 import { getSystemCostIndex, getJobBaseCosts } from '@/lib/esi'
 import { createAppraisal } from '@/lib/janice'
+import { getAuthenticatedUser } from '@/lib/auth'
 
 export interface CalculateRequest {
   blueprintTypeId: number
@@ -106,6 +107,16 @@ export interface CalculateResponse {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const body: CalculateRequest = await request.json()
     
     // Validate required fields

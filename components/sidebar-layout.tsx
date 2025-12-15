@@ -6,48 +6,21 @@ import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface CharacterInfo {
+  id: string
   character_id: number
   character_name: string
+  is_main: boolean
 }
 
-// Parse JWT to get character info
-function parseJWT(token: string): CharacterInfo | null {
-  try {
-    const base64Url = token.split('.')[1]
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    )
-    const payload = JSON.parse(jsonPayload)
-    const characterId = parseInt(payload.sub.split(':')[2])
-    return {
-      character_id: characterId,
-      character_name: payload.name,
-    }
-  } catch {
-    return null
+interface SessionData {
+  authenticated: boolean
+  user?: {
+    id: string
+    main_character_id: number
+    main_character_name: string
+    allowed: boolean
   }
-}
-
-// Get initial character info from localStorage
-function getInitialCharacterInfo(): CharacterInfo | null {
-  if (typeof window === "undefined") return null
-  
-  try {
-    const storedTokens = localStorage.getItem("eve_sso_tokens")
-    if (storedTokens) {
-      const tokens = JSON.parse(storedTokens)
-      if (tokens.access_token) {
-        return parseJWT(tokens.access_token)
-      }
-    }
-  } catch {
-    // Invalid JSON or SSR
-  }
-  return null
+  characters?: CharacterInfo[]
 }
 
 interface SidebarLayoutProps {
@@ -55,13 +28,24 @@ interface SidebarLayoutProps {
 }
 
 export function SidebarLayout({ children }: SidebarLayoutProps) {
-  const [characterInfo, setCharacterInfo] = useState<CharacterInfo | null>(null)
+  const [session, setSession] = useState<SessionData | null>(null)
   const [hydrated, setHydrated] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("eve_sso_tokens")
-    setCharacterInfo(null)
+  const fetchSession = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/session")
+      const data: SessionData = await response.json()
+      setSession(data)
+    } catch (error) {
+      console.error("Failed to fetch session:", error)
+      setSession({ authenticated: false })
+    }
+  }, [])
+
+  const handleLogout = useCallback(async () => {
+    await fetch("/api/auth/logout", { method: "POST" })
+    setSession({ authenticated: false })
     window.location.href = "/"
   }, [])
 
@@ -72,20 +56,8 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   // Hydrate on client
   useEffect(() => {
     setHydrated(true)
-    setCharacterInfo(getInitialCharacterInfo())
-  }, [])
-
-  // Listen for storage changes (e.g., login in another tab)
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "eve_sso_tokens") {
-        setCharacterInfo(getInitialCharacterInfo())
-      }
-    }
-    
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
-  }, [])
+    fetchSession()
+  }, [fetchSession])
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -109,6 +81,8 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
     )
   }
 
+  const mainCharacter = session?.characters?.find(c => c.is_main) || session?.characters?.[0]
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Mobile Header Bar */}
@@ -127,19 +101,20 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
           </div>
           <span className="font-semibold text-foreground text-sm">Tracker</span>
         </div>
-        {characterInfo && (
+        {mainCharacter && (
           <img
-            src={`https://images.evetech.net/characters/${characterInfo.character_id}/portrait?size=64`}
-            alt={characterInfo.character_name}
+            src={`https://images.evetech.net/characters/${mainCharacter.character_id}/portrait?size=64`}
+            alt={mainCharacter.character_name}
             className="size-8 rounded-full ring-2 ring-primary/20 ml-auto"
           />
         )}
       </div>
 
       <Sidebar
-        characterName={characterInfo?.character_name}
-        characterId={characterInfo?.character_id}
-        onLogout={characterInfo ? handleLogout : undefined}
+        mainCharacter={mainCharacter || null}
+        allCharacters={session?.characters || []}
+        onLogout={session?.authenticated ? handleLogout : undefined}
+        onCharacterChange={fetchSession}
         isMobileOpen={mobileMenuOpen}
         onMobileClose={handleMobileClose}
       />

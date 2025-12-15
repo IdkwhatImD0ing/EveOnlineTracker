@@ -3,6 +3,8 @@ import { createClient } from '@/utils/supabase/server'
 import { calculateUndercutPrice, formatPriceForEve, formatISK } from '@/lib/market-analysis'
 import { getNoCompetitionMarkup } from '@/lib/market-seeder'
 import { REGION_IDS, VALE_HUB_FACTOR } from '@/types/market-seeder'
+import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
+import type { CharacterToken } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net/latest'
 const DEFAULT_STRUCTURE_ID = '1051567430261' // 3T7-M8 Keepstar
@@ -36,11 +38,6 @@ function getTypeName(typeId: number): string {
   return item?.name || `Unknown (${typeId})`
 }
 
-function getTypeVolume(typeId: number): number {
-  const item = typeData[typeId.toString()]
-  return item?.volume || 0.01
-}
-
 interface ESIAsset {
   is_blueprint_copy?: boolean
   is_singleton: boolean
@@ -70,6 +67,7 @@ export interface SellOrderItem {
   type_id: number
   type_name: string
   quantity: number
+  characters: string[]  // Characters that have this item
 
   // Pricing
   has_competition: boolean
@@ -89,28 +87,7 @@ export interface SellOrderItem {
 }
 
 /**
- * Parse JWT to extract character ID
- */
-function getCharacterIdFromToken(token: string): number | null {
-  try {
-    const base64Url = token.split('.')[1]
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      Buffer.from(base64, 'base64')
-        .toString('utf-8')
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    )
-    const payload = JSON.parse(jsonPayload)
-    return parseInt(payload.sub.split(':')[2])
-  } catch {
-    return null
-  }
-}
-
-/**
- * Fetch all pages of assets from ESI
+ * Fetch all pages of assets from ESI for a single character
  */
 async function fetchAllAssets(
   characterId: number,
@@ -143,6 +120,31 @@ async function fetchAllAssets(
   } while (page <= totalPages)
 
   return allAssets
+}
+
+/**
+ * Fetch character's market orders
+ */
+async function fetchCharacterOrders(
+  characterId: number,
+  accessToken: string
+): Promise<Array<{ is_buy_order: boolean; location_id: number; type_id: number }>> {
+  const response = await fetch(
+    `${ESI_BASE}/characters/${characterId}/orders/`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
+        'X-Compatibility-Date': '2025-11-06',
+      },
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch character orders: ${response.status}`)
+  }
+
+  return response.json()
 }
 
 /**
@@ -179,13 +181,6 @@ async function fetchStructureOrders(
   } while (page <= totalPages)
 
   return allOrders.filter(o => !o.is_buy_order) // Only sell orders
-}
-
-/**
- * Fetch Jita prices for given type IDs
- */
-async function fetchJitaPrices(typeIds: number[]): Promise<Map<number, number>> {
-  return fetchJitaPricesWithProgress(typeIds)
 }
 
 /**
@@ -241,43 +236,53 @@ async function fetchJitaPricesWithProgress(
   return prices
 }
 
+// Hangar flags for filtering assets
+const HANGAR_FLAGS = new Set([
+  'Hangar',
+  'CorpSAG1', 'CorpSAG2', 'CorpSAG3', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6', 'CorpSAG7',
+  'Deliveries',
+])
+
 /**
  * GET /api/esi/sell-order-generator
  * 
- * Generates optimal sell prices for character assets in 3T7.
+ * Generates optimal sell prices for assets from all linked characters in a structure.
  * 
  * Query Parameters:
  *   - structure_id (optional): Structure ID to check (default: 3T7-M8 Keepstar)
  *   - stream (optional): Enable SSE streaming for progress updates
  * 
- * Headers:
- *   - Authorization (required): Bearer token from EVE SSO
- *     Requires scopes: esi-assets.read_assets.v1, esi-markets.structure_markets.v1
- * 
- * Returns:
- *   - items: Array of SellOrderItem sorted by ISK/day descending
- *   - summary: Counts and totals
+ * Uses session-based authentication and aggregates assets from all linked characters.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('Authorization')
-  const searchParams = request.nextUrl.searchParams
-  const structureId = searchParams.get('structure_id') || DEFAULT_STRUCTURE_ID
-  const useStreaming = searchParams.get('stream') === 'true'
+  // Get authenticated user from session
+  const session = await getAuthenticatedUser()
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!session) {
     return NextResponse.json(
-      { error: 'Authorization header required. Requires esi-assets.read_assets.v1 and esi-markets.structure_markets.v1 scopes.' },
+      { error: 'Not authenticated. Login with EVE SSO first.' },
       { status: 401 }
     )
   }
 
-  const accessToken = authHeader.replace('Bearer ', '')
-  const characterId = getCharacterIdFromToken(accessToken)
-
-  if (!characterId) {
+  if (!session.user.allowed) {
     return NextResponse.json(
-      { error: 'Invalid access token - could not extract character ID' },
-      { status: 401 }
+      { error: 'Account pending approval' },
+      { status: 403 }
+    )
+  }
+
+  const searchParams = request.nextUrl.searchParams
+  const structureId = searchParams.get('structure_id') || DEFAULT_STRUCTURE_ID
+  const useStreaming = searchParams.get('stream') === 'true'
+
+  // Get tokens for all characters
+  const characterTokens = await getAllCharacterTokens(session.user_id)
+
+  if (characterTokens.length === 0) {
+    return NextResponse.json(
+      { error: 'No characters with valid tokens found' },
+      { status: 400 }
     )
   }
 
@@ -293,39 +298,55 @@ export async function GET(request: NextRequest) {
           // Progress: Starting
           sendSSEEvent(controller, encoder, 'progress', {
             stage: 'starting',
-            message: 'Starting sell order analysis...',
+            message: `Starting sell order analysis for ${characterTokens.length} character(s)...`,
             percent: 0
           })
 
-          // Step 1: Fetch all character assets
+          // Step 1: Fetch assets from all characters
           sendSSEEvent(controller, encoder, 'progress', {
             stage: 'assets',
-            message: 'Fetching your assets...',
+            message: `Fetching assets from ${characterTokens.length} character(s)...`,
             percent: 5
           })
-          const allAssets = await fetchAllAssets(characterId, accessToken)
 
-          // Filter to assets directly in the target structure's hangar
           const locationId = parseInt(structureId)
-          const hangarFlags = new Set([
-            'Hangar',
-            'CorpSAG1', 'CorpSAG2', 'CorpSAG3', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6', 'CorpSAG7',
-            'Deliveries',
-          ])
+          const assetsByType = new Map<number, { quantity: number; characters: Set<string> }>()
 
-          const assetsByType = new Map<number, number>()
-          for (const asset of allAssets) {
-            if (asset.location_id !== locationId) continue
-            if (!hangarFlags.has(asset.location_flag)) continue
-            if (asset.is_blueprint_copy) continue
+          for (let i = 0; i < characterTokens.length; i++) {
+            const token = characterTokens[i]
+            try {
+              const assets = await fetchAllAssets(token.character_id, token.access_token)
 
-            const existing = assetsByType.get(asset.type_id) || 0
-            assetsByType.set(asset.type_id, existing + asset.quantity)
+              for (const asset of assets) {
+                if (asset.location_id !== locationId) continue
+                if (!HANGAR_FLAGS.has(asset.location_flag)) continue
+                if (asset.is_blueprint_copy) continue
+
+                const existing = assetsByType.get(asset.type_id)
+                if (existing) {
+                  existing.quantity += asset.quantity
+                  existing.characters.add(token.character_name)
+                } else {
+                  assetsByType.set(asset.type_id, {
+                    quantity: asset.quantity,
+                    characters: new Set([token.character_name])
+                  })
+                }
+              }
+
+              sendSSEEvent(controller, encoder, 'progress', {
+                stage: 'assets',
+                message: `Fetched assets from ${token.character_name} (${i + 1}/${characterTokens.length})`,
+                percent: 5 + Math.floor(((i + 1) / characterTokens.length) * 10)
+              })
+            } catch (error) {
+              console.error(`Failed to fetch assets for ${token.character_name}:`, error)
+            }
           }
 
           sendSSEEvent(controller, encoder, 'progress', {
             stage: 'assets',
-            message: `Found ${assetsByType.size} item types in hangar`,
+            message: `Found ${assetsByType.size} item types across ${characterTokens.length} character(s)`,
             percent: 15
           })
 
@@ -339,6 +360,7 @@ export async function GET(request: NextRequest) {
                 total_isk_per_day: 0,
                 total_isk_per_day_formatted: '0 ISK',
                 filtered_out_existing_orders: 0,
+                characters_queried: characterTokens.length,
               },
               timing: { total_ms: Date.now() - startTime }
             })
@@ -346,50 +368,36 @@ export async function GET(request: NextRequest) {
             return
           }
 
-          // Step 2: Fetch character's existing sell orders
+          // Step 2: Fetch existing sell orders from all characters
           sendSSEEvent(controller, encoder, 'progress', {
             stage: 'orders',
-            message: 'Checking your existing sell orders...',
+            message: 'Checking existing sell orders...',
             percent: 20
           })
 
-          const charOrdersResponse = await fetch(
-            `${ESI_BASE}/characters/${characterId}/orders/`,
-            {
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Accept': 'application/json',
-                'X-Compatibility-Date': '2025-11-06',
-              },
-            }
-          )
-
-          if (!charOrdersResponse.ok) {
-            throw new Error(`Failed to fetch character orders: ${charOrdersResponse.status}`)
-          }
-
-          const charOrders = await charOrdersResponse.json() as Array<{
-            is_buy_order: boolean
-            location_id: number
-            type_id: number
-          }>
-
           const myExistingOrderTypes = new Set<number>()
-          for (const order of charOrders) {
-            if (!order.is_buy_order && order.location_id.toString() === structureId) {
-              myExistingOrderTypes.add(order.type_id)
+          for (const token of characterTokens) {
+            try {
+              const orders = await fetchCharacterOrders(token.character_id, token.access_token)
+              for (const order of orders) {
+                if (!order.is_buy_order && order.location_id.toString() === structureId) {
+                  myExistingOrderTypes.add(order.type_id)
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to fetch orders for ${token.character_name}:`, error)
             }
           }
 
           // Capture items with existing orders before removing them
           const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number }> = []
           for (const typeId of myExistingOrderTypes) {
-            const quantity = assetsByType.get(typeId)
-            if (quantity !== undefined) {
+            const data = assetsByType.get(typeId)
+            if (data !== undefined) {
               itemsWithExistingOrders.push({
                 type_id: typeId,
                 type_name: getTypeName(typeId),
-                quantity
+                quantity: data.quantity
               })
             }
             assetsByType.delete(typeId)
@@ -412,6 +420,7 @@ export async function GET(request: NextRequest) {
                 total_isk_per_day: 0,
                 total_isk_per_day_formatted: '0 ISK',
                 filtered_out_existing_orders: myExistingOrderTypes.size,
+                characters_queried: characterTokens.length,
               },
               timing: { total_ms: Date.now() - startTime }
             })
@@ -419,14 +428,14 @@ export async function GET(request: NextRequest) {
             return
           }
 
-          // Step 3: Fetch structure orders to check competition
+          // Step 3: Fetch structure orders to check competition (use first character's token)
           sendSSEEvent(controller, encoder, 'progress', {
             stage: 'structure',
             message: 'Fetching structure market orders...',
             percent: 30
           })
 
-          const structureOrders = await fetchStructureOrders(structureId, accessToken)
+          const structureOrders = await fetchStructureOrders(structureId, characterTokens[0].access_token)
 
           const lowestPriceByType = new Map<number, number>()
           for (const order of structureOrders) {
@@ -497,7 +506,7 @@ export async function GET(request: NextRequest) {
 
           const items: SellOrderItem[] = []
 
-          for (const [typeId, quantity] of assetsByType) {
+          for (const [typeId, data] of assetsByType) {
             const jitaPrice = jitaPrices.get(typeId)
             if (!jitaPrice) continue
 
@@ -519,7 +528,8 @@ export async function GET(request: NextRequest) {
             items.push({
               type_id: typeId,
               type_name: getTypeName(typeId),
-              quantity,
+              quantity: data.quantity,
+              characters: Array.from(data.characters),
 
               has_competition: hasCompetition,
               jita_price: jitaPrice,
@@ -559,6 +569,7 @@ export async function GET(request: NextRequest) {
               total_isk_per_day: totalIskPerDay,
               total_isk_per_day_formatted: formatISK(totalIskPerDay),
               filtered_out_existing_orders: myExistingOrderTypes.size,
+              characters_queried: characterTokens.length,
             },
             timing: {
               total_ms: Date.now() - startTime
@@ -588,32 +599,34 @@ export async function GET(request: NextRequest) {
   // Non-streaming mode
   try {
     const startTime = Date.now()
-
-    // Step 1: Fetch all character assets
-    const allAssets = await fetchAllAssets(characterId, accessToken)
-
-    // Filter to assets directly in the target structure's hangar
-    // Only include items with location_flag "Hangar" or "CorpSAG*" (corporation hangars)
-    // This excludes items inside ships, containers, cargo holds, etc.
     const locationId = parseInt(structureId)
-    const hangarFlags = new Set([
-      'Hangar',
-      'CorpSAG1', 'CorpSAG2', 'CorpSAG3', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6', 'CorpSAG7',
-      'Deliveries', // Items delivered to you
-    ])
 
-    // Aggregate assets by type_id (only hangar items, exclude blueprint copies)
-    const assetsByType = new Map<number, number>()
-    for (const asset of allAssets) {
-      // Must be directly in the structure (not inside a ship/container)
-      if (asset.location_id !== locationId) continue
-      // Must be in a hangar location
-      if (!hangarFlags.has(asset.location_flag)) continue
-      // Exclude blueprint copies
-      if (asset.is_blueprint_copy) continue
+    // Step 1: Fetch assets from all characters
+    const assetsByType = new Map<number, { quantity: number; characters: Set<string> }>()
 
-      const existing = assetsByType.get(asset.type_id) || 0
-      assetsByType.set(asset.type_id, existing + asset.quantity)
+    for (const token of characterTokens) {
+      try {
+        const assets = await fetchAllAssets(token.character_id, token.access_token)
+
+        for (const asset of assets) {
+          if (asset.location_id !== locationId) continue
+          if (!HANGAR_FLAGS.has(asset.location_flag)) continue
+          if (asset.is_blueprint_copy) continue
+
+          const existing = assetsByType.get(asset.type_id)
+          if (existing) {
+            existing.quantity += asset.quantity
+            existing.characters.add(token.character_name)
+          } else {
+            assetsByType.set(asset.type_id, {
+              quantity: asset.quantity,
+              characters: new Set([token.character_name])
+            })
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to fetch assets for ${token.character_name}:`, error)
+      }
     }
 
     if (assetsByType.size === 0) {
@@ -626,50 +639,36 @@ export async function GET(request: NextRequest) {
           total_isk_per_day: 0,
           total_isk_per_day_formatted: '0 ISK',
           filtered_out_existing_orders: 0,
+          characters_queried: characterTokens.length,
         },
         timing: { total_ms: Date.now() - startTime }
       })
     }
 
-    // Step 2: Fetch character's existing sell orders in this structure
-    const charOrdersResponse = await fetch(
-      `${ESI_BASE}/characters/${characterId}/orders/`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json',
-          'X-Compatibility-Date': '2025-11-06',
-        },
-      }
-    )
-
-    if (!charOrdersResponse.ok) {
-      throw new Error(`Failed to fetch character orders: ${charOrdersResponse.status}`)
-    }
-
-    const charOrders = await charOrdersResponse.json() as Array<{
-      is_buy_order: boolean
-      location_id: number
-      type_id: number
-    }>
-
-    // Get set of type_ids where character already has sell orders in this structure
+    // Step 2: Fetch existing sell orders from all characters
     const myExistingOrderTypes = new Set<number>()
-    for (const order of charOrders) {
-      if (!order.is_buy_order && order.location_id.toString() === structureId) {
-        myExistingOrderTypes.add(order.type_id)
+    for (const token of characterTokens) {
+      try {
+        const orders = await fetchCharacterOrders(token.character_id, token.access_token)
+        for (const order of orders) {
+          if (!order.is_buy_order && order.location_id.toString() === structureId) {
+            myExistingOrderTypes.add(order.type_id)
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to fetch orders for ${token.character_name}:`, error)
       }
     }
 
-    // Capture items with existing orders before removing them
+    // Capture items with existing orders
     const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number }> = []
     for (const typeId of myExistingOrderTypes) {
-      const quantity = assetsByType.get(typeId)
-      if (quantity !== undefined) {
+      const data = assetsByType.get(typeId)
+      if (data !== undefined) {
         itemsWithExistingOrders.push({
           type_id: typeId,
           type_name: getTypeName(typeId),
-          quantity
+          quantity: data.quantity
         })
       }
       assetsByType.delete(typeId)
@@ -686,15 +685,15 @@ export async function GET(request: NextRequest) {
           total_isk_per_day: 0,
           total_isk_per_day_formatted: '0 ISK',
           filtered_out_existing_orders: myExistingOrderTypes.size,
+          characters_queried: characterTokens.length,
         },
         timing: { total_ms: Date.now() - startTime }
       })
     }
 
-    // Step 3: Fetch structure orders to check competition
-    const structureOrders = await fetchStructureOrders(structureId, accessToken)
+    // Step 3: Fetch structure orders (use first character's token)
+    const structureOrders = await fetchStructureOrders(structureId, characterTokens[0].access_token)
 
-    // Build map of lowest sell price by type_id
     const lowestPriceByType = new Map<number, number>()
     for (const order of structureOrders) {
       const existing = lowestPriceByType.get(order.type_id)
@@ -703,15 +702,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Step 4: Fetch Jita prices for all asset types
+    // Step 4: Fetch Jita prices
     const typeIds = Array.from(assetsByType.keys())
-    const jitaPrices = await fetchJitaPrices(typeIds)
+    const jitaPrices = await fetchJitaPricesWithProgress(typeIds)
 
-    // Step 5: Fetch Vale market data for volume estimates
+    // Step 5: Fetch Vale market data
     const valeVolumes = new Map<number, number>()
     const supabase = createClient()
 
-    // Batch into chunks of 200 for the RPC call
     const BATCH_SIZE = 200
     for (let i = 0; i < typeIds.length; i += BATCH_SIZE) {
       const batch = typeIds.slice(i, i + BATCH_SIZE)
@@ -728,28 +726,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Step 6: Calculate sell prices and metrics for each item
+    // Step 6: Calculate sell prices
     const items: SellOrderItem[] = []
 
-    for (const [typeId, quantity] of assetsByType) {
+    for (const [typeId, data] of assetsByType) {
       const jitaPrice = jitaPrices.get(typeId)
-      if (!jitaPrice) continue // Skip items without Jita price data
+      if (!jitaPrice) continue
 
       const competitorPrice = lowestPriceByType.get(typeId) || null
       const hasCompetition = competitorPrice !== null
 
-      // Calculate sell price
       let sellPrice: number
       if (hasCompetition) {
-        // Undercut by 1 tick
         sellPrice = calculateUndercutPrice(competitorPrice!)
       } else {
-        // Use tiered markup formula
         const markup = getNoCompetitionMarkup(jitaPrice)
         sellPrice = jitaPrice * markup
       }
 
-      // Get Vale volume metrics
       const valeDailyVolume = valeVolumes.get(typeId) || 0
       const estimatedDailySales = valeDailyVolume * VALE_HUB_FACTOR
       const iskPerDay = estimatedDailySales * sellPrice
@@ -757,7 +751,8 @@ export async function GET(request: NextRequest) {
       items.push({
         type_id: typeId,
         type_name: getTypeName(typeId),
-        quantity,
+        quantity: data.quantity,
+        characters: Array.from(data.characters),
 
         has_competition: hasCompetition,
         jita_price: jitaPrice,
@@ -775,10 +770,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Sort by ISK/day descending
     items.sort((a, b) => b.isk_per_day - a.isk_per_day)
 
-    // Calculate summary
     const totalIskPerDay = items.reduce((sum, item) => sum + item.isk_per_day, 0)
     const withCompetition = items.filter(i => i.has_competition).length
     const noCompetition = items.filter(i => !i.has_competition).length
@@ -793,6 +786,7 @@ export async function GET(request: NextRequest) {
         total_isk_per_day: totalIskPerDay,
         total_isk_per_day_formatted: formatISK(totalIskPerDay),
         filtered_out_existing_orders: myExistingOrderTypes.size,
+        characters_queried: characterTokens.length,
       },
       timing: {
         total_ms: Date.now() - startTime
@@ -807,4 +801,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

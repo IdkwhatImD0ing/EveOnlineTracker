@@ -24,6 +24,12 @@ interface ESIMarketHistoryEntry {
  *   - region_id (optional): The region ID. Defaults to 10000002 (The Forge/Jita)
  */
 export async function GET(request: NextRequest) {
+  // Validate CRON_SECRET for cron job authentication (Vercel Cron uses Authorization: Bearer)
+  const authHeader = request.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const searchParams = request.nextUrl.searchParams
   const typeId = parseInt(searchParams.get('type_id') || '34')
   const regionId = parseInt(searchParams.get('region_id') || String(REGION_THE_FORGE))

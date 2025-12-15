@@ -4,9 +4,43 @@ Complete database schema documentation for the EVE Online Industry Tracker.
 
 ## Overview
 
-The application uses Supabase (PostgreSQL) for data storage. The schema consists of four main tables with foreign key relationships.
+The application uses Supabase (PostgreSQL) for data storage. The schema includes tables for authentication, projects, and market data.
 
 ## Entity Relationship Diagram
+
+### Authentication Tables
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                            users                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ id: uuid (PK)                                                   │
+│ main_character_id: bigint                                       │
+│ main_character_name: text                                       │
+│ allowed: boolean                                                │
+│ created_at: timestamptz                                         │
+│ updated_at: timestamptz                                         │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ 1:N
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         characters                               │
+├─────────────────────────────────────────────────────────────────┤
+│ id: uuid (PK)                                                   │
+│ user_id: uuid (FK → users.id)                                   │
+│ character_id: bigint (UNIQUE)                                   │
+│ character_name: text                                            │
+│ refresh_token: text                                             │
+│ access_token: text                                              │
+│ token_expires_at: timestamptz                                   │
+│ is_main: boolean                                                │
+│ created_at: timestamptz                                         │
+│ updated_at: timestamptz                                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Project Tables
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -40,7 +74,11 @@ The application uses Supabase (PostgreSQL) for data storage. The schema consists
                      │   breakdown     │
                      │ build_cost      │
                      └─────────────────┘
+```
 
+### Market Tables
+
+```
 ┌─────────────────────────────────────────────────────────────────┐
 │                       market_history                             │
 ├─────────────────────────────────────────────────────────────────┤
@@ -58,6 +96,79 @@ The application uses Supabase (PostgreSQL) for data storage. The schema consists
 
 ## Tables
 
+### users
+
+Application users, identified by their main EVE character.
+
+```sql
+CREATE TABLE users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  main_character_id bigint NOT NULL,
+  main_character_name text NOT NULL,
+  allowed boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_users_main_character_id ON users(main_character_id);
+```
+
+| Column              | Type        | Constraints        | Description                     |
+| ------------------- | ----------- | ------------------ | ------------------------------- |
+| id                  | uuid        | PK, auto-generated | Unique identifier               |
+| main_character_id   | bigint      | NOT NULL           | EVE character ID of main        |
+| main_character_name | text        | NOT NULL           | Name of main character          |
+| allowed             | boolean     | DEFAULT false      | Whether user can access the app |
+| created_at          | timestamptz | DEFAULT now()      | Creation timestamp              |
+| updated_at          | timestamptz | DEFAULT now()      | Last update timestamp           |
+
+**Access Control:** New users are created with `allowed = false`. An administrator must set `allowed = true` in the Supabase dashboard to grant access.
+
+---
+
+### characters
+
+EVE characters linked to users, stores OAuth tokens.
+
+```sql
+CREATE TABLE characters (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  character_id bigint NOT NULL UNIQUE,
+  character_name text NOT NULL,
+  refresh_token text NOT NULL,
+  access_token text,
+  token_expires_at timestamptz,
+  is_main boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_characters_user_id ON characters(user_id);
+CREATE INDEX idx_characters_character_id ON characters(character_id);
+```
+
+| Column           | Type        | Constraints            | Description               |
+| ---------------- | ----------- | ---------------------- | ------------------------- |
+| id               | uuid        | PK, auto-generated     | Unique identifier         |
+| user_id          | uuid        | FK → users.id, CASCADE | Parent user               |
+| character_id     | bigint      | NOT NULL, UNIQUE       | EVE character ID          |
+| character_name   | text        | NOT NULL               | Character name            |
+| refresh_token    | text        | NOT NULL               | EVE SSO refresh token     |
+| access_token     | text        | nullable               | Cached access token       |
+| token_expires_at | timestamptz | nullable               | When access token expires |
+| is_main          | boolean     | DEFAULT false          | Is this the user's main   |
+| created_at       | timestamptz | DEFAULT now()          | Creation timestamp        |
+| updated_at       | timestamptz | DEFAULT now()          | Last update timestamp     |
+
+**Token Management:**
+
+- Access tokens are cached and refreshed automatically when expired
+- Refresh tokens are stored securely and updated when refreshed
+- Deleting a user cascades to delete all linked characters
+
+---
+
 ### projects
 
 Main table storing industry projects.
@@ -71,12 +182,12 @@ CREATE TABLE projects (
 );
 ```
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | uuid | PK, auto-generated | Unique identifier |
-| name | text | NOT NULL | Project name/title |
-| created_at | timestamptz | DEFAULT now() | Creation timestamp |
-| updated_at | timestamptz | DEFAULT now() | Last update timestamp |
+| Column     | Type        | Constraints        | Description           |
+| ---------- | ----------- | ------------------ | --------------------- |
+| id         | uuid        | PK, auto-generated | Unique identifier     |
+| name       | text        | NOT NULL           | Project name/title    |
+| created_at | timestamptz | DEFAULT now()      | Creation timestamp    |
+| updated_at | timestamptz | DEFAULT now()      | Last update timestamp |
 
 **Trigger:** `updated_at` is automatically updated on row modification.
 
@@ -104,19 +215,19 @@ CREATE TABLE raw_materials (
 CREATE INDEX idx_raw_materials_project_id ON raw_materials(project_id);
 ```
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | uuid | PK, auto-generated | Unique identifier |
-| project_id | uuid | FK → projects.id, CASCADE | Parent project |
-| item_name | text | NOT NULL | EVE item name |
-| type_id | bigint | NOT NULL | EVE type ID |
-| quantity | bigint | NOT NULL, DEFAULT 1 | Required quantity |
-| collected | boolean | NOT NULL, DEFAULT false | Whether collected |
-| buy_price | numeric | nullable | Jita buy price per unit |
-| sell_price | numeric | nullable | Jita sell price per unit |
-| split_price | numeric | nullable | Jita split price per unit |
-| volume | numeric | nullable | Item volume per unit (m³) |
-| item_type | text | nullable | Group name (e.g., "Mineral") |
+| Column      | Type    | Constraints               | Description                  |
+| ----------- | ------- | ------------------------- | ---------------------------- |
+| id          | uuid    | PK, auto-generated        | Unique identifier            |
+| project_id  | uuid    | FK → projects.id, CASCADE | Parent project               |
+| item_name   | text    | NOT NULL                  | EVE item name                |
+| type_id     | bigint  | NOT NULL                  | EVE type ID                  |
+| quantity    | bigint  | NOT NULL, DEFAULT 1       | Required quantity            |
+| collected   | boolean | NOT NULL, DEFAULT false   | Whether collected            |
+| buy_price   | numeric | nullable                  | Jita buy price per unit      |
+| sell_price  | numeric | nullable                  | Jita sell price per unit     |
+| split_price | numeric | nullable                  | Jita split price per unit    |
+| volume      | numeric | nullable                  | Item volume per unit (m³)    |
+| item_type   | text    | nullable                  | Group name (e.g., "Mineral") |
 
 ---
 
@@ -145,24 +256,25 @@ CREATE TABLE components (
 CREATE INDEX idx_components_project_id ON components(project_id);
 ```
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | uuid | PK, auto-generated | Unique identifier |
-| project_id | uuid | FK → projects.id, CASCADE | Parent project |
-| item_name | text | NOT NULL | EVE item name |
-| type_id | bigint | NOT NULL | EVE type ID |
-| quantity | bigint | NOT NULL, DEFAULT 1 | Required quantity |
-| collected | boolean | NOT NULL, DEFAULT false | Whether fully collected |
-| quantity_made | bigint | NOT NULL, DEFAULT 0 | Units completed so far |
-| buy_price | numeric | nullable | Jita buy price per unit |
-| sell_price | numeric | nullable | Jita sell price per unit |
-| split_price | numeric | nullable | Jita split price per unit |
-| volume | numeric | nullable | Item volume per unit (m³) |
-| item_type | text | nullable | Group name |
-| materials_breakdown | jsonb | nullable | Raw materials needed (for Buy Mode) |
-| build_cost | numeric | nullable | Total cost to build (for Buy Mode) |
+| Column              | Type    | Constraints               | Description                         |
+| ------------------- | ------- | ------------------------- | ----------------------------------- |
+| id                  | uuid    | PK, auto-generated        | Unique identifier                   |
+| project_id          | uuid    | FK → projects.id, CASCADE | Parent project                      |
+| item_name           | text    | NOT NULL                  | EVE item name                       |
+| type_id             | bigint  | NOT NULL                  | EVE type ID                         |
+| quantity            | bigint  | NOT NULL, DEFAULT 1       | Required quantity                   |
+| collected           | boolean | NOT NULL, DEFAULT false   | Whether fully collected             |
+| quantity_made       | bigint  | NOT NULL, DEFAULT 0       | Units completed so far              |
+| buy_price           | numeric | nullable                  | Jita buy price per unit             |
+| sell_price          | numeric | nullable                  | Jita sell price per unit            |
+| split_price         | numeric | nullable                  | Jita split price per unit           |
+| volume              | numeric | nullable                  | Item volume per unit (m³)           |
+| item_type           | text    | nullable                  | Group name                          |
+| materials_breakdown | jsonb   | nullable                  | Raw materials needed (for Buy Mode) |
+| build_cost          | numeric | nullable                  | Total cost to build (for Buy Mode)  |
 
 **`materials_breakdown` Format:**
+
 ```json
 [
   {"typeId": 34, "name": "Tritanium", "quantity": 50000000},
@@ -188,13 +300,13 @@ CREATE TABLE additional_costs (
 CREATE INDEX idx_additional_costs_project_id ON additional_costs(project_id);
 ```
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | uuid | PK, auto-generated | Unique identifier |
-| project_id | uuid | FK → projects.id, CASCADE | Parent project |
-| note | text | NOT NULL | Description of the cost |
-| amount | numeric | NOT NULL | Cost amount in ISK |
-| created_at | timestamptz | DEFAULT now() | Creation timestamp |
+| Column     | Type        | Constraints               | Description             |
+| ---------- | ----------- | ------------------------- | ----------------------- |
+| id         | uuid        | PK, auto-generated        | Unique identifier       |
+| project_id | uuid        | FK → projects.id, CASCADE | Parent project          |
+| note       | text        | NOT NULL                  | Description of the cost |
+| amount     | numeric     | NOT NULL                  | Cost amount in ISK      |
+| created_at | timestamptz | DEFAULT now()             | Creation timestamp      |
 
 ---
 
@@ -220,17 +332,17 @@ CREATE INDEX idx_market_history_type_id ON market_history(type_id);
 CREATE INDEX idx_market_history_updated_at ON market_history(updated_at);
 ```
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| type_id | bigint | PK (composite) | EVE item type ID |
-| date | date | PK (composite) | Date of the market statistics |
-| region_id | bigint | PK (composite), DEFAULT 10000002 | EVE region ID (The Forge = Jita) |
-| average | numeric | nullable | Average price for the day |
-| highest | numeric | nullable | Highest price for the day |
-| lowest | numeric | nullable | Lowest price for the day |
-| order_count | bigint | nullable | Total number of orders that day |
-| volume | bigint | nullable | Total units traded that day |
-| updated_at | timestamptz | DEFAULT now() | When this record was last updated |
+| Column      | Type        | Constraints                      | Description                       |
+| ----------- | ----------- | -------------------------------- | --------------------------------- |
+| type_id     | bigint      | PK (composite)                   | EVE item type ID                  |
+| date        | date        | PK (composite)                   | Date of the market statistics     |
+| region_id   | bigint      | PK (composite), DEFAULT 10000002 | EVE region ID (The Forge = Jita)  |
+| average     | numeric     | nullable                         | Average price for the day         |
+| highest     | numeric     | nullable                         | Highest price for the day         |
+| lowest      | numeric     | nullable                         | Lowest price for the day          |
+| order_count | bigint      | nullable                         | Total number of orders that day   |
+| volume      | bigint      | nullable                         | Total units traded that day       |
+| updated_at  | timestamptz | DEFAULT now()                    | When this record was last updated |
 
 **Data Source:** ESI `/markets/{region_id}/history` endpoint
 
@@ -240,12 +352,12 @@ CREATE INDEX idx_market_history_updated_at ON market_history(updated_at);
 
 **Region IDs:**
 
-| Region | ID |
-|--------|-----|
-| The Forge (Jita) | 10000002 |
-| Domain (Amarr) | 10000043 |
+| Region                | ID       |
+| --------------------- | -------- |
+| The Forge (Jita)      | 10000002 |
+| Domain (Amarr)        | 10000043 |
 | Sinq Laison (Dodixie) | 10000032 |
-| Heimatar (Rens) | 10000030 |
+| Heimatar (Rens)       | 10000030 |
 
 ---
 
@@ -267,15 +379,15 @@ CREATE TABLE watchlist_items (
 CREATE INDEX idx_watchlist_items_type_id ON watchlist_items(type_id);
 ```
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | uuid | PK, auto-generated | Unique identifier |
-| type_id | bigint | NOT NULL, UNIQUE | EVE item type ID |
-| item_name | text | NOT NULL | Display name of the item |
-| group_name | text | nullable | Item group (e.g., "Damage Control") |
-| category_name | text | nullable | Item category (e.g., "Module", "Ship") |
-| volume | numeric | nullable | Volume per unit in m³ |
-| created_at | timestamptz | DEFAULT now() | When item was added to watchlist |
+| Column        | Type        | Constraints        | Description                            |
+| ------------- | ----------- | ------------------ | -------------------------------------- |
+| id            | uuid        | PK, auto-generated | Unique identifier                      |
+| type_id       | bigint      | NOT NULL, UNIQUE   | EVE item type ID                       |
+| item_name     | text        | NOT NULL           | Display name of the item               |
+| group_name    | text        | nullable           | Item group (e.g., "Damage Control")    |
+| category_name | text        | nullable           | Item category (e.g., "Module", "Ship") |
+| volume        | numeric     | nullable           | Volume per unit in m³                  |
+| created_at    | timestamptz | DEFAULT now()      | When item was added to watchlist       |
 
 **Purpose:** Allows users to track specific items and check if they need restocking in the alliance structure.
 
@@ -308,11 +420,11 @@ CREATE TRIGGER update_projects_updated_at
 
 ## Relationships
 
-| Parent | Child | Relationship | On Delete |
-|--------|-------|--------------|-----------|
-| projects | raw_materials | 1:N | CASCADE |
-| projects | components | 1:N | CASCADE |
-| projects | additional_costs | 1:N | CASCADE |
+| Parent   | Child            | Relationship | On Delete |
+| -------- | ---------------- | ------------ | --------- |
+| projects | raw_materials    | 1:N          | CASCADE   |
+| projects | components       | 1:N          | CASCADE   |
+| projects | additional_costs | 1:N          | CASCADE   |
 
 Deleting a project automatically deletes all related records.
 
@@ -321,6 +433,40 @@ Deleting a project automatically deletes all related records.
 ## TypeScript Types
 
 ```typescript
+// types/auth.ts
+
+export interface User {
+  id: string
+  main_character_id: number
+  main_character_name: string
+  allowed: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Character {
+  id: string
+  user_id: string
+  character_id: number
+  character_name: string
+  refresh_token: string
+  access_token: string | null
+  token_expires_at: string | null
+  is_main: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface UserWithCharacters extends User {
+  characters: Character[]
+}
+
+export interface Session {
+  user_id: string
+  user: User
+  characters: Character[]
+}
+
 // types/database.ts
 
 export interface Project {
@@ -494,7 +640,7 @@ CREATE TRIGGER update_projects_updated_at
 
 ```sql
 -- migrations/001_add_quantity_made.sql
-ALTER TABLE components 
+ALTER TABLE components
 ADD COLUMN IF NOT EXISTS quantity_made bigint NOT NULL DEFAULT 0;
 ```
 
@@ -509,16 +655,16 @@ ADD COLUMN IF NOT EXISTS quantity_made bigint NOT NULL DEFAULT 0;
 
 ```sql
 -- migrations/003_add_materials_breakdown.sql
-ALTER TABLE raw_materials 
+ALTER TABLE raw_materials
 ADD COLUMN IF NOT EXISTS item_type text;
 
-ALTER TABLE components 
+ALTER TABLE components
 ADD COLUMN IF NOT EXISTS item_type text;
 
-ALTER TABLE components 
+ALTER TABLE components
 ADD COLUMN IF NOT EXISTS materials_breakdown jsonb;
 
-ALTER TABLE components 
+ALTER TABLE components
 ADD COLUMN IF NOT EXISTS build_cost numeric;
 ```
 
@@ -572,6 +718,7 @@ RETURNS TABLE (
 ```
 
 **Usage:**
+
 ```sql
 SELECT * FROM get_market_statistics(
   ARRAY[34, 35, 36]::BIGINT[],  -- type_ids to analyze
@@ -625,6 +772,7 @@ RETURNS TABLE (
 ```
 
 **Usage:**
+
 ```sql
 SELECT * FROM get_market_seeder_statistics(
   ARRAY[34, 35, 36]::BIGINT[],
@@ -654,6 +802,53 @@ CREATE TABLE watchlist_items (
 CREATE INDEX idx_watchlist_items_type_id ON watchlist_items(type_id);
 ```
 
+### Migration 010: Users and Characters
+
+```sql
+-- migrations/010_users_and_characters.sql
+-- Multi-account support with alt characters
+
+-- Users table (one per person)
+CREATE TABLE users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  main_character_id bigint NOT NULL,
+  main_character_name text NOT NULL,
+  allowed boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Characters table (multiple per user)
+CREATE TABLE characters (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  character_id bigint NOT NULL UNIQUE,
+  character_name text NOT NULL,
+  refresh_token text NOT NULL,
+  access_token text,
+  token_expires_at timestamptz,
+  is_main boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Indexes
+CREATE INDEX idx_characters_user_id ON characters(user_id);
+CREATE INDEX idx_characters_character_id ON characters(character_id);
+CREATE INDEX idx_users_main_character_id ON users(main_character_id);
+
+-- Triggers for updated_at
+CREATE TRIGGER update_users_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_characters_updated_at
+  BEFORE UPDATE ON characters
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
 ---
 
 ## Notes
@@ -675,6 +870,7 @@ Volume is stored per-unit. Total volume is calculated: `volume * quantity`.
 ### Buy Mode Data
 
 Projects created from Industry Calculator include:
+
 - `materials_breakdown`: Raw materials for each component
 - `build_cost`: Cost to manufacture each component
 
@@ -702,4 +898,3 @@ The application uses service role key (bypasses RLS). For public deployment, con
 - `types/database.ts` - TypeScript definitions
 - `utils/supabase/server.ts` - Supabase client
 - `migrations/*.sql` - Migration files
-

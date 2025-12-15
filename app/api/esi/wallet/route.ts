@@ -1,64 +1,96 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
 /**
  * GET /api/esi/wallet
  * 
- * Fetches character wallet balance from ESI.
+ * Fetches wallet balances for all characters linked to the authenticated user.
+ * Uses session-based authentication.
  * 
- * Query Parameters:
- *   - character_id (required): The character ID
- * 
- * Headers:
- *   - Authorization (required): Bearer token from EVE SSO (requires esi-wallet.read_character_wallet.v1 scope)
+ * Returns aggregated wallet data across all characters.
  */
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const characterId = searchParams.get('character_id')
+export async function GET() {
+  // Get authenticated user from session
+  const session = await getAuthenticatedUser()
   
-  const authHeader = request.headers.get('authorization')
-
-  if (!characterId) {
+  if (!session) {
     return NextResponse.json(
-      { error: 'character_id is required' },
-      { status: 400 }
-    )
-  }
-
-  if (!authHeader) {
-    return NextResponse.json(
-      { error: 'Authorization header required. Requires esi-wallet.read_character_wallet.v1 scope.' },
+      { error: 'Not authenticated. Login with EVE SSO first.' },
       { status: 401 }
     )
   }
 
+  if (!session.user.allowed) {
+    return NextResponse.json(
+      { error: 'Account pending approval' },
+      { status: 403 }
+    )
+  }
+
+  // Get tokens for all characters
+  const characterTokens = await getAllCharacterTokens(session.user_id)
+  
+  if (characterTokens.length === 0) {
+    return NextResponse.json(
+      { error: 'No characters with valid tokens found' },
+      { status: 400 }
+    )
+  }
+
   try {
-    const response = await fetch(
-      `${ESI_BASE}/characters/${characterId}/wallet/`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': authHeader,
-          'X-Compatibility-Date': '2025-11-06',
-        },
-      }
+    // Fetch wallet balance for each character
+    const walletResults = await Promise.allSettled(
+      characterTokens.map(async (token) => {
+        const response = await fetch(
+          `${ESI_BASE}/characters/${token.character_id}/wallet/`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${token.access_token}`,
+              'X-Compatibility-Date': '2025-11-06',
+            },
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch wallet for ${token.character_name}`)
+        }
+
+        const balance: number = await response.json()
+        return {
+          character_id: token.character_id,
+          character_name: token.character_name,
+          balance,
+          balance_formatted: formatISK(balance),
+        }
+      })
     )
 
-    if (!response.ok) {
-      const error = await response.text()
-      return NextResponse.json(
-        { error: `ESI Error: ${response.status}`, details: error },
-        { status: response.status }
-      )
+    // Process results
+    const wallets: Array<{
+      character_id: number
+      character_name: string
+      balance: number
+      balance_formatted: string
+    }> = []
+    
+    for (const result of walletResults) {
+      if (result.status === 'fulfilled') {
+        wallets.push(result.value)
+      }
     }
 
-    const balance: number = await response.json()
+    // Calculate total balance
+    const totalBalance = wallets.reduce((sum, w) => sum + w.balance, 0)
 
     return NextResponse.json({
-      character_id: characterId,
-      balance,
-      balance_formatted: formatISK(balance),
+      characters_queried: characterTokens.length,
+      characters_successful: wallets.length,
+      total_balance: totalBalance,
+      total_balance_formatted: formatISK(totalBalance),
+      wallets,
     })
 
   } catch (error) {
@@ -82,4 +114,3 @@ function formatISK(value: number): string {
   }
   return `${value.toFixed(2)} ISK`
 }
-

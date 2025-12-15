@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -19,17 +19,12 @@ import {
   Percent,
 } from "lucide-react"
 
-interface TokenData {
-  access_token: string
-  refresh_token: string
-  expires_in: number
-}
-
 interface Asset {
   type_id: number
   type_name: string
   total_quantity: number
   locations: number
+  characters?: string[]
 }
 
 interface SellOpportunity {
@@ -62,11 +57,23 @@ interface SkippedInfo {
   items: string[]
 }
 
+interface SessionData {
+  authenticated: boolean
+  user?: {
+    main_character_name: string
+    main_character_id: number
+  }
+  characters?: Array<{
+    character_id: number
+    character_name: string
+  }>
+}
+
 interface CachedData {
   opportunities: SellOpportunity[]
   summary: OpportunitySummary
   timestamp: number
-  characterId: number
+  userId: string
 }
 
 type SortField = "percent_of_ath" | "total_value" | "quantity" | "type_name"
@@ -124,44 +131,9 @@ function getRecommendationStyles(recommendation: string) {
   }
 }
 
-/**
- * Check if JWT token is expired (with 60 second buffer)
- */
-function isTokenExpired(token: string): boolean {
-  try {
-    const base64Url = token.split(".")[1]
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
-    const payload = JSON.parse(atob(base64))
-    const expiry = payload.exp * 1000 // ms
-    return Date.now() >= expiry - 60000
-  } catch {
-    return true
-  }
-}
-
-/**
- * Refresh the access token using the refresh token
- */
-async function refreshAccessToken(refreshToken: string): Promise<TokenData | null> {
-  try {
-    const response = await fetch("/api/auth/eve/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    })
-
-    if (!response.ok) return null
-    return await response.json()
-  } catch {
-    return null
-  }
-}
-
 export function SellOpportunitiesTab() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
-  const [accessToken, setAccessToken] = useState<string | null>(null)
-  const [characterName, setCharacterName] = useState<string | null>(null)
-  const [characterId, setCharacterId] = useState<number | null>(null)
+  const [session, setSession] = useState<SessionData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   const [loadingAssets, setLoadingAssets] = useState(false)
   const [loadingOpportunities, setLoadingOpportunities] = useState(false)
@@ -171,122 +143,58 @@ export function SellOpportunitiesTab() {
   const [summary, setSummary] = useState<OpportunitySummary | null>(null)
   const [skipped, setSkipped] = useState<SkippedInfo | null>(null)
   const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null)
+  const [characterCount, setCharacterCount] = useState<number>(0)
 
   const [sortField, setSortField] = useState<SortField>("percent_of_ath")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [filterRecommendation, setFilterRecommendation] = useState<string | null>(null)
 
-  /**
-   * Get a valid access token, refreshing if needed
-   */
-  const getValidToken = useCallback(async (): Promise<string | null> => {
-    const savedTokens = localStorage.getItem("eve_sso_tokens")
-    if (!savedTokens) return null
-
-    try {
-      const parsed = JSON.parse(savedTokens) as TokenData
-
-      if (isTokenExpired(parsed.access_token)) {
-        const newTokens = await refreshAccessToken(parsed.refresh_token)
-        if (!newTokens) {
-          localStorage.removeItem("eve_sso_tokens")
-          setIsLoggedIn(false)
-          setAccessToken(null)
-          return null
-        }
-
-        localStorage.setItem("eve_sso_tokens", JSON.stringify(newTokens))
-        setAccessToken(newTokens.access_token)
-
-        const base64Url = newTokens.access_token.split(".")[1]
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
-        const payload = JSON.parse(atob(base64))
-        setCharacterName(payload.name)
-
-        return newTokens.access_token
-      }
-
-      return parsed.access_token
-    } catch {
-      return null
-    }
-  }, [])
-
-  // Check for saved tokens and load cached data
+  // Check session on mount
   useEffect(() => {
-    const checkTokens = async () => {
-      const savedTokens = localStorage.getItem("eve_sso_tokens")
-      if (!savedTokens) {
-        setIsLoggedIn(false)
-        return
-      }
-
+    const checkSession = async () => {
       try {
-        const parsed = JSON.parse(savedTokens) as TokenData
+        const response = await fetch("/api/auth/session")
+        const data: SessionData = await response.json()
+        setSession(data)
 
-        // Parse character info from token (even if expired, just for display)
-        const base64Url = parsed.access_token.split(".")[1]
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
-        const payload = JSON.parse(atob(base64))
-        setCharacterName(payload.name)
-        const charId = parseInt(payload.sub.split(":")[2])
-        setCharacterId(charId)
-
-        // Load cached data for this character
-        const cachedData = localStorage.getItem(CACHE_KEY)
-        if (cachedData) {
-          try {
-            const cache = JSON.parse(cachedData) as CachedData
-            if (cache.characterId === charId) {
+        // Load cached data if available
+        if (data.authenticated && data.user) {
+          const cachedData = localStorage.getItem(CACHE_KEY)
+          if (cachedData) {
+            try {
+              const cache = JSON.parse(cachedData) as CachedData
+              // Use user ID for cache validation (would need to add userId to response)
               setOpportunities(cache.opportunities)
               setSummary(cache.summary)
               setCacheTimestamp(cache.timestamp)
+            } catch {
+              // ignore invalid cache
             }
-          } catch {
-            // ignore invalid cache
           }
         }
-
-        const validToken = await getValidToken()
-        if (validToken) {
-          setAccessToken(validToken)
-          setIsLoggedIn(true)
-        } else {
-          setIsLoggedIn(false)
-        }
-      } catch {
-        setIsLoggedIn(false)
+      } catch (err) {
+        console.error("Failed to check session:", err)
+        setSession({ authenticated: false })
+      } finally {
+        setIsLoading(false)
       }
     }
 
-    checkTokens()
-  }, [getValidToken])
+    checkSession()
+  }, [])
 
   const fetchOpportunities = async () => {
     setLoadingAssets(true)
     setError(null)
 
     try {
-      const token = await getValidToken()
-      if (!token) {
-        setError("Session expired. Please login again.")
-        setIsLoggedIn(false)
-        setLoadingAssets(false)
-        return
-      }
-
-      // Step 1: Fetch character assets
-      const assetsResponse = await fetch("/api/esi/character-assets", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      // Step 1: Fetch character assets (session-based auth via cookies)
+      const assetsResponse = await fetch("/api/esi/character-assets")
 
       if (!assetsResponse.ok) {
         const data = await assetsResponse.json()
         if (assetsResponse.status === 401) {
-          localStorage.removeItem("eve_sso_tokens")
-          setIsLoggedIn(false)
+          setSession({ authenticated: false })
           throw new Error("Session expired. Please login again.")
         }
         throw new Error(data.error || "Failed to fetch assets")
@@ -294,9 +202,10 @@ export function SellOpportunitiesTab() {
 
       const assetsData = await assetsResponse.json()
       const assets: Asset[] = assetsData.assets
+      setCharacterCount(assetsData.characters_queried || 1)
 
       if (assets.length === 0) {
-        setError("No assets found in Jita 4-4 for this character")
+        setError("No assets found in Jita 4-4 across your characters")
         setLoadingAssets(false)
         return
       }
@@ -335,15 +244,14 @@ export function SellOpportunitiesTab() {
       setSkipped(newSkipped)
       setCacheTimestamp(now)
 
-      if (characterId) {
-        const cacheData: CachedData = {
-          opportunities: newOpportunities,
-          summary: newSummary,
-          timestamp: now,
-          characterId: characterId,
-        }
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
+      // Cache the results
+      const cacheData: CachedData = {
+        opportunities: newOpportunities,
+        summary: newSummary,
+        timestamp: now,
+        userId: session?.user?.main_character_name || "unknown",
       }
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
@@ -384,8 +292,8 @@ export function SellOpportunitiesTab() {
       })
   }, [filterRecommendation, opportunities, sortDirection, sortField])
 
-  // Loading placeholder while checking login
-  if (isLoggedIn === null) {
+  // Loading placeholder while checking session
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -394,7 +302,7 @@ export function SellOpportunitiesTab() {
   }
 
   // Not logged in
-  if (!isLoggedIn) {
+  if (!session?.authenticated) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -415,6 +323,10 @@ export function SellOpportunitiesTab() {
     )
   }
 
+  const characterLabel = characterCount > 1 
+    ? `${characterCount} characters • Jita 4-4` 
+    : `${session.user?.main_character_name} • Jita 4-4`
+
   return (
     <div className="space-y-6">
       <Card>
@@ -423,7 +335,7 @@ export function SellOpportunitiesTab() {
             <div className="space-y-1">
               <CardTitle>Sell Opportunities</CardTitle>
               <CardDescription>
-                {characterName ? `${characterName} • Jita 4-4` : "Find the best time to sell your items"}
+                {characterLabel}
                 {cacheTimestamp && (
                   <span className="ml-2 text-muted-foreground">• Updated {new Date(cacheTimestamp).toLocaleString()}</span>
                 )}
@@ -653,5 +565,3 @@ export function SellOpportunitiesTab() {
     </div>
   )
 }
-
-

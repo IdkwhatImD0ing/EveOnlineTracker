@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -19,69 +20,97 @@ interface MarketOrder {
   volume_total: number
 }
 
+interface OrderWithCharacter extends MarketOrder {
+  character_id: number
+  character_name: string
+}
+
 /**
  * GET /api/esi/character-orders
  * 
- * Fetches character market orders from ESI.
+ * Fetches market orders for all characters linked to the authenticated user.
+ * Uses session-based authentication.
  * 
- * Query Parameters:
- *   - character_id (required): The character ID
- * 
- * Headers:
- *   - Authorization (required): Bearer token from EVE SSO (requires esi-markets.read_character_orders.v1 scope)
+ * Returns aggregated order data across all characters.
  */
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const characterId = searchParams.get('character_id')
+export async function GET() {
+  // Get authenticated user from session
+  const session = await getAuthenticatedUser()
   
-  const authHeader = request.headers.get('authorization')
-
-  if (!characterId) {
+  if (!session) {
     return NextResponse.json(
-      { error: 'character_id is required' },
-      { status: 400 }
-    )
-  }
-
-  if (!authHeader) {
-    return NextResponse.json(
-      { error: 'Authorization header required. Requires esi-markets.read_character_orders.v1 scope.' },
+      { error: 'Not authenticated. Login with EVE SSO first.' },
       { status: 401 }
     )
   }
 
+  if (!session.user.allowed) {
+    return NextResponse.json(
+      { error: 'Account pending approval' },
+      { status: 403 }
+    )
+  }
+
+  // Get tokens for all characters
+  const characterTokens = await getAllCharacterTokens(session.user_id)
+  
+  if (characterTokens.length === 0) {
+    return NextResponse.json(
+      { error: 'No characters with valid tokens found' },
+      { status: 400 }
+    )
+  }
+
   try {
-    const response = await fetch(
-      `${ESI_BASE}/characters/${characterId}/orders/`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': authHeader,
-          'X-Compatibility-Date': '2025-11-06',
-        },
-      }
+    // Fetch orders for each character
+    const orderResults = await Promise.allSettled(
+      characterTokens.map(async (token) => {
+        const response = await fetch(
+          `${ESI_BASE}/characters/${token.character_id}/orders/`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${token.access_token}`,
+              'X-Compatibility-Date': '2025-11-06',
+            },
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch orders for ${token.character_name}`)
+        }
+
+        const orders: MarketOrder[] = await response.json()
+        return orders.map(order => ({
+          ...order,
+          character_id: token.character_id,
+          character_name: token.character_name,
+        }))
+      })
     )
 
-    if (!response.ok) {
-      const error = await response.text()
-      return NextResponse.json(
-        { error: `ESI Error: ${response.status}`, details: error },
-        { status: response.status }
-      )
+    // Aggregate all orders
+    const allOrders: OrderWithCharacter[] = []
+    let successfulCharacters = 0
+    
+    for (const result of orderResults) {
+      if (result.status === 'fulfilled') {
+        allOrders.push(...result.value)
+        successfulCharacters++
+      }
     }
 
-    const orders: MarketOrder[] = await response.json()
-
     // Calculate statistics
-    const buyOrders = orders.filter(o => o.is_buy_order)
-    const sellOrders = orders.filter(o => !o.is_buy_order)
+    const buyOrders = allOrders.filter(o => o.is_buy_order)
+    const sellOrders = allOrders.filter(o => !o.is_buy_order)
 
     const totalSellValue = sellOrders.reduce((sum, o) => sum + (o.price * o.volume_remain), 0)
     const totalBuyEscrow = buyOrders.reduce((sum, o) => sum + (o.escrow || 0), 0)
 
     return NextResponse.json({
-      character_id: characterId,
-      total_orders: orders.length,
+      characters_queried: characterTokens.length,
+      characters_successful: successfulCharacters,
+      total_orders: allOrders.length,
       sell_orders: {
         count: sellOrders.length,
         total_value: totalSellValue,
@@ -92,7 +121,7 @@ export async function GET(request: NextRequest) {
         total_escrow: totalBuyEscrow,
         total_escrow_formatted: formatISK(totalBuyEscrow),
       },
-      orders: orders.map(o => ({
+      orders: allOrders.map(o => ({
         order_id: o.order_id,
         type_id: o.type_id,
         is_buy_order: o.is_buy_order,
@@ -103,6 +132,8 @@ export async function GET(request: NextRequest) {
         location_id: o.location_id,
         issued: o.issued,
         duration: o.duration,
+        character_id: o.character_id,
+        character_name: o.character_name,
       })),
     })
 
@@ -127,4 +158,3 @@ function formatISK(value: number): string {
   }
   return `${value.toFixed(2)} ISK`
 }
-

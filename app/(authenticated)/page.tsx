@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,23 @@ import {
   RefreshCw,
 } from "lucide-react"
 
+// Session response from /api/auth/session
+interface SessionResponse {
+  authenticated: boolean
+  user?: {
+    id: string
+    main_character_id: number
+    main_character_name: string
+    allowed: boolean
+  }
+  characters?: Array<{
+    id: string
+    character_id: number
+    character_name: string
+    is_main: boolean
+  }>
+}
+
 interface CharacterInfo {
   character_id: number
   character_name: string
@@ -30,8 +47,14 @@ interface ProjectStats {
 }
 
 interface WalletData {
-  balance: number
-  balance_formatted: string
+  total_balance: number
+  total_balance_formatted: string
+  wallets: Array<{
+    character_id: number
+    character_name: string
+    balance: number
+    balance_formatted: string
+  }>
 }
 
 interface OrdersData {
@@ -45,73 +68,6 @@ interface OrdersData {
     count: number
     total_escrow: number
     total_escrow_formatted: string
-  }
-}
-
-interface TokenData {
-  access_token: string
-  refresh_token: string
-  expires_in: number
-  token_type: string
-}
-
-/**
- * Check if a JWT token is expired
- * Returns true if expired or will expire within 60 seconds
- */
-function isTokenExpired(token: string): boolean {
-  try {
-    const base64Url = token.split(".")[1]
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
-    const payload = JSON.parse(atob(base64))
-    // exp is in seconds, Date.now() is in milliseconds
-    // Add 60 second buffer to refresh before actual expiry
-    return payload.exp * 1000 < Date.now() + 60000
-  } catch {
-    return true // Assume expired if can't parse
-  }
-}
-
-/**
- * Refresh the access token using the refresh token
- */
-async function refreshAccessToken(refreshToken: string): Promise<TokenData | null> {
-  try {
-    const response = await fetch("/api/auth/eve/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    })
-
-    if (!response.ok) {
-      return null
-    }
-
-    return await response.json()
-  } catch {
-    return null
-  }
-}
-
-// Parse JWT to get character info
-function parseJWT(token: string): CharacterInfo | null {
-  try {
-    const base64Url = token.split('.')[1]
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    )
-    const payload = JSON.parse(jsonPayload)
-    const characterId = parseInt(payload.sub.split(':')[2])
-    return {
-      character_id: characterId,
-      character_name: payload.name,
-    }
-  } catch {
-    return null
   }
 }
 
@@ -155,78 +111,32 @@ const features = [
 
 export default function Dashboard() {
   const [characterInfo, setCharacterInfo] = useState<CharacterInfo | null>(null)
-  const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [session, setSession] = useState<SessionResponse | null>(null)
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null)
   const [walletData, setWalletData] = useState<WalletData | null>(null)
   const [ordersData, setOrdersData] = useState<OrdersData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingEsi, setIsLoadingEsi] = useState(false)
 
-  /**
-   * Get a valid access token, refreshing if needed
-   * Updates localStorage and component state with new tokens if refreshed
-   */
-  const getValidToken = useCallback(async (): Promise<{ token: string; characterInfo: CharacterInfo } | null> => {
-    const savedTokens = localStorage.getItem("eve_sso_tokens")
-    if (!savedTokens) return null
-
-    try {
-      const parsed = JSON.parse(savedTokens) as TokenData
-
-      // Check if token is expired
-      if (isTokenExpired(parsed.access_token)) {
-        console.log("[Dashboard] Token expired, refreshing...")
-
-        // Try to refresh
-        const newTokens = await refreshAccessToken(parsed.refresh_token)
-        if (!newTokens) {
-          // Refresh failed - user needs to re-login
-          localStorage.removeItem("eve_sso_tokens")
-          setCharacterInfo(null)
-          setAccessToken(null)
-          return null
-        }
-
-        // Save new tokens
-        localStorage.setItem("eve_sso_tokens", JSON.stringify(newTokens))
-        console.log("[Dashboard] Token refreshed successfully")
-
-        // Parse character info from new token
-        const info = parseJWT(newTokens.access_token)
-        if (info) {
-          setCharacterInfo(info)
-          setAccessToken(newTokens.access_token)
-          return { token: newTokens.access_token, characterInfo: info }
-        }
-        return null
-      }
-
-      // Token still valid
-      const info = parseJWT(parsed.access_token)
-      if (info) {
-        return { token: parsed.access_token, characterInfo: info }
-      }
-      return null
-    } catch {
-      return null
-    }
-  }, [])
-
   useEffect(() => {
-    // Load character info from stored tokens
-    const storedTokens = localStorage.getItem("eve_sso_tokens")
-    if (storedTokens) {
+    // Load session from API
+    async function fetchSession() {
       try {
-        const tokens = JSON.parse(storedTokens)
-        if (tokens.access_token) {
-          const info = parseJWT(tokens.access_token)
-          if (info) {
-            setCharacterInfo(info)
-            setAccessToken(tokens.access_token)
+        const response = await fetch("/api/auth/session")
+        if (response.ok) {
+          const sessionData: SessionResponse = await response.json()
+          setSession(sessionData)
+          // Find main character or use first character
+          const mainChar = sessionData.characters?.find(c => c.is_main) || sessionData.characters?.[0]
+          if (mainChar) {
+            setCharacterInfo({
+              character_id: mainChar.character_id,
+              character_name: mainChar.character_name,
+            })
           }
         }
-      } catch {
-        // Invalid JSON, ignore
+      } catch (err) {
+        console.error("Failed to fetch session:", err)
       }
     }
 
@@ -250,33 +160,22 @@ export default function Dashboard() {
       }
     }
 
+    fetchSession()
     fetchStats()
   }, [])
 
-  // Fetch ESI data when we have character info
+  // Fetch ESI data when we have a session with characters
   useEffect(() => {
-    if (!characterInfo) return
+    if (!session?.authenticated || !characterInfo) return
 
     async function fetchEsiData() {
-      // Get a valid token, refreshing if expired
-      const tokenResult = await getValidToken()
-      if (!tokenResult) {
-        console.log("[Dashboard] No valid token available for ESI data fetch")
-        return
-      }
-
-      const { token, characterInfo: charInfo } = tokenResult
       setIsLoadingEsi(true)
       
       try {
-        // Fetch wallet and orders in parallel
+        // Fetch wallet and orders in parallel (server handles auth via session cookie)
         const [walletRes, ordersRes] = await Promise.all([
-          fetch(`/api/esi/wallet?character_id=${charInfo.character_id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          fetch(`/api/esi/character-orders?character_id=${charInfo.character_id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
+          fetch(`/api/esi/wallet?character_id=${characterInfo!.character_id}`),
+          fetch(`/api/esi/character-orders?character_id=${characterInfo!.character_id}`)
         ])
 
         if (walletRes.ok) {
@@ -296,27 +195,19 @@ export default function Dashboard() {
     }
 
     fetchEsiData()
-  }, [characterInfo, getValidToken])
+  }, [session, characterInfo])
 
   const refreshEsiData = async () => {
-    // Get a valid token, refreshing if expired
-    const tokenResult = await getValidToken()
-    if (!tokenResult) {
-      console.log("[Dashboard] No valid token available for ESI data refresh")
-      return
-    }
-
-    const { token, characterInfo: charInfo } = tokenResult
+    if (!session?.authenticated || !characterInfo) return
+    
     setIsLoadingEsi(true)
     
     try {
       const [wallet, orders] = await Promise.all([
-        fetch(`/api/esi/wallet?character_id=${charInfo.character_id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.ok ? r.json() : null),
-        fetch(`/api/esi/character-orders?character_id=${charInfo.character_id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.ok ? r.json() : null)
+        fetch(`/api/esi/wallet?character_id=${characterInfo.character_id}`)
+          .then(r => r.ok ? r.json() : null),
+        fetch(`/api/esi/character-orders?character_id=${characterInfo.character_id}`)
+          .then(r => r.ok ? r.json() : null)
       ])
       
       if (wallet) setWalletData(wallet)
@@ -362,7 +253,7 @@ export default function Dashboard() {
                   {walletData && (
                     <span className="flex items-center gap-1 text-emerald-500">
                       <Wallet className="size-3 sm:size-4" />
-                      {walletData.balance_formatted}
+                      {walletData.total_balance_formatted}
                     </span>
                   )}
                   {ordersData && (
@@ -425,7 +316,7 @@ export default function Dashboard() {
                     {isLoadingEsi ? (
                       <Loader2 className="size-4 md:size-5 animate-spin" />
                     ) : walletData ? (
-                      walletData.balance_formatted.replace(' ISK', '')
+                      walletData.total_balance_formatted.replace(' ISK', '')
                     ) : (
                       '—'
                     )}

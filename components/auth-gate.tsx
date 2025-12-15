@@ -1,155 +1,148 @@
 "use client"
 
-import { useState, useEffect, useRef, type FormEvent } from "react"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { useState, useEffect } from "react"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { LockKeyhole, AlertCircle, Loader2, ExternalLink } from "lucide-react"
+import { Loader2, ExternalLink, Clock, ShieldCheck } from "lucide-react"
 
-// Dummy password - change this to your desired password
-const SITE_PASSWORD = "eve2024"
+interface SessionData {
+  authenticated: boolean
+  user?: {
+    id: string
+    main_character_id: number
+    main_character_name: string
+    allowed: boolean
+  }
+  characters?: {
+    id: string
+    character_id: number
+    character_name: string
+    is_main: boolean
+  }[]
+}
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-    const [error, setError] = useState("")
-    const [isLoading, setIsLoading] = useState(false)
-    const passwordRef = useRef<HTMLInputElement>(null)
+  const [session, setSession] = useState<SessionData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-    useEffect(() => {
-        // Check if already authenticated
-        const auth = localStorage.getItem("eve-tracker-auth")
-        setIsAuthenticated(auth === "authenticated")
-    }, [])
+  useEffect(() => {
+    checkSession()
+  }, [])
 
-    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault()
-        const password = passwordRef.current?.value || ""
-
-        if (!password) {
-            setError("Please enter a password")
-            return
-        }
-
-        setIsLoading(true)
-        setError("")
-
-        // Simulate a small delay for UX
-        setTimeout(() => {
-            if (password === SITE_PASSWORD) {
-                localStorage.setItem("eve-tracker-auth", "authenticated")
-                setIsAuthenticated(true)
-            } else {
-                setError("Incorrect password. Please try again.")
-                if (passwordRef.current) {
-                    passwordRef.current.value = ""
-                    passwordRef.current.focus()
-                }
-            }
-            setIsLoading(false)
-        }, 300)
+  const checkSession = async () => {
+    try {
+      const response = await fetch("/api/auth/session")
+      const data: SessionData = await response.json()
+      setSession(data)
+    } catch (error) {
+      console.error("Failed to check session:", error)
+      setSession({ authenticated: false })
+    } finally {
+      setIsLoading(false)
     }
+  }
 
-    // Show nothing while checking auth state
-    if (isAuthenticated === null) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-background">
-                <Loader2 className="size-8 animate-spin text-primary" />
-            </div>
-        )
-    }
-
-    // Show protected content if authenticated
-    if (isAuthenticated) {
-        return <>{children}</>
-    }
-
-    // Show password gate
+  // Show loading spinner while checking session
+  if (isLoading) {
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-4">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-transparent to-transparent" />
-
-            <Card className="relative w-full max-w-md border-zinc-800 bg-zinc-950/80 backdrop-blur-sm">
-                <CardHeader className="space-y-3 text-center">
-                    <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/20">
-                        <LockKeyhole className="size-8 text-primary" />
-                    </div>
-                    <CardTitle className="text-2xl font-bold tracking-tight text-zinc-100">
-                        EVE Online Tracker
-                    </CardTitle>
-                    <CardDescription className="text-zinc-400">
-                        Enter the password to access the tracker
-                    </CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="password" className="text-zinc-300">
-                                Password
-                            </Label>
-                            <Input
-                                ref={passwordRef}
-                                id="password"
-                                name="password"
-                                type="password"
-                                placeholder="Enter password"
-                                className="h-11 border-zinc-800 bg-zinc-900/50 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-primary"
-                                autoFocus
-                                autoComplete="current-password"
-                            />
-                        </div>
-
-                        {error && (
-                            <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
-                                <AlertCircle className="size-4" />
-                                <AlertDescription>{error}</AlertDescription>
-                            </Alert>
-                        )}
-
-                        <Button
-                            type="submit"
-                            className="h-11 w-full text-base font-medium"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <>
-                                    <Loader2 className="animate-spin" />
-                                    Verifying...
-                                </>
-                            ) : (
-                                <>
-                                    <LockKeyhole />
-                                    Access Tracker
-                                </>
-                            )}
-                        </Button>
-                    </form>
-                </CardContent>
-
-                <CardFooter className="flex-col gap-4 border-t border-zinc-800 pt-6">
-                    <div className="relative w-full">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-zinc-800" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-zinc-950 px-2 text-zinc-500">Or</span>
-                        </div>
-                    </div>
-                    <Button
-                        variant="outline"
-                        className="w-full h-11 border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/50"
-                        onClick={() => window.location.href = "/api/auth/eve/login"}
-                    >
-                        <ExternalLink className="size-4" />
-                        Login with EVE SSO
-                    </Button>
-                    <p className="text-xs text-zinc-500">
-                        Use EVE SSO to get tokens for external scripts
-                    </p>
-                </CardFooter>
-            </Card>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-primary" />
+      </div>
     )
+  }
+
+  // Not authenticated - show login screen
+  if (!session?.authenticated || !session.user) {
+    return <LoginScreen />
+  }
+
+  // Authenticated but not allowed - show pending approval screen
+  if (!session.user.allowed) {
+    return <PendingApprovalScreen characterName={session.user.main_character_name} />
+  }
+
+  // Authenticated and allowed - show the app
+  return <>{children}</>
+}
+
+function LoginScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-4">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-transparent to-transparent" />
+
+      <Card className="relative w-full max-w-md border-zinc-800 bg-zinc-950/80 backdrop-blur-sm">
+        <CardHeader className="space-y-3 text-center">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/20">
+            <ShieldCheck className="size-8 text-primary" />
+          </div>
+          <CardTitle className="text-2xl font-bold tracking-tight text-zinc-100">
+            EVE Online Tracker
+          </CardTitle>
+          <CardDescription className="text-zinc-400">
+            Login with your EVE Online account to access the tracker
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <Button
+            className="w-full h-12 text-base font-medium"
+            onClick={() => window.location.href = "/api/auth/eve/login"}
+          >
+            <ExternalLink className="size-4 mr-2" />
+            Login with EVE SSO
+          </Button>
+          <p className="text-xs text-center text-zinc-500">
+            You&apos;ll be redirected to EVE Online to authorize this application
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function PendingApprovalScreen({ characterName }: { characterName: string }) {
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" })
+    window.location.reload()
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-4">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/10 via-transparent to-transparent" />
+
+      <Card className="relative w-full max-w-md border-amber-800/50 bg-zinc-950/80 backdrop-blur-sm">
+        <CardHeader className="space-y-3 text-center">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/30">
+            <Clock className="size-8 text-amber-400" />
+          </div>
+          <CardTitle className="text-2xl font-bold tracking-tight text-zinc-100">
+            Pending Approval
+          </CardTitle>
+          <CardDescription className="text-zinc-400">
+            Your account is awaiting administrator approval
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-center">
+            <p className="text-sm text-zinc-400">Logged in as</p>
+            <p className="text-lg font-semibold text-amber-400">{characterName}</p>
+          </div>
+          
+          <p className="text-sm text-zinc-500 text-center">
+            Once approved, you&apos;ll have full access to the EVE Online Tracker.
+            Please contact an administrator if you need immediate access.
+          </p>
+
+          <Button
+            variant="outline"
+            className="w-full border-zinc-700 hover:bg-zinc-800"
+            onClick={handleLogout}
+          >
+            Logout
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

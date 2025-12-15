@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { calculateUndercutPrice, formatPriceForEve, formatISK, calculateTickSize } from '@/lib/market-analysis'
 import { createClient } from '@/utils/supabase/server'
 import { REGION_IDS, VALE_HUB_FACTOR } from '@/types/market-seeder'
+import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -107,49 +108,61 @@ function getTypeName(typeId: number): string {
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const characterId = searchParams.get('character_id')
   const structureId = searchParams.get('structure_id') || '1051567430261' // Default to 3T7-M8 Keepstar
   
-  const authHeader = request.headers.get('authorization')
-
-  if (!characterId) {
+  // Get session with all characters
+  const session = await getSessionWithCharacters()
+  
+  if (!session) {
     return NextResponse.json(
-      { error: 'character_id is required' },
-      { status: 400 }
+      { error: 'Not authenticated. Login with EVE SSO first.' },
+      { status: 401 }
     )
   }
 
-  if (!authHeader) {
+  if (!session.user.allowed) {
     return NextResponse.json(
-      { error: 'Authorization header required. Requires esi-markets.read_character_orders.v1 and esi-markets.structure_markets.v1 scopes.' },
-      { status: 401 }
+      { error: 'Account pending approval' },
+      { status: 403 }
     )
   }
 
   try {
     const startTime = Date.now()
 
-    // Step 1: Fetch character's market orders
-    const charOrdersResponse = await fetch(
-      `${ESI_BASE}/characters/${characterId}/orders/`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': authHeader,
-          'X-Compatibility-Date': '2025-11-06',
-        },
-      }
-    )
+    // Step 1: Fetch all characters' market orders and aggregate
+    let allCharOrders: CharacterOrder[] = []
+    
+    for (const character of session.allCharacters) {
+      // Get valid access token for this character
+      const accessToken = await getValidAccessToken(character.character_id)
+      if (!accessToken) continue
+      
+      const charOrdersResponse = await fetch(
+        `${ESI_BASE}/characters/${character.character_id}/orders/`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+            'X-Compatibility-Date': '2025-11-06',
+          },
+        }
+      )
 
-    if (!charOrdersResponse.ok) {
-      const error = await charOrdersResponse.text()
+      if (charOrdersResponse.ok) {
+        const orders: CharacterOrder[] = await charOrdersResponse.json()
+        allCharOrders = allCharOrders.concat(orders)
+      }
+    }
+    
+    // Get access token for structure market access (use main character)
+    const authToken = await getValidAccessToken()
+    if (!authToken) {
       return NextResponse.json(
-        { error: `Failed to fetch character orders: ${charOrdersResponse.status}`, details: error },
-        { status: charOrdersResponse.status }
+        { error: 'Failed to get access token' },
+        { status: 401 }
       )
     }
-
-    const allCharOrders: CharacterOrder[] = await charOrdersResponse.json()
 
     // Step 2: Filter to sell orders in the target structure
     const myStructureOrders = allCharOrders.filter(
@@ -181,7 +194,7 @@ export async function GET(request: NextRequest) {
         {
           headers: {
             'Accept': 'application/json',
-            'Authorization': authHeader,
+            'Authorization': `Bearer ${authToken}`,
             'X-Compatibility-Date': '2025-11-06',
           },
         }

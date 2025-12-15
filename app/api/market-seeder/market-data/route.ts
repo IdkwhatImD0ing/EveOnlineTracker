@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cached-data'
 import { REGION_IDS, type TradeableItem } from '@/types/market-seeder'
+import { getAuthenticatedUser } from '@/lib/auth'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -55,6 +56,16 @@ async function loadTradeableItemsMap(): Promise<Map<number, TradeableItem>> {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const typeIdsParam = searchParams.get('type_ids')
     

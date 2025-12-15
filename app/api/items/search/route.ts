@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as fs from 'fs'
 import * as path from 'path'
+import { getAuthenticatedUser } from '@/lib/auth'
 
 interface TradeableItem {
   typeId: number
@@ -53,6 +54,16 @@ async function loadItems(): Promise<TradeableItem[]> {
  *   - limit (optional): Max results to return (default: 20, max: 50)
  */
 export async function GET(request: NextRequest) {
+  const session = await getAuthenticatedUser()
+
+  if (!session) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  if (!session.user.allowed) {
+    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  }
+
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get('q')
   const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 50)

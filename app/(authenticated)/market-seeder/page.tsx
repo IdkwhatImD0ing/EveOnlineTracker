@@ -63,68 +63,7 @@ const SUPPLY_DAYS_PRESETS = [
 
 const DEFAULT_SUPPLY_DAYS = 7
 
-interface TokenData {
-  access_token: string
-  refresh_token: string
-  expires_in: number
-  token_type: string
-}
-
-/**
- * Check if a JWT token is expired
- */
-function isTokenExpired(token: string): boolean {
-  try {
-    const base64Url = token.split(".")[1]
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
-    const payload = JSON.parse(atob(base64))
-    // exp is in seconds, Date.now() is in milliseconds
-    // Add 60 second buffer to refresh before actual expiry
-    return payload.exp * 1000 < Date.now() + 60000
-  } catch {
-    return true // Assume expired if can't parse
-  }
-}
-
-/**
- * Extract character_id from JWT token
- */
-function getCharacterIdFromToken(token: string): string | null {
-  try {
-    const base64Url = token.split(".")[1]
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
-    const payload = JSON.parse(atob(base64))
-    // EVE SSO tokens have sub in format "CHARACTER:EVE:<character_id>"
-    const sub = payload.sub as string
-    if (sub && sub.startsWith("CHARACTER:EVE:")) {
-      return sub.replace("CHARACTER:EVE:", "")
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-/**
- * Refresh the access token using the refresh token
- */
-async function refreshAccessToken(refreshToken: string): Promise<TokenData | null> {
-  try {
-    const response = await fetch("/api/auth/eve/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    })
-
-    if (!response.ok) {
-      return null
-    }
-
-    return await response.json()
-  } catch {
-    return null
-  }
-}
+// Session is now handled server-side via cookies - no client-side token management needed
 
 // ProfitAnalysis is now imported from @/components/market-seeder/results-table
 
@@ -599,51 +538,9 @@ export default function MarketSeederPage() {
     }
   }, [getSelectedItemsData, supplyDays])
 
-  /**
-   * Get a valid access token, refreshing if needed
-   */
-  const getValidToken = useCallback(async (): Promise<string | null> => {
-    const savedTokens = localStorage.getItem("eve_sso_tokens")
-    if (!savedTokens) return null
-
-    try {
-      const parsed = JSON.parse(savedTokens) as TokenData
-
-      // Check if token is expired
-      if (isTokenExpired(parsed.access_token)) {
-        console.log("[Market Seeder] Token expired, refreshing...")
-
-        // Try to refresh
-        const newTokens = await refreshAccessToken(parsed.refresh_token)
-        if (!newTokens) {
-          // Refresh failed - user needs to re-login
-          localStorage.removeItem("eve_sso_tokens")
-          return null
-        }
-
-        // Save new tokens
-        localStorage.setItem("eve_sso_tokens", JSON.stringify(newTokens))
-        console.log("[Market Seeder] Token refreshed successfully")
-        return newTokens.access_token
-      }
-
-      return parsed.access_token
-    } catch {
-      return null
-    }
-  }, [])
-
   const runAnalysis = useCallback(async () => {
     if (!structureId) {
       setError("Structure ID is required")
-      return
-    }
-
-    // Get valid token (refresh if expired)
-    const accessToken = await getValidToken()
-
-    if (!accessToken) {
-      setError("Please login with EVE SSO first to access structure market data")
       return
     }
 
@@ -661,12 +558,8 @@ export default function MarketSeederPage() {
         stream: "true",  // Enable SSE streaming
       })
 
-      // EventSource doesn't support Authorization headers, so we use fetch with streaming
-      const response = await fetch(`/api/market-seeder/analyze?${params}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
+      // Server handles auth via session cookie
+      const response = await fetch(`/api/market-seeder/analyze?${params}`)
 
       if (!response.ok) {
         const data = await response.json()
@@ -757,7 +650,7 @@ export default function MarketSeederPage() {
       setIsLoading(false)
       setProgress(null)
     }
-  }, [structureId, transportCost, minProfit, minVolume, getValidToken, clearSelection])
+  }, [structureId, transportCost, minProfit, minVolume, clearSelection])
 
   // Watchlist functions
   const fetchWatchlist = useCallback(async (checkStock: boolean = true) => {
@@ -768,18 +661,8 @@ export default function MarketSeederPage() {
       const url = '/api/watchlist'
 
       if (checkStock && structureId) {
-        const accessToken = await getValidToken()
-        if (!accessToken) {
-          setWatchlistError("Please login with EVE SSO to check stock levels")
-          setWatchlistLoading(false)
-          return
-        }
-
-        const response = await fetch(`${url}?structure_id=${structureId}`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        })
+        // Server handles auth via session cookie
+        const response = await fetch(`${url}?structure_id=${structureId}`)
 
         if (!response.ok) {
           const data = await response.json()
@@ -806,7 +689,7 @@ export default function MarketSeederPage() {
       setWatchlistLoading(false)
       setWatchlistInitialized(true)
     }
-  }, [structureId, getValidToken])
+  }, [structureId])
 
   const addToWatchlist = useCallback(async (item: TradeableItem) => {
     setAddingItem(true)
@@ -1023,24 +906,14 @@ export default function MarketSeederPage() {
       return
     }
 
-    const accessToken = await getValidToken()
-    if (!accessToken) {
-      setDepletionError("Please login with EVE SSO first")
-      return
-    }
-
     setDepletionLoading(true)
     setDepletionError(null)
     setDepletionProgress({ stage: "starting", message: "Connecting...", percent: 0 })
 
     try {
+      // Server handles auth via session cookie
       const response = await fetch(
-        `/api/market-seeder/depletion?structure_id=${structureId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+        `/api/market-seeder/depletion?structure_id=${structureId}`
       )
 
       if (!response.ok) {
@@ -1112,36 +985,20 @@ export default function MarketSeederPage() {
       setDepletionLoading(false)
       setDepletionProgress(null)
     }
-  }, [structureId, getValidToken])
+  }, [structureId])
 
   // Capital efficiency analysis
   const fetchCapitalEfficiency = useCallback(async () => {
-    const accessToken = await getValidToken()
-    if (!accessToken) {
-      setCapitalError("Please login with EVE SSO first")
-      return
-    }
-
-    const characterId = getCharacterIdFromToken(accessToken)
-    if (!characterId) {
-      setCapitalError("Could not extract character ID from token")
-      return
-    }
-
     setCapitalLoading(true)
     setCapitalError(null)
 
     try {
       const params = new URLSearchParams({
-        character_id: characterId,
         transport_cost: transportCost,
       })
 
-      const response = await fetch(`/api/esi/capital-efficiency?${params}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
+      // Server handles auth via session cookie
+      const response = await fetch(`/api/esi/capital-efficiency?${params}`)
 
       if (!response.ok) {
         const data = await response.json()
@@ -1156,36 +1013,20 @@ export default function MarketSeederPage() {
     } finally {
       setCapitalLoading(false)
     }
-  }, [getValidToken, transportCost])
+  }, [transportCost])
 
   // Undercut check
   const fetchUndercuts = useCallback(async () => {
-    const accessToken = await getValidToken()
-    if (!accessToken) {
-      setUndercutError("Please login with EVE SSO first")
-      return
-    }
-
-    const characterId = getCharacterIdFromToken(accessToken)
-    if (!characterId) {
-      setUndercutError("Could not extract character ID from token")
-      return
-    }
-
     setUndercutLoading(true)
     setUndercutError(null)
 
     try {
       const params = new URLSearchParams({
-        character_id: characterId,
         structure_id: structureId,
       })
 
-      const response = await fetch(`/api/esi/undercut-check?${params}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
+      // Server handles auth via session cookie
+      const response = await fetch(`/api/esi/undercut-check?${params}`)
 
       if (!response.ok) {
         const data = await response.json()
@@ -1200,7 +1041,7 @@ export default function MarketSeederPage() {
     } finally {
       setUndercutLoading(false)
     }
-  }, [getValidToken, structureId])
+  }, [structureId])
 
   // Copy undercut price to clipboard and open market window in EVE client
   const copyUndercutPrice = useCallback(async (item: UndercutItem) => {
@@ -1209,29 +1050,17 @@ export default function MarketSeederPage() {
     setUndercutCopiedId(item.your_order_id)
     setTimeout(() => setUndercutCopiedId(null), 2000)
 
-    // Fire-and-forget: Open market window in EVE client
-    const accessToken = await getValidToken()
-    if (accessToken) {
-      fetch(`/api/esi/ui/open-market-window?type_id=${item.type_id}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }).catch((err) => {
-        // Silently ignore errors - the copy is the primary action
-        console.warn('Failed to open market window:', err)
-      })
-    }
-  }, [getValidToken])
+    // Fire-and-forget: Open market window in EVE client (server handles auth via session cookie)
+    fetch(`/api/esi/ui/open-market-window?type_id=${item.type_id}`, {
+      method: 'POST',
+    }).catch((err) => {
+      // Silently ignore errors - the copy is the primary action
+      console.warn('Failed to open market window:', err)
+    })
+  }, [])
 
   // Fetch sell order recommendations with streaming progress
   const fetchSellOrders = useCallback(async () => {
-    const accessToken = await getValidToken()
-    if (!accessToken) {
-      setSellOrderError("Please login with EVE SSO first")
-      return
-    }
-
     setSellOrderLoading(true)
     setSellOrderError(null)
     setSellOrderData(null)
@@ -1243,11 +1072,8 @@ export default function MarketSeederPage() {
         stream: "true",
       })
 
-      const response = await fetch(`/api/esi/sell-order-generator?${params}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
+      // Server handles auth via session cookie
+      const response = await fetch(`/api/esi/sell-order-generator?${params}`)
 
       if (!response.ok) {
         const data = await response.json()
@@ -1310,7 +1136,7 @@ export default function MarketSeederPage() {
       setSellOrderLoading(false)
       setSellProgress(null)
     }
-  }, [getValidToken, structureId])
+  }, [structureId])
 
   // Copy item name to clipboard
   const copySellItemName = useCallback((item: SellOrderItem) => {

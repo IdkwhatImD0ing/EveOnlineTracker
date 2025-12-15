@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cached-data'
 import { REGION_IDS, VALE_HUB_FACTOR, type TradeableItem } from '@/types/market-seeder'
+import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -103,9 +104,18 @@ function sendSSEEvent(
 }
 
 export async function GET(request: NextRequest) {
+  const session = await getAuthenticatedUser()
+
+  if (!session) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  if (!session.user.allowed) {
+    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  }
+
   const searchParams = request.nextUrl.searchParams
   const structureId = searchParams.get('structure_id')
-  const authHeader = request.headers.get('authorization')
 
   if (!structureId) {
     return NextResponse.json(
@@ -114,14 +124,16 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!authHeader) {
+  // Get access token from session
+  const authToken = await getValidAccessToken()
+
+  if (!authToken) {
     return NextResponse.json(
-      { error: 'Authorization header required' },
+      { error: 'Not authenticated. Login with EVE SSO first.' },
       { status: 401 }
     )
   }
 
-  const authToken = authHeader.replace(/^Bearer\s+/i, '')
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({

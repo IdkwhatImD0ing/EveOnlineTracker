@@ -90,9 +90,18 @@ Pages use React's built-in state management:
 
 ## Authentication
 
-Most pages don't require authentication. The application uses a simple password gate (`AuthGate` component) that protects the entire site with a single password stored in localStorage.
+The application uses EVE SSO (Single Sign-On) for authentication. The `AuthGate` component wraps the entire application and:
 
-EVE SSO authentication is only needed for ESI API features (callback page).
+1. Checks for a valid session cookie
+2. Shows a login screen if not authenticated
+3. Shows a "Pending Approval" screen if `allowed = false`
+4. Renders the app if authenticated and allowed
+
+**Multi-Account Support:** Users can link multiple EVE characters (alts) to their account. Data is automatically aggregated across all linked characters.
+
+**Access Control:** New users are created with `allowed = false`. An administrator must set `allowed = true` in the Supabase dashboard to grant access.
+
+See [Authentication API](../api/auth.md) for details.
 
 ## Error Handling
 

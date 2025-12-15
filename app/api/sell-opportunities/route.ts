@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCachedMarketStatistics, getCachedJaniceAppraisal } from '@/lib/cached-data'
+import { getAuthenticatedUser } from '@/lib/auth'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -96,6 +97,16 @@ function getRecommendation(percentOfATH: number): { recommendation: 'sell' | 'ho
  */
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const body = await request.json()
     const allAssets: AssetInput[] = body.assets
 

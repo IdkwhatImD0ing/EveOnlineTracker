@@ -145,20 +145,23 @@ function parseJWT(token: string): CharacterInfo | null {
 }
 ```
 
-## Token Persistence
+## Session Management
 
-Tokens are stored in localStorage:
+Authentication is now handled server-side via secure session cookies:
 
 ```typescript
-// Save on successful auth
-localStorage.setItem("eve_sso_tokens", JSON.stringify(data))
+// Session is fetched from the server
+const response = await fetch("/api/auth/session")
+const session = await response.json()
 
-// Load on page mount
-const savedTokens = localStorage.getItem("eve_sso_tokens")
+// Session includes user, main character, and all linked characters
+// { user, mainCharacter, allCharacters }
 
-// Clear on logout
-localStorage.removeItem("eve_sso_tokens")
+// Logout clears the session cookie server-side
+await fetch("/api/auth/logout", { method: "POST" })
 ```
+
+Tokens are stored securely in the database and managed by the server. The session cookie (`eve_session`) identifies the user, and access tokens are refreshed automatically when needed.
 
 ## Response Color Coding
 

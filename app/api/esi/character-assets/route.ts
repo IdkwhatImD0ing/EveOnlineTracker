@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as fs from 'fs'
 import * as path from 'path'
+import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
+import type { CharacterToken } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net/latest'
 
@@ -26,6 +28,7 @@ interface AggregatedAsset {
   type_name: string
   total_quantity: number
   locations: number
+  characters: string[]  // List of character names that have this item
   is_blueprint_copy?: boolean
 }
 
@@ -43,27 +46,6 @@ function loadInvTypes(): Record<string, InvType> {
   
   invTypesCache = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
   return invTypesCache!
-}
-
-/**
- * Parse JWT to extract character ID
- */
-function getCharacterIdFromToken(token: string): number | null {
-  try {
-    const base64Url = token.split('.')[1]
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      Buffer.from(base64, 'base64')
-        .toString('utf-8')
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    )
-    const payload = JSON.parse(jsonPayload)
-    return parseInt(payload.sub.split(':')[2])
-  } catch {
-    return null
-  }
 }
 
 /**
@@ -96,41 +78,67 @@ async function fetchAssetsPage(
   return { assets, totalPages }
 }
 
+/**
+ * Fetch all assets for a single character
+ */
+async function fetchAllAssetsForCharacter(
+  characterToken: CharacterToken,
+  filterLocationId: number | null,
+  includeBlueprints: boolean
+): Promise<{ assets: ESIAsset[]; characterName: string }> {
+  const { assets: firstPageAssets, totalPages } = await fetchAssetsPage(
+    characterToken.character_id,
+    characterToken.access_token,
+    1
+  )
+  
+  const allAssets: ESIAsset[] = [...firstPageAssets]
+  
+  if (totalPages > 1) {
+    const pagePromises: Promise<{ assets: ESIAsset[]; totalPages: number }>[] = []
+    for (let page = 2; page <= totalPages; page++) {
+      pagePromises.push(fetchAssetsPage(characterToken.character_id, characterToken.access_token, page))
+    }
+    
+    const results = await Promise.all(pagePromises)
+    for (const result of results) {
+      allAssets.push(...result.assets)
+    }
+  }
+
+  return { assets: allAssets, characterName: characterToken.character_name }
+}
+
 // Jita 4-4 station ID
 const JITA_STATION_ID = 60003760
 
 /**
  * GET /api/esi/character-assets
  * 
- * Fetches all assets for the authenticated character and aggregates them by type.
- * 
- * Headers:
- *   - Authorization: Bearer <access_token> (required)
+ * Fetches all assets for all characters linked to the authenticated user and aggregates them by type.
  * 
  * Query Parameters:
  *   - include_blueprints: boolean (default: false) - Include blueprint copies
  *   - location_id: number (optional) - Filter to specific location (default: Jita 4-4)
  *   - all_locations: boolean (default: false) - Include all locations (ignores location_id)
  * 
- * Returns aggregated assets with type names and total quantities.
+ * Returns aggregated assets with type names and total quantities across all characters.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('Authorization')
+  // Get authenticated user
+  const session = await getAuthenticatedUser()
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!session) {
     return NextResponse.json(
-      { error: 'Authorization header required. Login with EVE SSO first (requires esi-assets.read_assets.v1 scope).' },
+      { error: 'Not authenticated. Login with EVE SSO first.' },
       { status: 401 }
     )
   }
 
-  const accessToken = authHeader.replace('Bearer ', '')
-  const characterId = getCharacterIdFromToken(accessToken)
-
-  if (!characterId) {
+  if (!session.user.allowed) {
     return NextResponse.json(
-      { error: 'Invalid access token - could not extract character ID' },
-      { status: 401 }
+      { error: 'Account pending approval' },
+      { status: 403 }
     )
   }
 
@@ -143,106 +151,126 @@ export async function GET(request: NextRequest) {
   const filterLocationId = allLocations ? null : (locationIdParam ? parseInt(locationIdParam) : JITA_STATION_ID)
 
   try {
-    // Fetch first page to get total pages
-    const { assets: firstPageAssets, totalPages } = await fetchAssetsPage(characterId, accessToken, 1)
-    
-    // Fetch remaining pages in parallel
-    const allAssets: ESIAsset[] = [...firstPageAssets]
-    
-    if (totalPages > 1) {
-      const pagePromises: Promise<{ assets: ESIAsset[]; totalPages: number }>[] = []
-      for (let page = 2; page <= totalPages; page++) {
-        pagePromises.push(fetchAssetsPage(characterId, accessToken, page))
-      }
-      
-      const results = await Promise.all(pagePromises)
-      for (const result of results) {
-        allAssets.push(...result.assets)
-      }
+    // Get fresh tokens for all characters
+    const characterTokens = await getAllCharacterTokens(session.user_id)
+
+    if (characterTokens.length === 0) {
+      return NextResponse.json(
+        { error: 'No characters with valid tokens found' },
+        { status: 400 }
+      )
     }
+
+    // Fetch assets from all characters in parallel
+    const assetResults = await Promise.allSettled(
+      characterTokens.map(token => 
+        fetchAllAssetsForCharacter(token, filterLocationId, includeBlueprints)
+      )
+    )
 
     // Load type names
     const invTypes = loadInvTypes()
 
-    // Find all item_ids that are in the target location (including nested items)
-    // An item is "in" a location if:
-    // 1. Its location_id matches the target location, OR
-    // 2. Its location_id is an item_id of another item that is "in" the target location
-    const itemsInLocation = new Set<number>()
+    // Aggregate assets by type_id across all characters
+    const aggregated = new Map<number, AggregatedAsset>()
+    const locationsByType = new Map<number, Set<number>>()
+    const charactersByType = new Map<number, Set<string>>()
     
-    if (filterLocationId !== null) {
-      // First pass: find items directly in the target location
-      for (const asset of allAssets) {
-        if (asset.location_id === filterLocationId) {
-          itemsInLocation.add(asset.item_id)
-        }
+    let totalItems = 0
+    let filteredItems = 0
+    let successfulCharacters = 0
+    const failedCharacters: string[] = []
+
+    for (let i = 0; i < assetResults.length; i++) {
+      const result = assetResults[i]
+      const characterName = characterTokens[i].character_name
+
+      if (result.status === 'rejected') {
+        console.error(`[Character Assets] Failed for ${characterName}:`, result.reason)
+        failedCharacters.push(characterName)
+        continue
       }
+
+      successfulCharacters++
+      const { assets: allAssets, characterName: charName } = result.value
+      totalItems += allAssets.length
+
+      // Find all item_ids that are in the target location (including nested items)
+      const itemsInLocation = new Set<number>()
       
-      // Multiple passes to find nested items (items inside ships/containers)
-      // Keep iterating until no new items are found
-      let foundNew = true
-      while (foundNew) {
-        foundNew = false
+      if (filterLocationId !== null) {
+        // First pass: find items directly in the target location
         for (const asset of allAssets) {
-          // If this item's location is another item that's in our target location
-          if (!itemsInLocation.has(asset.item_id) && itemsInLocation.has(asset.location_id)) {
+          if (asset.location_id === filterLocationId) {
             itemsInLocation.add(asset.item_id)
-            foundNew = true
+          }
+        }
+        
+        // Multiple passes to find nested items (items inside ships/containers)
+        let foundNew = true
+        while (foundNew) {
+          foundNew = false
+          for (const asset of allAssets) {
+            if (!itemsInLocation.has(asset.item_id) && itemsInLocation.has(asset.location_id)) {
+              itemsInLocation.add(asset.item_id)
+              foundNew = true
+            }
           }
         }
       }
+
+      // Aggregate assets
+      for (const asset of allAssets) {
+        // Skip blueprint copies unless requested
+        if (asset.is_blueprint_copy && !includeBlueprints) {
+          continue
+        }
+
+        // Filter by location if specified
+        if (filterLocationId !== null && !itemsInLocation.has(asset.item_id)) {
+          continue
+        }
+        
+        filteredItems++
+
+        const existing = aggregated.get(asset.type_id)
+        const typeName = invTypes[asset.type_id.toString()]?.name || `Unknown (${asset.type_id})`
+
+        if (existing) {
+          existing.total_quantity += asset.quantity
+          locationsByType.get(asset.type_id)!.add(asset.location_id)
+          charactersByType.get(asset.type_id)!.add(charName)
+        } else {
+          aggregated.set(asset.type_id, {
+            type_id: asset.type_id,
+            type_name: typeName,
+            total_quantity: asset.quantity,
+            locations: 1,
+            characters: [charName],
+            is_blueprint_copy: asset.is_blueprint_copy,
+          })
+          locationsByType.set(asset.type_id, new Set([asset.location_id]))
+          charactersByType.set(asset.type_id, new Set([charName]))
+        }
+      }
     }
 
-    // Aggregate assets by type_id
-    const aggregated = new Map<number, AggregatedAsset>()
-    const locationsByType = new Map<number, Set<number>>()
-    let filteredCount = 0
-
-    for (const asset of allAssets) {
-      // Skip blueprint copies unless requested
-      if (asset.is_blueprint_copy && !includeBlueprints) {
-        continue
-      }
-
-      // Filter by location if specified
-      if (filterLocationId !== null && !itemsInLocation.has(asset.item_id)) {
-        continue
-      }
-      
-      filteredCount++
-
-      const existing = aggregated.get(asset.type_id)
-      const typeName = invTypes[asset.type_id.toString()]?.name || `Unknown (${asset.type_id})`
-
-      if (existing) {
-        existing.total_quantity += asset.quantity
-        locationsByType.get(asset.type_id)!.add(asset.location_id)
-      } else {
-        aggregated.set(asset.type_id, {
-          type_id: asset.type_id,
-          type_name: typeName,
-          total_quantity: asset.quantity,
-          locations: 1,
-          is_blueprint_copy: asset.is_blueprint_copy,
-        })
-        locationsByType.set(asset.type_id, new Set([asset.location_id]))
-      }
-    }
-
-    // Update location counts
+    // Update location and character counts
     for (const [typeId, asset] of aggregated) {
       asset.locations = locationsByType.get(typeId)!.size
+      asset.characters = Array.from(charactersByType.get(typeId)!)
     }
 
     // Convert to array and sort by quantity descending
     const assets = Array.from(aggregated.values()).sort((a, b) => b.total_quantity - a.total_quantity)
 
     return NextResponse.json({
-      character_id: characterId,
+      characters_queried: characterTokens.length,
+      characters_successful: successfulCharacters,
+      characters_failed: failedCharacters,
       total_unique_types: assets.length,
-      total_items: allAssets.length,
-      filtered_items: filteredCount,
-      pages_fetched: totalPages,
+      total_items: totalItems,
+      filtered_items: filteredItems,
       location_filter: filterLocationId,
       location_name: filterLocationId === JITA_STATION_ID ? 'Jita 4-4' : (filterLocationId ? `Location ${filterLocationId}` : 'All locations'),
       assets,
@@ -256,4 +284,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

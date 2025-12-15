@@ -14,9 +14,21 @@ import {
   ChevronRight,
   LogOut,
   X,
+  UserPlus,
+  Star,
+  Trash2,
+  Users,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface NavItem {
   title: string
@@ -57,25 +69,34 @@ const navItems: NavItem[] = [
     description: "Blueprint calculator",
   },
   {
-    title: "EVE SSO",
+    title: "API Explorer",
     href: "/callback",
     icon: KeyRound,
-    description: "Login & API tokens",
+    description: "Debug ESI endpoints",
   },
 ]
 
+interface CharacterInfo {
+  id: string
+  character_id: number
+  character_name: string
+  is_main: boolean
+}
+
 interface SidebarProps {
-  characterName?: string | null
-  characterId?: number | null
+  mainCharacter: CharacterInfo | null
+  allCharacters: CharacterInfo[]
   onLogout?: () => void
+  onCharacterChange?: () => void
   isMobileOpen?: boolean
   onMobileClose?: () => void
 }
 
 export function Sidebar({ 
-  characterName, 
-  characterId, 
+  mainCharacter, 
+  allCharacters,
   onLogout,
+  onCharacterChange,
   isMobileOpen = false,
   onMobileClose,
 }: SidebarProps) {
@@ -120,6 +141,161 @@ export function Sidebar({
     }
   }
 
+  const handleAddAlt = () => {
+    window.location.href = "/api/auth/eve/add-alt"
+  }
+
+  const handleSetMain = async (characterId: number) => {
+    try {
+      const response = await fetch(`/api/characters/${characterId}/main`, {
+        method: "POST",
+      })
+      if (response.ok && onCharacterChange) {
+        onCharacterChange()
+      }
+    } catch (error) {
+      console.error("Failed to set main character:", error)
+    }
+  }
+
+  const handleRemoveCharacter = async (characterId: number) => {
+    if (!confirm("Are you sure you want to remove this character?")) return
+    
+    try {
+      const response = await fetch("/api/characters", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ character_id: characterId }),
+      })
+      if (response.ok && onCharacterChange) {
+        onCharacterChange()
+      }
+    } catch (error) {
+      console.error("Failed to remove character:", error)
+    }
+  }
+
+  const characterCount = allCharacters.length
+
+  // Character section component
+  const CharacterSection = ({ isCollapsed = false }: { isCollapsed?: boolean }) => {
+    if (!mainCharacter) return null
+
+    return (
+      <div
+        className={cn(
+          "border-b border-border/40 p-4",
+          isCollapsed && "flex flex-col items-center gap-2"
+        )}
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                "flex items-center gap-3 w-full text-left rounded-lg p-1 -m-1 hover:bg-accent/50 transition-colors",
+                isCollapsed && "justify-center"
+              )}
+            >
+              <div className="relative">
+                <img
+                  src={`https://images.evetech.net/characters/${mainCharacter.character_id}/portrait?size=64`}
+                  alt={mainCharacter.character_name}
+                  className="size-10 rounded-full ring-2 ring-primary/20"
+                />
+                {characterCount > 1 && (
+                  <span className="absolute -bottom-1 -right-1 size-5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                    {characterCount}
+                  </span>
+                )}
+              </div>
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{mainCharacter.character_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {characterCount > 1 ? `${characterCount} characters` : "1 character"}
+                  </p>
+                </div>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <Users className="size-4" />
+              Your Characters
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {allCharacters.map((char) => (
+              <DropdownMenuItem
+                key={char.character_id}
+                className="flex items-center gap-3 p-2"
+                onSelect={(e) => e.preventDefault()}
+              >
+                <img
+                  src={`https://images.evetech.net/characters/${char.character_id}/portrait?size=32`}
+                  alt={char.character_name}
+                  className="size-8 rounded-full"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{char.character_name}</p>
+                  {char.is_main && (
+                    <p className="text-xs text-primary flex items-center gap-1">
+                      <Star className="size-3 fill-primary" /> Main
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  {!char.is_main && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7"
+                        onClick={() => handleSetMain(char.character_id)}
+                        title="Set as main"
+                      >
+                        <Star className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 text-destructive hover:text-destructive"
+                        onClick={() => handleRemoveCharacter(char.character_id)}
+                        title="Remove character"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleAddAlt} className="gap-2">
+              <UserPlus className="size-4" />
+              Add Alt Character
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {onLogout && (
+          <Button
+            variant="ghost"
+            size={isCollapsed ? "icon" : "sm"}
+            onClick={onLogout}
+            className={cn(
+              "text-muted-foreground hover:text-destructive",
+              isCollapsed ? "size-8" : "w-full mt-2"
+            )}
+            title="Logout"
+          >
+            <LogOut className="size-4" />
+            {!isCollapsed && <span className="ml-2">Logout</span>}
+          </Button>
+        )}
+      </div>
+    )
+  }
+
   // Desktop sidebar (hidden on mobile)
   const desktopSidebar = (
     <aside
@@ -153,43 +329,7 @@ export function Sidebar({
       </div>
 
       {/* Character Info */}
-      {characterName && characterId && (
-        <div
-          className={cn(
-            "border-b border-border/40 p-4",
-            collapsed && "flex flex-col items-center gap-2"
-          )}
-        >
-          <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-            <img
-              src={`https://images.evetech.net/characters/${characterId}/portrait?size=64`}
-              alt={characterName}
-              className="size-10 rounded-full ring-2 ring-primary/20"
-            />
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{characterName}</p>
-                <p className="text-xs text-muted-foreground">Logged in</p>
-              </div>
-            )}
-          </div>
-          {onLogout && (
-            <Button
-              variant="ghost"
-              size={collapsed ? "icon" : "sm"}
-              onClick={onLogout}
-              className={cn(
-                "text-muted-foreground hover:text-destructive",
-                collapsed ? "size-8" : "w-full mt-2"
-              )}
-              title="Logout"
-            >
-              <LogOut className="size-4" />
-              {!collapsed && <span className="ml-2">Logout</span>}
-            </Button>
-          )}
-        </div>
-      )}
+      <CharacterSection isCollapsed={collapsed} />
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-2">
@@ -274,32 +414,7 @@ export function Sidebar({
         </div>
 
         {/* Character Info */}
-        {characterName && characterId && (
-          <div className="border-b border-border/40 p-4">
-            <div className="flex items-center gap-3">
-              <img
-                src={`https://images.evetech.net/characters/${characterId}/portrait?size=64`}
-                alt={characterName}
-                className="size-12 rounded-full ring-2 ring-primary/20"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{characterName}</p>
-                <p className="text-xs text-muted-foreground">Logged in</p>
-              </div>
-            </div>
-            {onLogout && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onLogout}
-                className="w-full mt-3 text-muted-foreground hover:text-destructive"
-              >
-                <LogOut className="size-4 mr-2" />
-                Logout
-              </Button>
-            )}
-          </div>
-        )}
+        <CharacterSection isCollapsed={false} />
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-3 overflow-y-auto">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { getAuthenticatedUser } from '@/lib/auth'
 import type { CreateAdditionalCostRequest } from '@/types/database'
 
 // POST /api/projects/[id]/costs - Add an additional cost
@@ -8,6 +9,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const { id: projectId } = await params
     const body: CreateAdditionalCostRequest = await request.json()
     const { note, amount } = body
@@ -75,6 +86,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const { id: projectId } = await params
     const url = new URL(request.url)
     const costId = url.searchParams.get('costId')

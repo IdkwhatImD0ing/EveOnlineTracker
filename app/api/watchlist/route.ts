@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cached-data'
 import { REGION_IDS, VALE_HUB_FACTOR } from '@/types/market-seeder'
+import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -46,9 +47,18 @@ interface WatchlistItemWithStock extends WatchlistItem {
  *   - Authorization (optional): Bearer token from EVE SSO. Required if structure_id is provided.
  */
 export async function GET(request: NextRequest) {
+  const session = await getAuthenticatedUser()
+
+  if (!session) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  if (!session.user.allowed) {
+    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  }
+
   const searchParams = request.nextUrl.searchParams
   const structureId = searchParams.get('structure_id')
-  const authHeader = request.headers.get('authorization')
 
   try {
     const supabase = createClient()
@@ -88,16 +98,18 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Check stock levels from structure
-    if (!authHeader) {
+    // Get access token from session for structure stock check
+    const authToken = await getValidAccessToken()
+    
+    if (!authToken) {
       return NextResponse.json(
-        { error: 'Authorization header required to check structure stock' },
+        { error: 'Not authenticated. Login with EVE SSO to check structure stock.' },
         { status: 401 }
       )
     }
 
     // Fetch structure orders
-    const structureOrders = await fetchStructureOrders(structureId, authHeader)
+    const structureOrders = await fetchStructureOrders(structureId, `Bearer ${authToken}`)
     
     if (!structureOrders.success) {
       const errorResult = structureOrders
@@ -254,6 +266,16 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { typeId, itemName, groupName, categoryName, volume } = body
 

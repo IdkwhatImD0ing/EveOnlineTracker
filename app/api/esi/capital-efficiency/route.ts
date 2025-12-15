@@ -8,6 +8,7 @@ import {
   REGION_IDS,
   VALE_HUB_FACTOR,
 } from '@/types/market-seeder'
+import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -191,50 +192,52 @@ function daysSince(isoDate: string): number {
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
   const searchParams = request.nextUrl.searchParams
-  const characterId = searchParams.get('character_id')
   const transportCostPerM3 = parseFloat(
     searchParams.get('transport_cost') || String(MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3)
   )
 
-  const authHeader = request.headers.get('authorization')
-
-  if (!characterId) {
+  // Get session with all characters
+  const session = await getSessionWithCharacters()
+  
+  if (!session) {
     return NextResponse.json(
-      { error: 'character_id is required' },
-      { status: 400 }
-    )
-  }
-
-  if (!authHeader) {
-    return NextResponse.json(
-      { error: 'Authorization header required. Requires esi-markets.read_character_orders.v1 scope.' },
+      { error: 'Not authenticated. Login with EVE SSO first.' },
       { status: 401 }
     )
   }
 
-  try {
-    // Step 1: Fetch character's market orders from ESI
-    console.log(`[Capital Efficiency] Fetching orders for character ${characterId}`)
-    const ordersResponse = await fetch(
-      `${ESI_BASE}/characters/${characterId}/orders/`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': authHeader,
-          'X-Compatibility-Date': '2025-11-06',
-        },
-      }
+  if (!session.user.allowed) {
+    return NextResponse.json(
+      { error: 'Account pending approval' },
+      { status: 403 }
     )
+  }
 
-    if (!ordersResponse.ok) {
-      const error = await ordersResponse.text()
-      return NextResponse.json(
-        { error: `ESI Error: ${ordersResponse.status}`, details: error },
-        { status: ordersResponse.status }
+  try {
+    // Step 1: Fetch all characters' market orders and aggregate
+    let allOrders: ESIMarketOrder[] = []
+    
+    for (const character of session.allCharacters) {
+      const accessToken = await getValidAccessToken(character.character_id)
+      if (!accessToken) continue
+      
+      console.log(`[Capital Efficiency] Fetching orders for character ${character.character_id}`)
+      const ordersResponse = await fetch(
+        `${ESI_BASE}/characters/${character.character_id}/orders/`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+            'X-Compatibility-Date': '2025-11-06',
+          },
+        }
       )
-    }
 
-    const allOrders: ESIMarketOrder[] = await ordersResponse.json()
+      if (ordersResponse.ok) {
+        const orders: ESIMarketOrder[] = await ordersResponse.json()
+        allOrders = allOrders.concat(orders)
+      }
+    }
     
     // Filter to only sell orders
     const sellOrders = allOrders.filter(o => !o.is_buy_order)
@@ -243,7 +246,7 @@ export async function GET(request: NextRequest) {
     if (sellOrders.length === 0) {
       return NextResponse.json({
         success: true,
-        characterId: parseInt(characterId),
+        characterId: session.mainCharacter?.character_id ?? 0,
         analyzedAt: new Date().toISOString(),
         summary: {
           totalCapitalDeployed: 0,
@@ -402,7 +405,7 @@ export async function GET(request: NextRequest) {
     
     const response: CapitalEfficiencyResponse = {
       success: true,
-      characterId: parseInt(characterId),
+      characterId: session.mainCharacter?.character_id ?? 0,
       analyzedAt: new Date().toISOString(),
       summary: {
         totalCapitalDeployed,

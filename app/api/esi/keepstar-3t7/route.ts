@@ -1,25 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const characterId = searchParams.get('character_id')
   const searchTerm = searchParams.get('search') || '3T7'
   
-  // Get authorization header
-  const authHeader = request.headers.get('authorization')
-
-  if (!characterId) {
+  // Get session with main character
+  const session = await getSessionWithCharacters()
+  
+  if (!session || !session.mainCharacter) {
     return NextResponse.json(
-      { error: 'character_id is required' },
-      { status: 400 }
+      { error: 'Not authenticated. Login with EVE SSO first.' },
+      { status: 401 }
     )
   }
 
-  if (!authHeader) {
+  if (!session.user.allowed) {
     return NextResponse.json(
-      { error: 'Authorization header required. Login with EVE SSO first (requires esi-search.search_structures.v1 scope).' },
+      { error: 'Account pending approval' },
+      { status: 403 }
+    )
+  }
+  
+  const characterId = session.mainCharacter.character_id
+  const authToken = await getValidAccessToken()
+  
+  if (!authToken) {
+    return NextResponse.json(
+      { error: 'Failed to get access token' },
       { status: 401 }
     )
   }
@@ -37,7 +47,7 @@ export async function GET(request: NextRequest) {
       {
         headers: {
           'Accept': 'application/json',
-          'Authorization': authHeader,
+          'Authorization': `Bearer ${authToken}`,
           'X-Compatibility-Date': '2025-11-06',
         },
       }
@@ -84,7 +94,7 @@ export async function GET(request: NextRequest) {
           {
             headers: {
               'Accept': 'application/json',
-              'Authorization': authHeader,
+              'Authorization': `Bearer ${authToken}`,
               'X-Compatibility-Date': '2025-11-06',
             },
           }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { getAuthenticatedUser } from '@/lib/auth'
 import type { UpdateItemRequest } from '@/types/database'
 
 // PATCH /api/projects/[id]/items/[itemId] - Update item collected status and/or quantity_made
@@ -8,6 +9,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const { id: projectId, itemId } = await params
     const body: UpdateItemRequest = await request.json()
     const { collected, quantity_made } = body

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { getAuthenticatedUser } from '@/lib/auth'
 
 /**
  * DELETE /api/watchlist/[typeId]
@@ -11,6 +12,16 @@ export async function DELETE(
   { params }: { params: Promise<{ typeId: string }> }
 ) {
   try {
+    const session = await getAuthenticatedUser()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    if (!session.user.allowed) {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
     const { typeId } = await params
     const typeIdNum = parseInt(typeId, 10)
 

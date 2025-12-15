@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -26,24 +27,36 @@ interface TypeInfo {
  * GET /api/esi/structure-orders
  * 
  * Fetches market orders from a structure and returns the top 5 most expensive items.
+ * Uses session-based authentication with tokens from linked characters.
  * 
  * Query Parameters:
  *   - structure_id (required): The structure ID to fetch orders from
  *   - page (optional): Page number, defaults to fetching all pages
  *   - buy_orders (optional): If 'true', only return buy orders. If 'false', only sell orders. Default: sell orders only
  *   - all (optional): If 'true', return all orders grouped by type_id instead of top 5
- * 
- * Headers:
- *   - Authorization (required): Bearer token from EVE SSO (requires esi-markets.structure_markets.v1 scope)
  */
 export async function GET(request: NextRequest) {
+  // Get authenticated user from session
+  const session = await getAuthenticatedUser()
+  
+  if (!session) {
+    return NextResponse.json(
+      { error: 'Not authenticated. Login with EVE SSO first.' },
+      { status: 401 }
+    )
+  }
+
+  if (!session.user.allowed) {
+    return NextResponse.json(
+      { error: 'Account pending approval' },
+      { status: 403 }
+    )
+  }
+
   const searchParams = request.nextUrl.searchParams
   const structureId = searchParams.get('structure_id')
   const includeBuyOrders = searchParams.get('buy_orders') === 'true'
   const returnAllOrders = searchParams.get('all') === 'true'
-  
-  // Get authorization header
-  const authHeader = request.headers.get('authorization')
 
   if (!structureId) {
     return NextResponse.json(
@@ -52,12 +65,17 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!authHeader) {
+  // Get token from first available character
+  const characterTokens = await getAllCharacterTokens(session.user_id)
+  
+  if (characterTokens.length === 0) {
     return NextResponse.json(
-      { error: 'Authorization header required. Login with EVE SSO first (requires esi-markets.structure_markets.v1 scope).' },
-      { status: 401 }
+      { error: 'No characters with valid tokens found' },
+      { status: 400 }
     )
   }
+
+  const accessToken = characterTokens[0].access_token
 
   try {
     // Fetch all market orders from the structure (handle pagination)
@@ -75,7 +93,7 @@ export async function GET(request: NextRequest) {
         {
           headers: {
             'Accept': 'application/json',
-            'Authorization': authHeader,
+            'Authorization': `Bearer ${accessToken}`,
             'X-Compatibility-Date': '2025-11-06',
           },
         }
@@ -247,4 +265,3 @@ function formatISK(value: number): string {
   }
   return `${value.toFixed(2)} ISK`
 }
-

@@ -495,6 +495,12 @@ const CATEGORY_NAME_TO_ID: Record<string, number> = {
  *   - skip_db (optional): 'true' to fetch without storing to database (cache only)
  */
 export async function GET(request: NextRequest) {
+  // Validate CRON_SECRET for cron job authentication (Vercel Cron uses Authorization: Bearer)
+  const authHeader = request.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const startTime = Date.now()
   const searchParams = request.nextUrl.searchParams
   const mode = (searchParams.get('mode') || 'legacy') as FetchMode
