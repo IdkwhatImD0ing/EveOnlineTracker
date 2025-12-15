@@ -108,10 +108,17 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     background_color: '#1a1a2e',
     theme_color: '#1a1a2e',
-    icons: [...],
+    icons: [
+      { src: '/icons/manifest-icon-192.maskable.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/manifest-icon-192.maskable.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+      { src: '/icons/manifest-icon-512.maskable.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/manifest-icon-512.maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
   }
 }
 ```
+
+> **Note**: Icons must be PNG format for PWA installability. SVG icons are not supported by all browsers for the "Add to Home Screen" prompt.
 
 This approach provides TypeScript types and allows dynamic values if needed (e.g., environment-based icons).
 
@@ -168,11 +175,18 @@ app/
 └── ~offline/
     └── page.tsx          # Offline fallback page
 
+components/
+└── apple-splash-links.tsx  # iOS splash screen link tags
+
 public/
 ├── icons/
-│   ├── icon-192x192.svg  # Android icon
-│   ├── icon-512x512.svg  # Large icon for splash screens
-│   └── apple-touch-icon.svg  # iOS icon
+│   ├── manifest-icon-192.maskable.png  # Android icon (192x192)
+│   ├── manifest-icon-512.maskable.png  # Large icon (512x512)
+│   ├── apple-icon-180.png              # iOS home screen icon
+│   ├── favicon-196.png                 # Browser favicon
+│   ├── apple-splash-*.png              # iOS splash screens (40+ files)
+│   ├── icon-192x192.svg                # Source SVG (kept for reference)
+│   └── icon-512x512.svg                # Source SVG (used to generate PNGs)
 └── sw.js                 # Service worker (generated at build)
 ```
 
@@ -185,12 +199,34 @@ The following files are generated during build and should be gitignored:
 
 ## Icons
 
-PWA icons are SVG files with the EVE-themed dark color scheme:
+PWA icons are PNG files generated with [pwa-asset-generator](https://github.com/elegantapp/pwa-asset-generator) for maximum browser compatibility:
 
 - **Theme Color**: `#1a1a2e` (dark navy)
 - **Accent Color**: `#4a6fa5` / `#6b8cce` (blue accents)
 
-To update icons, replace the SVG files in `public/icons/`. For better compatibility, you may also want to add PNG versions.
+### Icon Files
+
+| File | Purpose |
+|------|---------|
+| `manifest-icon-192.maskable.png` | Android/Chrome icon (192x192) |
+| `manifest-icon-512.maskable.png` | Large icon for splash screens (512x512) |
+| `apple-icon-180.png` | iOS home screen icon |
+| `favicon-196.png` | Browser favicon |
+| `apple-splash-*.png` | iOS splash screens for all device sizes |
+
+### Regenerating Icons
+
+To regenerate icons from a new source SVG:
+
+```bash
+npx pwa-asset-generator public/icons/icon-512x512.svg public/icons --background "#1a1a2e" --type png --scrape false
+```
+
+This generates:
+- Manifest icons with `maskable` purpose for adaptive icons
+- Apple touch icon (180x180)
+- Favicon (196x196)
+- All iOS splash screens for portrait and landscape orientations
 
 ## Offline Page
 

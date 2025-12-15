@@ -1101,6 +1101,58 @@ With Competition:
 
 ---
 
+### POST /api/esi/ui/open-market-window
+
+Opens the market details window for a specific item type in the EVE Online client.
+
+**Authentication:** Required (EVE SSO Bearer token)
+
+**Required Scopes:**
+- `esi-ui.open_window.v1` - To open UI windows in the EVE client
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| type_id | integer | Yes | The item type ID to open in the market window |
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| Authorization | Yes | Bearer token from EVE SSO |
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:3000/api/esi/ui/open-market-window?type_id=2048" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "type_id": 2048
+}
+```
+
+**Error Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 400 | Missing type_id parameter |
+| 401 | Missing or expired authorization token |
+| 403 | Token missing `esi-ui.open_window.v1` scope |
+| 420 | Rate limited (UI endpoints are limited to 900 requests per 15 minutes) |
+| 500 | Internal server error |
+
+**Notes:**
+- This endpoint is called automatically when copying undercut prices
+- The EVE client must be running for the window to open
+- Part of the ESI UI rate limit group (900 requests / 15 minutes)
+
+---
+
 ## Related Files
 
 - `app/api/esi/keepstar-3t7/route.ts` - Keepstar search implementation
@@ -1110,6 +1162,7 @@ With Competition:
 - `app/api/esi/character-orders/route.ts` - Character market orders
 - `app/api/esi/undercut-check/route.ts` - Undercut tracker implementation
 - `app/api/esi/sell-order-generator/route.ts` - Sell order generator implementation
+- `app/api/esi/ui/open-market-window/route.ts` - Open market window in EVE client
 - `app/api/sell-opportunities/route.ts` - Sell opportunities analysis
 - `app/api/esi/market-history/route.ts` - Market history batch implementation
 - `app/api/esi/market-history-test/route.ts` - Market history test implementation

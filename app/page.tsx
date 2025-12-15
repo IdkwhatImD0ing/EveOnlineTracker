@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -45,6 +45,51 @@ interface OrdersData {
     count: number
     total_escrow: number
     total_escrow_formatted: string
+  }
+}
+
+interface TokenData {
+  access_token: string
+  refresh_token: string
+  expires_in: number
+  token_type: string
+}
+
+/**
+ * Check if a JWT token is expired
+ * Returns true if expired or will expire within 60 seconds
+ */
+function isTokenExpired(token: string): boolean {
+  try {
+    const base64Url = token.split(".")[1]
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
+    const payload = JSON.parse(atob(base64))
+    // exp is in seconds, Date.now() is in milliseconds
+    // Add 60 second buffer to refresh before actual expiry
+    return payload.exp * 1000 < Date.now() + 60000
+  } catch {
+    return true // Assume expired if can't parse
+  }
+}
+
+/**
+ * Refresh the access token using the refresh token
+ */
+async function refreshAccessToken(refreshToken: string): Promise<TokenData | null> {
+  try {
+    const response = await fetch("/api/auth/eve/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    return await response.json()
+  } catch {
+    return null
   }
 }
 
@@ -117,6 +162,56 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingEsi, setIsLoadingEsi] = useState(false)
 
+  /**
+   * Get a valid access token, refreshing if needed
+   * Updates localStorage and component state with new tokens if refreshed
+   */
+  const getValidToken = useCallback(async (): Promise<{ token: string; characterInfo: CharacterInfo } | null> => {
+    const savedTokens = localStorage.getItem("eve_sso_tokens")
+    if (!savedTokens) return null
+
+    try {
+      const parsed = JSON.parse(savedTokens) as TokenData
+
+      // Check if token is expired
+      if (isTokenExpired(parsed.access_token)) {
+        console.log("[Dashboard] Token expired, refreshing...")
+
+        // Try to refresh
+        const newTokens = await refreshAccessToken(parsed.refresh_token)
+        if (!newTokens) {
+          // Refresh failed - user needs to re-login
+          localStorage.removeItem("eve_sso_tokens")
+          setCharacterInfo(null)
+          setAccessToken(null)
+          return null
+        }
+
+        // Save new tokens
+        localStorage.setItem("eve_sso_tokens", JSON.stringify(newTokens))
+        console.log("[Dashboard] Token refreshed successfully")
+
+        // Parse character info from new token
+        const info = parseJWT(newTokens.access_token)
+        if (info) {
+          setCharacterInfo(info)
+          setAccessToken(newTokens.access_token)
+          return { token: newTokens.access_token, characterInfo: info }
+        }
+        return null
+      }
+
+      // Token still valid
+      const info = parseJWT(parsed.access_token)
+      if (info) {
+        return { token: parsed.access_token, characterInfo: info }
+      }
+      return null
+    } catch {
+      return null
+    }
+  }, [])
+
   useEffect(() => {
     // Load character info from stored tokens
     const storedTokens = localStorage.getItem("eve_sso_tokens")
@@ -160,13 +255,17 @@ export default function Dashboard() {
 
   // Fetch ESI data when we have character info
   useEffect(() => {
-    if (!characterInfo || !accessToken) return
-
-    // Capture in local const so TypeScript knows it's not null inside async function
-    const charInfo = characterInfo
-    const token = accessToken
+    if (!characterInfo) return
 
     async function fetchEsiData() {
+      // Get a valid token, refreshing if expired
+      const tokenResult = await getValidToken()
+      if (!tokenResult) {
+        console.log("[Dashboard] No valid token available for ESI data fetch")
+        return
+      }
+
+      const { token, characterInfo: charInfo } = tokenResult
       setIsLoadingEsi(true)
       
       try {
@@ -197,24 +296,36 @@ export default function Dashboard() {
     }
 
     fetchEsiData()
-  }, [characterInfo, accessToken])
+  }, [characterInfo, getValidToken])
 
-  const refreshEsiData = () => {
-    if (!characterInfo || !accessToken) return
-    
+  const refreshEsiData = async () => {
+    // Get a valid token, refreshing if expired
+    const tokenResult = await getValidToken()
+    if (!tokenResult) {
+      console.log("[Dashboard] No valid token available for ESI data refresh")
+      return
+    }
+
+    const { token, characterInfo: charInfo } = tokenResult
     setIsLoadingEsi(true)
     
-    Promise.all([
-      fetch(`/api/esi/wallet?character_id=${characterInfo.character_id}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      }).then(r => r.ok ? r.json() : null),
-      fetch(`/api/esi/character-orders?character_id=${characterInfo.character_id}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      }).then(r => r.ok ? r.json() : null)
-    ]).then(([wallet, orders]) => {
+    try {
+      const [wallet, orders] = await Promise.all([
+        fetch(`/api/esi/wallet?character_id=${charInfo.character_id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.ok ? r.json() : null),
+        fetch(`/api/esi/character-orders?character_id=${charInfo.character_id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.ok ? r.json() : null)
+      ])
+      
       if (wallet) setWalletData(wallet)
       if (orders) setOrdersData(orders)
-    }).finally(() => setIsLoadingEsi(false))
+    } catch (err) {
+      console.error("Failed to refresh ESI data:", err)
+    } finally {
+      setIsLoadingEsi(false)
+    }
   }
 
   return (

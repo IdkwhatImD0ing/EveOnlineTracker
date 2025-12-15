@@ -12,14 +12,28 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'any',
     icons: [
       {
-        src: '/icons/icon-192x192.svg',
+        src: '/icons/manifest-icon-192.maskable.png',
         sizes: '192x192',
-        type: 'image/svg+xml',
+        type: 'image/png',
+        purpose: 'any',
       },
       {
-        src: '/icons/icon-512x512.svg',
+        src: '/icons/manifest-icon-192.maskable.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/icons/manifest-icon-512.maskable.png',
         sizes: '512x512',
-        type: 'image/svg+xml',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icons/manifest-icon-512.maskable.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
       },
     ],
   }

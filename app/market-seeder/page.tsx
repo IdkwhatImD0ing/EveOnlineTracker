@@ -1202,12 +1202,27 @@ export default function MarketSeederPage() {
     }
   }, [getValidToken, structureId])
 
-  // Copy undercut price to clipboard
-  const copyUndercutPrice = useCallback((item: UndercutItem) => {
+  // Copy undercut price to clipboard and open market window in EVE client
+  const copyUndercutPrice = useCallback(async (item: UndercutItem) => {
+    // Copy price to clipboard
     navigator.clipboard.writeText(item.undercut_price_eve)
     setUndercutCopiedId(item.your_order_id)
     setTimeout(() => setUndercutCopiedId(null), 2000)
-  }, [])
+
+    // Fire-and-forget: Open market window in EVE client
+    const accessToken = await getValidToken()
+    if (accessToken) {
+      fetch(`/api/esi/ui/open-market-window?type_id=${item.type_id}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }).catch((err) => {
+        // Silently ignore errors - the copy is the primary action
+        console.warn('Failed to open market window:', err)
+      })
+    }
+  }, [getValidToken])
 
   // Fetch sell order recommendations with streaming progress
   const fetchSellOrders = useCallback(async () => {

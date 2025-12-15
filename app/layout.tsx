@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthGate } from "@/components/auth-gate";
 import { SidebarLayout } from "@/components/sidebar-layout";
+import { AppleSplashLinks } from "@/components/apple-splash-links";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,8 +32,8 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
-    icon: "/icons/icon-192x192.svg",
-    apple: "/icons/apple-touch-icon.svg",
+    icon: "/icons/favicon-196.png",
+    apple: "/icons/apple-icon-180.png",
   },
 };
 
@@ -47,6 +48,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <AppleSplashLinks />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

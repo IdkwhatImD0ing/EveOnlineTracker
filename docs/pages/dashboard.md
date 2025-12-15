@@ -64,6 +64,19 @@ Features:
 
 - **Character Info**: Parsed from EVE SSO JWT token (stored in localStorage)
 - **Project Stats**: Fetched from `/api/projects` endpoint
+- **Wallet Balance**: Fetched from `/api/esi/wallet` endpoint
+- **Market Orders**: Fetched from `/api/esi/character-orders` endpoint
+
+## Authentication & Token Refresh
+
+The dashboard implements automatic token refresh for ESI API calls:
+
+1. **Token Validation**: Before each ESI API call, the access token is checked for expiration
+2. **Automatic Refresh**: If the token expires (or will expire within 60 seconds), it's automatically refreshed using the stored refresh token
+3. **Session Continuity**: New tokens are saved to localStorage and component state is updated seamlessly
+4. **Graceful Degradation**: If refresh fails, the user is logged out and prompted to re-authenticate
+
+This ensures ESI data (wallet, orders) remains accessible even during long browsing sessions without requiring manual re-login.
 
 ## Related
 

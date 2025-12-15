@@ -588,7 +588,11 @@ Items being undercut are shown with red highlighting:
 - Price difference
 - **Copy button** with the undercut price in EVE-pasteable format
 
-Click the copy button, then paste directly into EVE's "Modify Order" dialog to update your price.
+Click the copy button to:
+1. Copy the undercut price to your clipboard
+2. Automatically open the market details window for that item in your EVE client
+
+Then paste directly into EVE's "Modify Order" dialog to update your price.
 
 #### Safe Items List
 
@@ -602,6 +606,7 @@ Items where you have the lowest price are shown with green highlighting:
 **ESI Scopes:**
 - `esi-markets.read_character_orders.v1` - To read your character's orders
 - `esi-markets.structure_markets.v1` - To read structure market orders
+- `esi-ui.open_window.v1` - To open the market window in the EVE client
 
 #### Usage Flow
 
@@ -609,7 +614,7 @@ Items where you have the lowest price are shown with green highlighting:
 2. Switch to the Market tab, then the Undercut sub-tab
 3. Click **Check Undercuts**
 4. Review items being undercut (red section)
-5. Click the copy button next to each undercut price
+5. Click the copy button next to each undercut price (this also opens the market window in EVE)
 6. In EVE, modify your order and paste the new price
 7. Re-check periodically to stay competitive
 
