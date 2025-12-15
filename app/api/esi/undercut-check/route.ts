@@ -374,6 +374,10 @@ export async function GET(request: NextRequest) {
       timing: {
         total_ms: Date.now() - startTime
       }
+    }, {
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
     })
 
   } catch (error) {
