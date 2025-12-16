@@ -123,9 +123,11 @@ function SortableHeader({
 function ExpandedRowDetails({
   item,
   supplyDays,
+  hubFactor,
 }: {
   item: ProfitAnalysis
   supplyDays: number
+  hubFactor: number
 }) {
   return (
     <div className="px-4 pb-4 pt-2 border-t bg-muted/30">
@@ -414,7 +416,7 @@ export function ResultsTable({
                     </div>
                   </div>
                   {isExpanded && (
-                    <ExpandedRowDetails item={item} supplyDays={supplyDays} />
+                    <ExpandedRowDetails item={item} supplyDays={supplyDays} hubFactor={hubFactor} />
                   )}
                 </div>
               )
