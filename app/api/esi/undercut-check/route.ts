@@ -349,15 +349,15 @@ export async function GET(request: NextRequest) {
 
       if (!error && data && Array.isArray(data)) {
         for (const row of data as { type_id: number; avg_daily_volume: number }[]) {
-          valeVolumes.set(row.type_id, row.avg_daily_volume || 0)
+          regionVolumes.set(row.type_id, row.avg_daily_volume || 0)
         }
       }
     }
 
     // Step 7: Build final undercut items with days_to_lowest
     const undercutItems: UndercutItem[] = preliminaryUndercuts.map(prelim => {
-      const valeDailyVolume = valeVolumes.get(prelim.type_id) || 0
-      const estimatedDailySales = valeDailyVolume * VALE_HUB_FACTOR
+      const valeDailyVolume = regionVolumes.get(prelim.type_id) || 0
+      const estimatedDailySales = valeDailyVolume * hubFactor
       const daysToLowest = estimatedDailySales > 0 
         ? prelim.competitors_below_volume / estimatedDailySales 
         : null
