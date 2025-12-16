@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cached-data'
-import { REGION_IDS, VALE_HUB_FACTOR } from '@/types/market-seeder'
+import { 
+  DEFAULT_HUB_FACTOR, 
+  HUB_FACTOR_PRESETS, 
+  DEFAULT_VOLUME_REGION_ID, 
+  VOLUME_REGIONS,
+  type RegionId 
+} from '@/types/market-seeder'
 import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
@@ -59,6 +65,26 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams
   const structureId = searchParams.get('structure_id')
+
+  // Parse volume region ID
+  const volumeRegionIdParam = searchParams.get('volume_region_id')
+  let volumeRegionId: RegionId = DEFAULT_VOLUME_REGION_ID
+  if (volumeRegionIdParam) {
+    const parsed = parseInt(volumeRegionIdParam)
+    if (VOLUME_REGIONS.some(r => r.id === parsed)) {
+      volumeRegionId = parsed as RegionId
+    }
+  }
+
+  // Parse hub factor
+  const hubFactorParam = searchParams.get('hub_factor')
+  let hubFactor = DEFAULT_HUB_FACTOR
+  if (hubFactorParam) {
+    const parsed = parseFloat(hubFactorParam)
+    if (HUB_FACTOR_PRESETS.some(p => p.value === parsed)) {
+      hubFactor = parsed
+    }
+  }
 
   try {
     const supabase = createClient()
@@ -139,24 +165,24 @@ export async function GET(request: NextRequest) {
     // Fetch market data for all watchlist items
     const typeIds = (watchlistItems || []).map(item => item.type_id)
     
-    // Fetch Vale volumes and Jita prices in parallel
-    const [valeData, jitaPrices] = await Promise.all([
-      getCachedMarketSeederStatistics(typeIds, 30, REGION_IDS.VALE_OF_SILENT),
+    // Fetch regional volumes and Jita prices in parallel
+    const [regionData, jitaPrices] = await Promise.all([
+      getCachedMarketSeederStatistics(typeIds, 30, volumeRegionId),
       getCachedJitaPrices(typeIds)
     ])
 
     // Merge stock info and market data with watchlist items
     const itemsWithStock: WatchlistItemWithStock[] = (watchlistItems || []).map(item => {
       const stockInfo = stockMap.get(item.type_id)
-      const valeStats = valeData.get(item.type_id)
+      const regionStats = regionData.get(item.type_id)
       const jitaPrice = jitaPrices.get(item.type_id)
       
       const stock = stockInfo?.volume ?? 0
       const lowestPrice = stockInfo?.lowestPrice ?? null
       
       // Calculate depletion metrics
-      const avgDailyVolume = valeStats?.avgDailyVolume || 0
-      const estimatedDailySales = avgDailyVolume * VALE_HUB_FACTOR
+      const avgDailyVolume = regionStats?.avgDailyVolume || 0
+      const estimatedDailySales = avgDailyVolume * hubFactor
       
       const daysUntilStockout = stock === 0 
         ? 0  // Already out of stock

@@ -524,6 +524,11 @@ export async function GET(request: NextRequest) {
   const chunk = chunkParam !== null ? parseInt(chunkParam) : undefined
   const totalChunks = totalChunksParam !== null ? parseInt(totalChunksParam) : DEFAULT_TOTAL_CHUNKS
 
+  // Debug: Log raw request URL and all query parameters
+  console.log(`[Market History] Request URL: ${request.url}`)
+  console.log(`[Market History] Query params: ${JSON.stringify(Object.fromEntries(searchParams.entries()))}`)
+  console.log(`[Market History] Parsed - chunk: ${chunkParam} (${typeof chunkParam}), total_chunks: ${totalChunksParam} (${typeof totalChunksParam})`)
+
   // Parse categories filter
   let categoryFilter: Set<number> | null = null
   if (categoriesParam) {

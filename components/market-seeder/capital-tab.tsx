@@ -87,7 +87,7 @@ export function CapitalTab({
               <CollapsibleContent>
                 <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4 mt-2">
                   <ul className="space-y-1 text-xs">
-                    <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 5% (hub factor)</li>
+                    <li>• <strong>Est. Daily Sales</strong> = Regional Volume × {data.config.hubFactor * 100}% (hub factor)</li>
                     <li>• <strong>Days to Sell</strong> = Volume Remaining ÷ Est. Daily Sales</li>
                     <li>• <strong>APY</strong> = (Profit ÷ Cost) × (365 ÷ Days to Sell) × 100</li>
                     <li>• <strong>Dead Capital</strong> = Orders taking {`>`}{DEAD_CAPITAL_THRESHOLD_DAYS} days to sell</li>
@@ -131,7 +131,7 @@ export function CapitalTab({
                 </p>
                 <p className="text-sm text-muted-foreground">Est. Daily Revenue</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Based on 5% of Vale volume
+                  Based on {data.config.hubFactor * 100}% of regional volume
                 </p>
               </CardContent>
             </Card>

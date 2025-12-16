@@ -68,6 +68,7 @@ interface ResultsTableProps {
   onToggleSelect: (typeId: number) => void
   onSelectAll: (items: ProfitAnalysis[]) => void
   supplyDays: number
+  hubFactor?: number  // Hub factor for calculating supply quantity (default: 0.05)
 }
 
 const ITEMS_PER_PAGE = 50
@@ -156,9 +157,9 @@ function ExpandedRowDetails({
           </p>
         </div>
         <div>
-          <p className="text-muted-foreground">{supplyDays}d Supply (5%)</p>
+          <p className="text-muted-foreground">{supplyDays}d Supply ({hubFactor * 100}%)</p>
           <p className="font-medium text-primary">
-            {Math.ceil(item.avgDailyVolume * 0.05 * supplyDays).toLocaleString()}{" "}
+            {Math.ceil(item.avgDailyVolume * hubFactor * supplyDays).toLocaleString()}{" "}
             units
           </p>
         </div>
@@ -187,6 +188,7 @@ export function ResultsTable({
   onToggleSelect,
   onSelectAll,
   supplyDays,
+  hubFactor = 0.05,
 }: ResultsTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn>("score")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")

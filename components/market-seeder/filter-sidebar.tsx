@@ -10,7 +10,7 @@ import { RotateCcw, Filter } from "lucide-react"
 export interface FilterState {
   minMargin: number
   maxJitaCost: number | null  // null = no limit
-  minOrdersPerDay: number | null  // null = no limit (uses 5% Vale hub factor)
+  minOrdersPerDay: number | null  // null = no limit (uses configurable hub factor)
   minProfitPerDay: number | null  // null = no limit (ISK profit per day at hub)
   noCompetitionOnly: boolean
   selectedCategories: Set<string>
@@ -21,6 +21,7 @@ interface FilterSidebarProps {
   onFiltersChange: (filters: FilterState) => void
   totalItems: number
   filteredCount: number
+  hubFactorPercent?: string  // e.g. "5%" - for display in labels
 }
 
 const CATEGORIES = [
@@ -52,6 +53,7 @@ export function FilterSidebar({
   onFiltersChange,
   totalItems,
   filteredCount,
+  hubFactorPercent = "5%",
 }: FilterSidebarProps) {
   const handleMarginChange = (value: string) => {
     const margin = parseFloat(value) || 0
@@ -174,7 +176,7 @@ export function FilterSidebar({
             className="h-9"
           />
           <p className="text-xs text-muted-foreground">
-            Est. daily sales @ 5% Vale
+            Est. daily sales @ {hubFactorPercent} regional
           </p>
         </div>
 
@@ -193,7 +195,7 @@ export function FilterSidebar({
             className="h-9"
           />
           <p className="text-xs text-muted-foreground">
-            Daily profit @ 5% Vale
+            Daily profit @ {hubFactorPercent} regional
           </p>
         </div>
 

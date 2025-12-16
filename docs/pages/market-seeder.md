@@ -37,12 +37,23 @@ Show where your capital is deployed and how efficiently it's working. Identify "
 
 ### Demand Estimation
 
-Demand is estimated using **Vale of the Silent market history data** with a 5% hub factor (your hub sees ~5% of Vale's regional volume).
+Demand is estimated using **regional market history data** with a configurable **hub factor** (the percentage of regional volume your hub sees). The default is 5%, but this can be adjusted in the header dropdown.
 
 ```
-estimatedDailySales = valeDailyVolume × 0.05  // 5% of Vale volume
+estimatedDailySales = regionalDailyVolume × hubFactor  // e.g., 5% of regional volume
 daysToSell = volumeRemain / estimatedDailySales
 ```
+
+### Volume Settings
+
+Two dropdowns in the page header control demand estimation:
+
+| Setting | Description |
+|---------|-------------|
+| **Volume Region** | Which region's market history to use (Vale, Deklein, or The Forge) |
+| **Hub Factor** | Percentage of regional volume your hub sees (1%, 2%, 5%, 10%, 15%, 20%) |
+
+These settings persist in localStorage and apply to all tabs (Capital, Analysis, Depletion, etc.).
 
 ### Efficiency Categories
 
@@ -106,13 +117,15 @@ The Capital tab requires character-level order access, not just structure market
 |-----------|------|-------------|
 | character_id | string | Required - Your character ID |
 | transport_cost | number | Optional - ISK/m³ for cost basis (default: 450) |
+| volume_region_id | number | Optional - Region ID for volume data (default: 10000003 / Vale) |
+| hub_factor | number | Optional - Hub factor percentage (default: 0.05 / 5%) |
 
 Returns:
 - Summary metrics (total deployed, daily revenue, APY, dead capital)
 - Per-order breakdown with efficiency classification
 - Capital allocation by efficiency category
 
-**Note:** Demand estimation uses Vale of the Silent market data × 5% hub factor.
+**Note:** Demand estimation uses the selected region's market data × configurable hub factor (default: 5%).
 
 ---
 
@@ -137,7 +150,7 @@ After running an analysis, filter results using the sidebar on the right:
 |--------|-------------|
 | **Min Margin %** | Minimum profit margin percentage (client-side filter) |
 | **Max Jita Cost** | Maximum Jita price in ISK (leave empty for no limit) |
-| **Min Orders/Day** | Minimum estimated daily sales at hub (Vale volume × 5% hub factor) |
+| **Min Orders/Day** | Minimum estimated daily sales at hub (regional volume × hub factor) |
 | **Min Profit/Day** | Minimum estimated daily profit in ISK (profit per unit × orders/day) |
 | **No Competition Only** | Show only items with no existing sell orders |
 | **Categories** | Checkboxes for Modules, Ships, Ammo, Boosters, Drones, Fighters, Implants, Deployables, Subsystems |
@@ -154,14 +167,14 @@ Results are displayed in a sortable, paginated table with 50 items per page:
 | Score | Composite profitability score | Yes (default) |
 | Margin | Profit margin percentage | Yes |
 | Profit/Unit | ISK profit per unit | Yes |
-| ISK/Day | Estimated daily revenue (sell price × daily volume at 5% hub factor) | Yes |
+| ISK/Day | Estimated daily revenue (sell price × daily volume at hub factor) | Yes |
 | Competition | Yes/No badge | Yes |
-| Vol/Day | Vale daily volume × 5% (estimated hub sales) | Yes |
+| Vol/Day | Regional daily volume × hub factor (estimated hub sales) | Yes |
 
 Click a row to expand and see additional details:
 - Jita price, Transport cost, Target price
-- Profit/m³, Volume, Vale daily volume
-- Supply quantity for selected days (at 5% Vale volume)
+- Profit/m³, Volume, Regional daily volume
+- Supply quantity for selected days (at hub factor % of regional volume)
 - Category and group
 
 ### Copy Buy Text Feature
@@ -184,8 +197,8 @@ Third Item 1
 ```
 
 **Quantity Calculation:**
-- Each item gets the selected days' supply at 5% of Vale of the Silent regional volume
-- Formula: `quantity = ceil(avgDailyVolume × 0.05 × days)`
+- Each item gets the selected days' supply at hub factor % of regional volume
+- Formula: `quantity = ceil(avgDailyVolume × hubFactor × days)`
 
 **Note:** Selected items are automatically cleared when running a new analysis.
 - Presets: 1 day, 3 days, 7 days (1 week), 30 days, or custom
@@ -288,14 +301,15 @@ The analysis uses Server-Sent Events (SSE) to show real-time progress:
 
 1. **Login with EVE SSO** if not already authenticated
 2. **Select Structure** from the dropdown (3T7-M8 Keepstar is default, or choose "Other" for custom ID)
-3. **Set Transport Cost** (default 450 ISK/m³)
-4. **Click "Run Analysis"** to fetch and analyze data
-5. **Watch Progress Bar** as each stage completes
-6. **Browse Results** using the tabs to find profitable items
-7. **Click Items** to see detailed profit breakdown (includes weekly quantity at 5% Vale volume)
-8. **Select Items** using checkboxes for items you want to buy
-9. **Click "Copy Buy Text"** to copy shopping list (quantities based on 1 week @ 5% Vale volume)
-10. **Paste in Eve** using the multibuy feature to purchase items
+3. **Configure Volume Settings** in the header (Volume Region and Hub Factor)
+4. **Set Transport Cost** (default 450 ISK/m³)
+5. **Click "Run Analysis"** to fetch and analyze data
+6. **Watch Progress Bar** as each stage completes
+7. **Browse Results** using the tabs to find profitable items
+8. **Click Items** to see detailed profit breakdown (includes supply quantity at hub factor %)
+9. **Select Items** using checkboxes for items you want to buy
+10. **Click "Copy Buy Text"** to copy shopping list (quantities based on selected days @ hub factor)
+11. **Paste in Eve** using the multibuy feature to purchase items
 
 ## Performance
 
@@ -310,6 +324,8 @@ The main bottleneck is fetching ~5,800 Jita prices from ESI (20 concurrent reque
 
 All settings are saved to localStorage:
 - `market-seeder-settings`: JSON object with structureId, transportCost, minMargin, maxJitaCost, minOrdersPerDay, minProfitPerDay, minProfit, minVolume, noCompetitionOnly, selectedCategories
+- `eve-tracker-volume-region`: Selected volume region ID
+- `eve-tracker-hub-factor`: Selected hub factor (e.g., 0.05 for 5%)
 
 ---
 
@@ -368,7 +384,7 @@ Click **Copy N items** in the dropdown, then paste directly into Eve Online's mu
 The same formulas used in the Depletion tab:
 
 ```
-estimated_daily_sales = vale_avg_daily_volume × 0.05  // 5% of Vale volume
+estimated_daily_sales = regional_avg_daily_volume × hub_factor  // e.g., 5% of regional volume
 days_until_stockout = current_stock ÷ estimated_daily_sales
 daily_profit = estimated_daily_sales × profit_per_unit
 ```
@@ -437,7 +453,7 @@ Combine Vale of the Silent volume data (actual regional demand) with your struct
 ### Core Formulas
 
 ```
-estimated_daily_sales = vale_avg_daily_volume × 0.05  // 5% of Vale volume
+estimated_daily_sales = regional_avg_daily_volume × hub_factor  // e.g., 5% of regional volume
 days_until_stockout = current_stock ÷ estimated_daily_sales
 priority_score = estimated_daily_sales × profit_per_unit
 ```
@@ -446,7 +462,7 @@ priority_score = estimated_daily_sales × profit_per_unit
 
 1. Click **Analyze Depletion** to fetch all sell orders and market data
 2. For each item type you're selling, the system calculates:
-   - **Estimated Daily Sales**: Vale Volume × 5% (hub factor)
+   - **Estimated Daily Sales**: Regional Volume × Hub Factor (configurable in header)
    - **Days Until Stockout**: Current stock ÷ estimated daily sales
    - **Daily Profit Potential**: Estimated sales × profit per unit
 3. Items are ranked by **Priority Score** (higher = more urgent)
@@ -703,7 +719,7 @@ Each item shows:
 - Competition badge (green = no competition, amber = competition)
 - **Sell Price** - The optimal price to list at
 - **Jita Price** - Current Jita price for reference
-- **Vol/Day (0.05%)** - Estimated daily sales (Vale volume × 5% hub factor)
+- **Vol/Day** - Estimated daily sales (Regional volume × hub factor)
 - **ISK/Day** - Estimated daily revenue (Vol/Day × Sell Price)
 
 #### Copy Buttons

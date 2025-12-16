@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calculateUndercutPrice, formatPriceForEve, formatISK } from '@/lib/market-analysis'
 import { getNoCompetitionMarkup } from '@/lib/market-seeder'
-import { REGION_IDS, VALE_HUB_FACTOR } from '@/types/market-seeder'
+import { REGION_IDS, DEFAULT_HUB_FACTOR, HUB_FACTOR_PRESETS, DEFAULT_VOLUME_REGION_ID, VOLUME_REGIONS, type RegionId } from '@/types/market-seeder'
 import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 import type { CharacterToken } from '@/types/auth'
 
@@ -276,6 +276,26 @@ export async function GET(request: NextRequest) {
   const structureId = searchParams.get('structure_id') || DEFAULT_STRUCTURE_ID
   const useStreaming = searchParams.get('stream') === 'true'
 
+  // Parse hub factor
+  const hubFactorParam = searchParams.get('hub_factor')
+  let hubFactor = DEFAULT_HUB_FACTOR
+  if (hubFactorParam) {
+    const parsed = parseFloat(hubFactorParam)
+    if (HUB_FACTOR_PRESETS.some(p => p.value === parsed)) {
+      hubFactor = parsed
+    }
+  }
+
+  // Parse volume region ID
+  const volumeRegionIdParam = searchParams.get('volume_region_id')
+  let volumeRegionId: RegionId = DEFAULT_VOLUME_REGION_ID
+  if (volumeRegionIdParam) {
+    const parsed = parseInt(volumeRegionIdParam)
+    if (VOLUME_REGIONS.some(r => r.id === parsed)) {
+      volumeRegionId = parsed as RegionId
+    }
+  }
+
   // Get tokens for all characters
   const characterTokens = await getAllCharacterTokens(session.user_id)
 
@@ -478,7 +498,7 @@ export async function GET(request: NextRequest) {
             percent: 80
           })
 
-          const valeVolumes = new Map<number, number>()
+          const regionVolumes = new Map<number, number>()
           const supabase = createClient()
 
           const BATCH_SIZE = 200
@@ -486,13 +506,13 @@ export async function GET(request: NextRequest) {
             const batch = typeIds.slice(i, i + BATCH_SIZE)
             const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
               p_type_ids: batch,
-              p_region_id: REGION_IDS.VALE_OF_SILENT,
+              p_region_id: volumeRegionId,
               p_days_back: 30
             })
 
             if (!error && data && Array.isArray(data)) {
               for (const row of data as { type_id: number; avg_daily_volume: number }[]) {
-                valeVolumes.set(row.type_id, row.avg_daily_volume || 0)
+                regionVolumes.set(row.type_id, row.avg_daily_volume || 0)
               }
             }
           }
@@ -521,8 +541,8 @@ export async function GET(request: NextRequest) {
               sellPrice = jitaPrice * markup
             }
 
-            const valeDailyVolume = valeVolumes.get(typeId) || 0
-            const estimatedDailySales = valeDailyVolume * VALE_HUB_FACTOR
+            const valeDailyVolume = regionVolumes.get(typeId) || 0
+            const estimatedDailySales = valeDailyVolume * hubFactor
             const iskPerDay = estimatedDailySales * sellPrice
 
             items.push({
@@ -707,7 +727,7 @@ export async function GET(request: NextRequest) {
     const jitaPrices = await fetchJitaPricesWithProgress(typeIds)
 
     // Step 5: Fetch Vale market data
-    const valeVolumes = new Map<number, number>()
+    const regionVolumes = new Map<number, number>()
     const supabase = createClient()
 
     const BATCH_SIZE = 200
@@ -715,13 +735,13 @@ export async function GET(request: NextRequest) {
       const batch = typeIds.slice(i, i + BATCH_SIZE)
       const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
         p_type_ids: batch,
-        p_region_id: REGION_IDS.VALE_OF_SILENT,
+        p_region_id: volumeRegionId,
         p_days_back: 30
       })
 
       if (!error && data && Array.isArray(data)) {
         for (const row of data as { type_id: number; avg_daily_volume: number }[]) {
-          valeVolumes.set(row.type_id, row.avg_daily_volume || 0)
+          regionVolumes.set(row.type_id, row.avg_daily_volume || 0)
         }
       }
     }
@@ -744,8 +764,8 @@ export async function GET(request: NextRequest) {
         sellPrice = jitaPrice * markup
       }
 
-      const valeDailyVolume = valeVolumes.get(typeId) || 0
-      const estimatedDailySales = valeDailyVolume * VALE_HUB_FACTOR
+      const valeDailyVolume = regionVolumes.get(typeId) || 0
+      const estimatedDailySales = valeDailyVolume * hubFactor
       const iskPerDay = estimatedDailySales * sellPrice
 
       items.push({

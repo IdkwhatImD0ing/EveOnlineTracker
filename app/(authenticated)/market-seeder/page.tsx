@@ -31,7 +31,7 @@ import {
   generateBuyText,
   transformApiItemsToUiItems,
 } from "@/components/market-seeder/utils"
-import { RegionSelector, useVolumeRegion } from "@/components/ui/region-selector"
+import { RegionSelector, useVolumeRegion, HubFactorSelector, useHubFactor } from "@/components/ui/region-selector"
 
 // Tab components
 import { CapitalTab } from "@/components/market-seeder/capital-tab"
@@ -42,9 +42,10 @@ import { MarketTab } from "@/components/market-seeder/market-tab"
 
 export default function MarketSeederPage() {
   // ============================================================================
-  // Volume Region State
+  // Volume Region & Hub Factor State
   // ============================================================================
   const { regionId: volumeRegionId, setRegionId: setVolumeRegionId, regionInfo } = useVolumeRegion()
+  const { hubFactor, setHubFactor, hubFactorPercent } = useHubFactor()
 
   // ============================================================================
   // Search Form State
@@ -259,10 +260,9 @@ export default function MarketSeederPage() {
   }, [transformedItems, selectedItems])
 
   const filteredItems = useMemo(() => {
-    const HUB_FACTOR = 0.05
     return transformedItems.filter(item => {
-      const ordersPerDay = item.avgDailyVolume * HUB_FACTOR
-      const profitPerDay = item.profitPerUnit * item.avgDailyVolume * HUB_FACTOR
+      const ordersPerDay = item.avgDailyVolume * hubFactor
+      const profitPerDay = item.profitPerUnit * item.avgDailyVolume * hubFactor
       return (
         item.profitMarginPct >= filters.minMargin &&
         (filters.maxJitaCost === null || item.jitaSellPrice <= filters.maxJitaCost) &&
@@ -272,13 +272,13 @@ export default function MarketSeederPage() {
         (!filters.noCompetitionOnly || !item.hasCompetition)
       )
     })
-  }, [transformedItems, filters])
+  }, [transformedItems, filters, hubFactor])
 
   const copyBuyText = useCallback(async () => {
     const items = getSelectedItemsData()
     if (items.length === 0) return
 
-    const buyText = generateBuyText(items, supplyDays)
+    const buyText = generateBuyText(items, supplyDays, hubFactor)
 
     try {
       await navigator.clipboard.writeText(buyText)
@@ -287,7 +287,7 @@ export default function MarketSeederPage() {
     } catch (err) {
       console.error('Failed to copy:', err)
     }
-  }, [getSelectedItemsData, supplyDays])
+  }, [getSelectedItemsData, supplyDays, hubFactor])
 
   const runAnalysis = useCallback(async () => {
     if (!structureId) {
@@ -307,6 +307,7 @@ export default function MarketSeederPage() {
         minProfit,
         minVolume,
         volume_region_id: String(volumeRegionId),
+        hub_factor: String(hubFactor),
         stream: "true",
       })
 
@@ -393,7 +394,7 @@ export default function MarketSeederPage() {
       setIsLoading(false)
       setProgress(null)
     }
-  }, [structureId, transportCost, minProfit, minVolume, volumeRegionId, clearSelection])
+  }, [structureId, transportCost, minProfit, minVolume, volumeRegionId, hubFactor, clearSelection])
 
   // ============================================================================
   // Watchlist Functions
@@ -403,10 +404,17 @@ export default function MarketSeederPage() {
     setWatchlistError(null)
 
     try {
-      const url = '/api/watchlist'
+      const params = new URLSearchParams({
+        volume_region_id: String(volumeRegionId),
+        hub_factor: String(hubFactor),
+      })
+      if (checkStock && structureId) {
+        params.set('structure_id', structureId)
+      }
+      const url = `/api/watchlist?${params}`
 
       if (checkStock && structureId) {
-        const response = await fetch(`${url}?structure_id=${structureId}`)
+        const response = await fetch(url)
 
         if (!response.ok) {
           const data = await response.json()
@@ -432,7 +440,7 @@ export default function MarketSeederPage() {
       setWatchlistLoading(false)
       setWatchlistInitialized(true)
     }
-  }, [structureId])
+  }, [structureId, volumeRegionId, hubFactor])
 
   const addToWatchlist = useCallback(async (item: TradeableItem) => {
     setAddingItem(true)
@@ -516,7 +524,7 @@ export default function MarketSeederPage() {
     setDepletionProgress({ stage: "starting", message: "Connecting...", percent: 0 })
 
     try {
-      const response = await fetch(`/api/market-seeder/depletion?structure_id=${structureId}&volume_region_id=${volumeRegionId}`)
+      const response = await fetch(`/api/market-seeder/depletion?structure_id=${structureId}&volume_region_id=${volumeRegionId}&hub_factor=${hubFactor}`)
 
       if (!response.ok) {
         const data = await response.json()
@@ -582,7 +590,7 @@ export default function MarketSeederPage() {
       setDepletionLoading(false)
       setDepletionProgress(null)
     }
-  }, [structureId, volumeRegionId])
+  }, [structureId, volumeRegionId, hubFactor])
 
   const copyDepletionBuyText = useCallback(async () => {
     const itemsByUrgency = {
@@ -622,6 +630,7 @@ export default function MarketSeederPage() {
       const params = new URLSearchParams({ 
         transport_cost: transportCost,
         volume_region_id: String(volumeRegionId),
+        hub_factor: String(hubFactor),
       })
       const response = await fetch(`/api/esi/capital-efficiency?${params}`)
 
@@ -637,7 +646,7 @@ export default function MarketSeederPage() {
     } finally {
       setCapitalLoading(false)
     }
-  }, [transportCost, volumeRegionId])
+  }, [transportCost, volumeRegionId, hubFactor])
 
   // ============================================================================
   // Undercut Functions
@@ -688,6 +697,8 @@ export default function MarketSeederPage() {
     try {
       const params = new URLSearchParams({
         structure_id: structureId,
+        hub_factor: String(hubFactor),
+        volume_region_id: String(volumeRegionId),
         stream: "true",
       })
 
@@ -745,7 +756,7 @@ export default function MarketSeederPage() {
       setSellOrderLoading(false)
       setSellProgress(null)
     }
-  }, [structureId])
+  }, [structureId, hubFactor, volumeRegionId])
 
   const copySellItemName = useCallback((item: SellOrderItem) => {
     navigator.clipboard.writeText(item.type_name)
@@ -815,12 +826,20 @@ export default function MarketSeederPage() {
               Find profitable items to import from Jita
             </p>
           </div>
-          <RegionSelector
-            value={volumeRegionId}
-            onChange={setVolumeRegionId}
-            label="Volume Region"
-            size="default"
-          />
+          <div className="flex items-end gap-2">
+            <RegionSelector
+              value={volumeRegionId}
+              onChange={setVolumeRegionId}
+              label="Volume Region"
+              size="default"
+            />
+            <HubFactorSelector
+              value={hubFactor}
+              onChange={setHubFactor}
+              label="Hub Factor"
+              size="default"
+            />
+          </div>
         </header>
 
         {/* Main Tabs */}
@@ -917,6 +936,8 @@ export default function MarketSeederPage() {
               setSupplyDays={setSupplyDays}
               isCustomSupplyDays={isCustomSupplyDays}
               setIsCustomSupplyDays={setIsCustomSupplyDays}
+              hubFactorPercent={hubFactorPercent}
+              hubFactor={hubFactor}
             />
           </TabsContent>
 
@@ -966,6 +987,7 @@ export default function MarketSeederPage() {
               setIncludeWarning={setDepletionIncludeWarning}
               copySuccess={depletionCopySuccess}
               onCopyRestock={copyDepletionBuyText}
+              hubFactorPercent={hubFactorPercent}
             />
           </TabsContent>
 
@@ -999,6 +1021,7 @@ export default function MarketSeederPage() {
               onSellCopyName={copySellItemName}
               onSellCopyPrice={copySellPrice}
               onSellCopyAll={copySellAll}
+              hubFactorPercent={hubFactorPercent}
             />
           </TabsContent>
         </Tabs>

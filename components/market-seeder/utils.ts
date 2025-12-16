@@ -2,7 +2,8 @@ import { type ProfitAnalysis } from "./results-table"
 import { 
   type ProfitAnalysis as ApiProfitAnalysis,
   type DepletionPrediction, 
-  type WatchlistItem 
+  type WatchlistItem,
+  DEFAULT_HUB_FACTOR,
 } from "@/types/market-seeder"
 
 // ============================================================================
@@ -51,16 +52,16 @@ export function formatIskShort(value: number): string {
 }
 
 /**
- * Hub factor for estimating local demand from Vale volume
- */
-const HUB_FACTOR = 0.05
-
-/**
  * Transform API ProfitAnalysis to UI ProfitAnalysis with formatted fields
  * Adds all the formatted string values needed for display
+ * @param item - API item to transform
+ * @param hubFactor - Hub factor for demand estimation (default: 0.05)
  */
-export function transformApiItemToUiItem(item: ApiProfitAnalysis): ProfitAnalysis {
-  const iskPerDay = item.profitPerUnit * item.avgDailyVolume * HUB_FACTOR
+export function transformApiItemToUiItem(
+  item: ApiProfitAnalysis, 
+  hubFactor: number = DEFAULT_HUB_FACTOR
+): ProfitAnalysis {
+  const iskPerDay = item.profitPerUnit * item.avgDailyVolume * hubFactor
   
   return {
     ...item,
@@ -82,9 +83,14 @@ export function transformApiItemToUiItem(item: ApiProfitAnalysis): ProfitAnalysi
 
 /**
  * Transform an array of API items to UI items
+ * @param items - API items to transform
+ * @param hubFactor - Hub factor for demand estimation (default: 0.05)
  */
-export function transformApiItemsToUiItems(items: ApiProfitAnalysis[]): ProfitAnalysis[] {
-  return items.map(transformApiItemToUiItem)
+export function transformApiItemsToUiItems(
+  items: ApiProfitAnalysis[], 
+  hubFactor: number = DEFAULT_HUB_FACTOR
+): ProfitAnalysis[] {
+  return items.map(item => transformApiItemToUiItem(item, hubFactor))
 }
 
 /**
@@ -100,12 +106,19 @@ export function getMinOrderQuantity(jitaPrice: number): number {
 
 /**
  * Generate buy text for Eve Online multibuy
- * Each item gets specified days' supply at 5% of Vale volume
+ * Each item gets specified days' supply at hub factor % of regional volume
+ * @param items - Items to generate buy text for
+ * @param days - Days of supply to order
+ * @param hubFactor - Hub factor for demand estimation (default: 0.05)
  */
-export function generateBuyText(items: ProfitAnalysis[], days: number): string {
+export function generateBuyText(
+  items: ProfitAnalysis[], 
+  days: number, 
+  hubFactor: number = DEFAULT_HUB_FACTOR
+): string {
   return items.map(item => {
-    // X days supply at 5% of Vale volume
-    const supplyVolume = item.avgDailyVolume * 0.05 * days
+    // X days supply at hub factor % of regional volume
+    const supplyVolume = item.avgDailyVolume * hubFactor * days
     const minQty = getMinOrderQuantity(item.jitaSellPrice)
     const qty = Math.max(minQty, Math.ceil(supplyVolume))
     return `${item.name} ${qty}`

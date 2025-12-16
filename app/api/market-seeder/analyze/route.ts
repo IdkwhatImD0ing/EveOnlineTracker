@@ -31,6 +31,8 @@ import {
   type RegionId,
   MARKET_SEEDER_DEFAULTS,
   DEFAULT_VOLUME_REGION_ID,
+  DEFAULT_HUB_FACTOR,
+  HUB_FACTOR_PRESETS,
   VOLUME_REGIONS,
 } from '@/types/market-seeder'
 import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
@@ -54,9 +56,9 @@ function formatISK(value: number): string {
 /**
  * Enrich profit analysis with formatted values for API response
  */
-function enrichProfitAnalysis(item: ProfitAnalysis) {
-  // Calculate estimated daily revenue (sell price × estimated daily sales at 5% hub factor)
-  const iskPerDay = item.targetSellPrice * item.avgDailyVolume * 0.05
+function enrichProfitAnalysis(item: ProfitAnalysis, hubFactor: number) {
+  // Calculate estimated daily revenue (sell price × estimated daily sales at hub factor)
+  const iskPerDay = item.targetSellPrice * item.avgDailyVolume * hubFactor
   
   return {
     ...item,
@@ -132,10 +134,11 @@ async function handleStreamingRequest(
     transportCost: number
     days: number
     volumeRegionId: RegionId
+    hubFactor: number
     startTime: number
   }
 ) {
-  const { structureId, authToken, minProfit, minVolume, transportCost, days, volumeRegionId, startTime } = params
+  const { structureId, authToken, minProfit, minVolume, transportCost, days, volumeRegionId, hubFactor, startTime } = params
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -168,7 +171,7 @@ async function handleStreamingRequest(
         const rankedLists = generateRankedLists(result.items)
 
         // Enrich items with formatted values
-        const enrichedItems = rankedLists.allItems.map(enrichProfitAnalysis)
+        const enrichedItems = rankedLists.allItems.map(item => enrichProfitAnalysis(item, hubFactor))
 
         const totalTime = Date.now() - startTime
 
@@ -252,6 +255,16 @@ export async function GET(request: NextRequest) {
     }
   }
   
+  // Parse hub factor
+  const hubFactorParam = searchParams.get('hub_factor')
+  let hubFactor = DEFAULT_HUB_FACTOR
+  if (hubFactorParam) {
+    const parsed = parseFloat(hubFactorParam)
+    if (HUB_FACTOR_PRESETS.some(p => p.value === parsed)) {
+      hubFactor = parsed
+    }
+  }
+  
   // Validate required parameters
   if (!structureId) {
     return NextResponse.json(
@@ -288,6 +301,7 @@ export async function GET(request: NextRequest) {
       transportCost,
       days,
       volumeRegionId,
+      hubFactor,
       startTime
     })
   }
@@ -310,7 +324,7 @@ export async function GET(request: NextRequest) {
     const rankedLists = generateRankedLists(result.items)
     
     // Enrich items with formatted values
-    const enrichedItems = rankedLists.allItems.map(enrichProfitAnalysis)
+    const enrichedItems = rankedLists.allItems.map(item => enrichProfitAnalysis(item, hubFactor))
     
     const totalTime = Date.now() - startTime
     

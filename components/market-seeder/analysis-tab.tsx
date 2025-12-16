@@ -62,6 +62,10 @@ interface AnalysisTabProps {
   setSupplyDays: (value: number) => void
   isCustomSupplyDays: boolean
   setIsCustomSupplyDays: (value: boolean) => void
+
+  // Hub factor display
+  hubFactorPercent?: string  // e.g. "5%" - for display in labels
+  hubFactor?: number  // Actual hub factor value (default: 0.05)
 }
 
 export function AnalysisTab({
@@ -93,6 +97,8 @@ export function AnalysisTab({
   setSupplyDays,
   isCustomSupplyDays,
   setIsCustomSupplyDays,
+  hubFactorPercent = "5%",
+  hubFactor = 0.05,
 }: AnalysisTabProps) {
   return (
     <div className="space-y-6">
@@ -278,7 +284,7 @@ export function AnalysisTab({
                         <span className="text-xs text-muted-foreground">days</span>
                       </div>
                     )}
-                    <span className="text-xs text-muted-foreground">@ 5% Vale</span>
+                    <span className="text-xs text-muted-foreground">@ {hubFactorPercent} regional</span>
                   </div>
                   <div className="flex-1" />
                   <div className="flex flex-wrap items-center gap-2">
@@ -325,6 +331,7 @@ export function AnalysisTab({
                 onToggleSelect={onToggleSelect}
                 onSelectAll={onSelectAll}
                 supplyDays={supplyDays}
+                hubFactor={hubFactor}
               />
             </div>
 
@@ -335,6 +342,7 @@ export function AnalysisTab({
                 onFiltersChange={onFiltersChange}
                 totalItems={result.items.length}
                 filteredCount={filteredItems.length}
+                hubFactorPercent={hubFactorPercent}
               />
             </div>
           </div>
@@ -355,6 +363,7 @@ export function AnalysisTab({
                   onFiltersChange={onFiltersChange}
                   totalItems={result.items.length}
                   filteredCount={filteredItems.length}
+                  hubFactorPercent={hubFactorPercent}
                 />
               </CollapsibleContent>
             </Collapsible>

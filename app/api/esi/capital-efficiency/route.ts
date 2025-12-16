@@ -7,7 +7,8 @@ import {
   DEAD_CAPITAL_THRESHOLD_DAYS,
   MARKET_SEEDER_DEFAULTS,
   REGION_IDS,
-  VALE_HUB_FACTOR,
+  DEFAULT_HUB_FACTOR,
+  HUB_FACTOR_PRESETS,
   DEFAULT_VOLUME_REGION_ID,
   VOLUME_REGIONS,
 } from '@/types/market-seeder'
@@ -191,6 +192,7 @@ function daysSince(isoDate: string): number {
  *   - character_id (required): The character ID
  *   - transport_cost (optional): ISK per m³ (default: 450)
  *   - volume_region_id (optional): Region ID for volume data (default: 10000003 / Vale of the Silent)
+ *   - hub_factor (optional): Hub factor percentage (default: 0.05 / 5%)
  * 
  * Headers:
  *   - Authorization (required): Bearer token from EVE SSO
@@ -209,6 +211,16 @@ export async function GET(request: NextRequest) {
     const parsed = parseInt(volumeRegionIdParam)
     if (VOLUME_REGIONS.some(r => r.id === parsed)) {
       volumeRegionId = parsed as RegionId
+    }
+  }
+
+  // Parse hub factor
+  const hubFactorParam = searchParams.get('hub_factor')
+  let hubFactor = DEFAULT_HUB_FACTOR
+  if (hubFactorParam) {
+    const parsed = parseFloat(hubFactorParam)
+    if (HUB_FACTOR_PRESETS.some(p => p.value === parsed)) {
+      hubFactor = parsed
     }
   }
 
@@ -279,7 +291,7 @@ export async function GET(request: NextRequest) {
         },
         orders: [],
         config: {
-          hubFactor: VALE_HUB_FACTOR,  // 5% of Vale volume
+          hubFactor,
           transportCostPerM3,
           deadCapitalThresholdDays: DEAD_CAPITAL_THRESHOLD_DAYS,
         },
@@ -307,9 +319,9 @@ export async function GET(request: NextRequest) {
       const regionDailyVolume = regionVolumes.get(order.type_id) || 0
       const jitaBuyPrice = jitaPrices.get(order.type_id) || null
       
-      // Calculate metrics - using regional volume × 5% hub factor
+      // Calculate metrics - using regional volume × hub factor
       const capitalDeployed = order.price * order.volume_remain
-      const estimatedDailySales = regionDailyVolume * VALE_HUB_FACTOR
+      const estimatedDailySales = regionDailyVolume * hubFactor
       const daysToSell = estimatedDailySales > 0 
         ? order.volume_remain / estimatedDailySales 
         : null
@@ -438,7 +450,7 @@ export async function GET(request: NextRequest) {
       },
       orders: capitalOrders,
       config: {
-        hubFactor: VALE_HUB_FACTOR,  // 5% of Vale volume
+        hubFactor,
         transportCostPerM3,
         deadCapitalThresholdDays: DEAD_CAPITAL_THRESHOLD_DAYS,
       },

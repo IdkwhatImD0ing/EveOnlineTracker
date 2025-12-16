@@ -55,6 +55,9 @@ interface SellSubtabProps {
   onCopyName: (item: SellOrderItem) => void
   onCopyPrice: (item: SellOrderItem) => void
   onCopyAll: () => void
+
+  // Hub factor display
+  hubFactorPercent?: string  // e.g. "5%" - for display in labels
 }
 
 export function SellSubtab({
@@ -77,6 +80,7 @@ export function SellSubtab({
   onCopyName,
   onCopyPrice,
   onCopyAll,
+  hubFactorPercent = "5%",
 }: SellSubtabProps) {
   // Filter and sort items
   const filteredItems = useMemo(() => {
@@ -397,7 +401,7 @@ export function SellSubtab({
                         <p className="font-medium text-muted-foreground">{item.jita_price_formatted}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground text-xs">Vol/Day (0.05%)</p>
+                        <p className="text-muted-foreground text-xs">Vol/Day ({hubFactorPercent})</p>
                         <p className="font-medium">{item.estimated_daily_sales.toFixed(2)} units</p>
                       </div>
                       <div>

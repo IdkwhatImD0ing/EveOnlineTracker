@@ -50,6 +50,9 @@ interface MarketTabProps {
   onSellCopyName: (item: SellOrderItem) => void
   onSellCopyPrice: (item: SellOrderItem) => void
   onSellCopyAll: () => void
+
+  // Hub factor display
+  hubFactorPercent?: string  // e.g. "5%" - for display in labels
 }
 
 export function MarketTab({
@@ -80,6 +83,7 @@ export function MarketTab({
   onSellCopyName,
   onSellCopyPrice,
   onSellCopyAll,
+  hubFactorPercent = "5%",
 }: MarketTabProps) {
   return (
     <div className="space-y-4 md:space-y-6">
@@ -137,6 +141,7 @@ export function MarketTab({
             onCopyName={onSellCopyName}
             onCopyPrice={onSellCopyPrice}
             onCopyAll={onSellCopyAll}
+            hubFactorPercent={hubFactorPercent}
           />
         </TabsContent>
       </Tabs>

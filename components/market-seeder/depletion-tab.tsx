@@ -58,6 +58,9 @@ interface DepletionTabProps {
   setIncludeWarning: (include: boolean) => void
   copySuccess: boolean
   onCopyRestock: () => void
+
+  // Hub factor display
+  hubFactorPercent?: string  // e.g. "5%" - for display in labels
 }
 
 export function DepletionTab({
@@ -79,6 +82,7 @@ export function DepletionTab({
   setIncludeWarning,
   copySuccess,
   onCopyRestock,
+  hubFactorPercent = "5%",
 }: DepletionTabProps) {
   // Group items by urgency
   const itemsByUrgency = {
@@ -264,7 +268,7 @@ export function DepletionTab({
             <p className="font-medium mb-2">How it works:</p>
             <p className="text-xs mb-2">Analyzes all items currently being sold in your structure.</p>
             <ul className="space-y-1 text-xs">
-              <li>• <strong>Est. Daily Sales</strong> = Vale Volume × 5% (hub factor)</li>
+              <li>• <strong>Est. Daily Sales</strong> = Regional Volume × {hubFactorPercent} (hub factor)</li>
               <li>• <strong>Days Until Stockout</strong> = Current Stock ÷ Est. Daily Sales</li>
               <li>• <strong>Priority</strong> = Est. Daily Sales × Profit per Unit</li>
             </ul>

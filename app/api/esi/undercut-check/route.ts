@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { calculateUndercutPrice, formatPriceForEve, formatISK, calculateTickSize } from '@/lib/market-analysis'
 import { createClient } from '@/utils/supabase/server'
-import { REGION_IDS, VALE_HUB_FACTOR } from '@/types/market-seeder'
+import { 
+  DEFAULT_HUB_FACTOR, 
+  HUB_FACTOR_PRESETS, 
+  DEFAULT_VOLUME_REGION_ID, 
+  VOLUME_REGIONS,
+  type RegionId 
+} from '@/types/market-seeder'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
@@ -109,6 +115,26 @@ function getTypeName(typeId: number): string {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const structureId = searchParams.get('structure_id') || '1051567430261' // Default to 3T7-M8 Keepstar
+  
+  // Parse volume region ID
+  const volumeRegionIdParam = searchParams.get('volume_region_id')
+  let volumeRegionId: RegionId = DEFAULT_VOLUME_REGION_ID
+  if (volumeRegionIdParam) {
+    const parsed = parseInt(volumeRegionIdParam)
+    if (VOLUME_REGIONS.some(r => r.id === parsed)) {
+      volumeRegionId = parsed as RegionId
+    }
+  }
+
+  // Parse hub factor
+  const hubFactorParam = searchParams.get('hub_factor')
+  let hubFactor = DEFAULT_HUB_FACTOR
+  if (hubFactorParam) {
+    const parsed = parseFloat(hubFactorParam)
+    if (HUB_FACTOR_PRESETS.some(p => p.value === parsed)) {
+      hubFactor = parsed
+    }
+  }
   
   // Get session with all characters (from session cookie or Authorization header)
   const session = await getSessionWithCharacters(request)
@@ -309,15 +335,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Step 6: Fetch Vale market data for undercut items
+    // Step 6: Fetch regional market data for undercut items
     const undercutTypeIds = [...new Set(preliminaryUndercuts.map(u => u.type_id))]
-    const valeVolumes = new Map<number, number>()
+    const regionVolumes = new Map<number, number>()
     
     if (undercutTypeIds.length > 0) {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
         p_type_ids: undercutTypeIds,
-        p_region_id: REGION_IDS.VALE_OF_SILENT,
+        p_region_id: volumeRegionId,
         p_days_back: 30
       })
 

@@ -17,7 +17,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cached-data'
 import { 
   REGION_IDS, 
-  VALE_HUB_FACTOR, 
+  DEFAULT_HUB_FACTOR,
+  HUB_FACTOR_PRESETS,
   type TradeableItem,
   type RegionId,
   DEFAULT_VOLUME_REGION_ID,
@@ -141,6 +142,16 @@ export async function GET(request: NextRequest) {
     }
   }
   const regionName = VOLUME_REGIONS.find(r => r.id === volumeRegionId)?.name ?? 'Unknown'
+
+  // Parse hub factor
+  const hubFactorParam = searchParams.get('hub_factor')
+  let hubFactor = DEFAULT_HUB_FACTOR
+  if (hubFactorParam) {
+    const parsed = parseFloat(hubFactorParam)
+    if (HUB_FACTOR_PRESETS.some(p => p.value === parsed)) {
+      hubFactor = parsed
+    }
+  }
 
   // Get access token from session or Authorization header
   const authToken = await getValidAccessToken(undefined, request)
@@ -339,7 +350,7 @@ export async function GET(request: NextRequest) {
           const jitaPrice = jitaPrices.get(typeId)
 
           const avgDailyVolume = regionData?.avgDailyVolume || 0
-          const estimatedDailySales = avgDailyVolume * VALE_HUB_FACTOR
+          const estimatedDailySales = avgDailyVolume * hubFactor
 
           const daysUntilStockout = estimatedDailySales > 0
             ? orderData.total_volume / estimatedDailySales

@@ -102,10 +102,31 @@ export interface DepletionPrediction {
 }
 
 /**
- * Hub factor for estimating local demand from Vale of the Silent volume
- * Default: 5% (0.05) - your hub sees ~5% of Vale's regional volume
+ * Hub factor presets for estimating local demand from regional volume
+ * The hub factor represents what percentage of regional volume your hub sees
  */
-export const VALE_HUB_FACTOR = 0.05
+export const HUB_FACTOR_PRESETS = [
+  { value: 0.01, label: '1%', description: 'Very small hub' },
+  { value: 0.02, label: '2%', description: 'Small hub' },
+  { value: 0.05, label: '5%', description: 'Medium hub (default)' },
+  { value: 0.10, label: '10%', description: 'Large hub' },
+  { value: 0.15, label: '15%', description: 'Very large hub' },
+  { value: 0.20, label: '20%', description: 'Major trade hub' },
+] as const
+
+export type HubFactorPreset = typeof HUB_FACTOR_PRESETS[number]
+export type HubFactorValue = typeof HUB_FACTOR_PRESETS[number]['value']
+
+/**
+ * Default hub factor: 5% (0.05)
+ */
+export const DEFAULT_HUB_FACTOR = 0.05
+
+/**
+ * @deprecated Use DEFAULT_HUB_FACTOR instead
+ * Kept for backwards compatibility
+ */
+export const VALE_HUB_FACTOR = DEFAULT_HUB_FACTOR
 
 /**
  * Full profit analysis for a single item
