@@ -655,7 +655,7 @@ async function handleOldRpcStreamingRequest(
  *   - stream (optional): If 'true', returns Server-Sent Events with progress updates
  */
 export async function GET(request: NextRequest) {
-  const session = await getAuthenticatedUser()
+  const session = await getAuthenticatedUser(request)
 
   if (!session) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })

@@ -361,17 +361,19 @@ The API formats ISK values using these suffixes:
 
 ### GET /api/esi/market-history
 
-Fetches historical market statistics for all tradeable items (ships, modules, ammo, boosters) from ESI and stores in Supabase. Supports multiple modes for initial data population and daily updates.
+Fetches historical market statistics for all tradeable items (ships, modules, ammo, boosters) from ESI and stores in Supabase. Supports multiple modes for initial data population and daily updates. Uses chunked processing to stay within Vercel's function timeout limits.
 
-**Authentication:** None required (ESI market history is public)
+**Authentication:** Requires `CRON_SECRET` Bearer token (Vercel cron authentication)
 
 **Query Parameters:**
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| mode | string | No | legacy | Fetch mode: `initial`, `daily`, or `legacy` |
-| days | integer | No | 365 | Days to fetch for `initial` mode |
+| mode | string | No | legacy | Fetch mode: `initial`, `daily`, `backfill`, or `legacy` |
+| days | integer | No | 365 | Days to fetch for `initial`/`backfill` modes |
 | region_id | integer | No | 10000002 | EVE region ID (The Forge = Jita) |
+| chunk | integer | No | - | Which chunk to process (0 to total_chunks-1) |
+| total_chunks | integer | No | 24 | Total chunks to split items into |
 | limit | integer | No | - | Limit items to process (for testing) |
 
 **Modes:**
@@ -379,25 +381,41 @@ Fetches historical market statistics for all tradeable items (ships, modules, am
 | Mode | Description | Use Case |
 |------|-------------|----------|
 | `initial` | Fetch last N days (default 365) | One-time data population |
-| `daily` | Fetch only yesterday's data | Daily cron job (efficient append) |
+| `daily` | Fetch only yesterday's data | Hourly cron jobs (chunked) |
+| `backfill` | Like initial but with chunking | Manual historical data loading |
 | `legacy` | Fetch last 7 days | Original behavior (backward compatibility) |
+
+**Chunking (Distributed Cron Jobs):**
+
+To stay within Vercel's 60-second function timeout, items are split into 24 chunks using deterministic modulo assignment:
+
+```typescript
+// Each type_id is assigned to exactly one chunk (no duplicates, no misses)
+items = items.filter(item => item.typeId % totalChunks === chunk)
+```
+
+This guarantees:
+- Each `typeId` always maps to the same chunk (deterministic)
+- Every item is processed exactly once per day
+- Order-independent - works regardless of source file changes
 
 **Example Requests:**
 ```bash
-# Initial population (365 days of history)
-curl -X GET "http://localhost:3000/api/esi/market-history?mode=initial"
+# Daily update for chunk 5 of 24 (Jita)
+curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily&chunk=5" \
+  -H "Authorization: Bearer $CRON_SECRET"
 
-# Initial with custom days
-curl -X GET "http://localhost:3000/api/esi/market-history?mode=initial&days=180"
+# Daily update for chunk 5 (Vale of the Silent)
+curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily&region_id=10000003&chunk=5" \
+  -H "Authorization: Bearer $CRON_SECRET"
 
-# Daily update (yesterday only)
-curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily"
+# Backfill chunk 0 of 100 for past year
+curl -X GET "http://localhost:3000/api/esi/market-history?mode=backfill&chunk=0&total_chunks=100" \
+  -H "Authorization: Bearer $CRON_SECRET"
 
-# Legacy mode (last 7 days)
-curl -X GET "http://localhost:3000/api/esi/market-history?mode=legacy"
-
-# Limited batch for testing
-curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily&limit=100"
+# Legacy mode (last 7 days, all items - may timeout)
+curl -X GET "http://localhost:3000/api/esi/market-history?mode=legacy" \
+  -H "Authorization: Bearer $CRON_SECRET"
 ```
 
 **Success Response (200):**
@@ -405,25 +423,27 @@ curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily&limit=100"
 {
   "success": true,
   "mode": "daily",
-  "mode_description": "daily (2025-12-09 only)",
+  "mode_description": "daily (2025-12-09 only, chunk 5/24)",
   "summary": {
-    "total_items": 5841,
-    "successful_fetches": 2569,
-    "failed_fetches": 3272,
-    "items_with_market_data": 2157,
-    "total_rows": 2157,
-    "rows_inserted": 2157
+    "total_items": 244,
+    "successful_fetches": 189,
+    "failed_fetches": 55,
+    "items_with_market_data": 157,
+    "total_rows": 157,
+    "rows_inserted": 157
   },
   "timing": {
-    "esi_fetch_ms": 40987,
-    "supabase_upsert_ms": 502,
-    "total_ms": 41490
+    "esi_fetch_ms": 8500,
+    "supabase_upsert_ms": 120,
+    "total_ms": 8620
   },
   "config": {
     "region_id": 10000002,
-    "concurrent_requests": 50,
+    "concurrent_requests": 10,
     "date_from": "2025-12-09",
-    "date_to": "2025-12-09"
+    "date_to": "2025-12-09",
+    "chunk": 5,
+    "total_chunks": 24
   },
   "errors": {
     "esi_failures": [
@@ -440,7 +460,7 @@ curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily&limit=100"
 |-------|------|-------------|
 | mode | string | The mode used for this fetch |
 | mode_description | string | Human-readable mode description |
-| summary.total_items | number | Total tradeable items processed |
+| summary.total_items | number | Total tradeable items processed (in this chunk) |
 | summary.successful_fetches | number | Items successfully fetched from ESI |
 | summary.failed_fetches | number | Items that failed (usually no market data) |
 | summary.items_with_market_data | number | Items with data in the date range |
@@ -453,34 +473,50 @@ curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily&limit=100"
 | config.concurrent_requests | number | Parallel request count |
 | config.date_from | string | Start date of fetch range |
 | config.date_to | string | End date (or "today" for range modes) |
+| config.chunk | number | Chunk number processed (null if not chunked) |
+| config.total_chunks | number | Total chunks (null if not chunked) |
 | errors.esi_failures | array | First 10 ESI failures (for debugging) |
 | errors.supabase_errors | array | Database errors if any |
 
 **Implementation Notes:**
 - Reads items from `data/tradeable-items.jsonl` (ships, modules, ammo, boosters)
-- Fetches ESI market history with 50 concurrent requests
+- Fetches ESI market history with 10 concurrent requests
 - `initial` mode: Fetches last 365 days for full historical data
 - `daily` mode: Fetches only yesterday (single day append - efficient)
+- `backfill` mode: Like initial but designed for chunked manual backfill
 - Upserts to Supabase `market_history` table (ON CONFLICT replace)
 - Failed fetches are normal - many items have no regional market data
 
-**Vercel Cron:**
+**Vercel Cron (72 Hourly Jobs):**
+
+Items are distributed across 24 hourly chunks per region, with 3 regions running at different minute offsets:
+
+| Region | ID | Schedule | Jobs |
+|--------|-----|----------|------|
+| The Forge (Jita) | 10000002 | :00 each hour | 24 |
+| Vale of the Silent | 10000003 | :20 each hour | 24 |
+| Deklein | 10000035 | :40 each hour | 24 |
+| **Total** | | | **72** |
+
+Example cron entries:
 ```json
 {
   "crons": [
-    {
-      "path": "/api/esi/market-history?mode=daily",
-      "schedule": "0 12 * * *"
-    }
+    { "path": "/api/esi/market-history?mode=daily&chunk=0", "schedule": "0 0 * * *" },
+    { "path": "/api/esi/market-history?mode=daily&chunk=1", "schedule": "0 1 * * *" },
+    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=0", "schedule": "20 0 * * *" },
+    { "path": "/api/esi/market-history?mode=daily&region_id=10000035&chunk=0", "schedule": "40 0 * * *" }
   ]
 }
 ```
-Runs daily at 12:00 UTC to append yesterday's data.
+
+Each chunk processes ~244 items (~15-20 seconds), well under Vercel Hobby's 60-second limit.
 
 **Setup Workflow:**
-1. Run `?mode=initial` once to populate 365 days of history
-2. Daily cron job runs `?mode=daily` to append new data
-3. Historical data grows over time (no data is deleted)
+1. Run `?mode=backfill&chunk=N&total_chunks=100` iteratively to populate 365 days of history (Jita & Vale only)
+2. Hourly cron jobs run `?mode=daily&chunk=N` to append yesterday's data
+3. All 24 chunks complete daily = full item coverage
+4. Historical data grows over time (no data is deleted)
 
 ---
 
@@ -503,7 +539,8 @@ Debug endpoint to fetch raw market history for a single item in any region direc
 | Region | ID | Notes |
 |--------|-----|-------|
 | The Forge | 10000002 | Jita |
-| Vale of the Silent | 10000003 | Null-sec |
+| Vale of the Silent | 10000003 | Null-sec (used for demand estimation) |
+| Deklein | 10000035 | Null-sec |
 | Domain | 10000043 | Amarr |
 | Sinq Laison | 10000032 | Dodixie |
 | Heimatar | 10000030 | Rens |

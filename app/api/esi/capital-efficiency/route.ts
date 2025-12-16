@@ -196,8 +196,8 @@ export async function GET(request: NextRequest) {
     searchParams.get('transport_cost') || String(MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3)
   )
 
-  // Get session with all characters
-  const session = await getSessionWithCharacters()
+  // Get session with all characters (from session cookie or Authorization header)
+  const session = await getSessionWithCharacters(request)
   
   if (!session) {
     return NextResponse.json(

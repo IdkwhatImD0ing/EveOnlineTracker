@@ -394,3 +394,209 @@ export interface CapitalEfficiencyResponse {
   }
 }
 
+// ============================================================================
+// UI State Types
+// ============================================================================
+
+/**
+ * Progress state for SSE streaming operations
+ */
+export interface ProgressState {
+  stage: string
+  message: string
+  percent: number
+}
+
+// ============================================================================
+// Watchlist Types
+// ============================================================================
+
+/**
+ * Watchlist item with stock and depletion metrics
+ */
+export interface WatchlistItem {
+  id: string
+  type_id: number
+  item_name: string
+  group_name: string | null
+  category_name: string | null
+  volume: number | null
+  created_at: string
+  stock: number
+  lowest_price: number | null
+  needs_restock: boolean
+  // Depletion metrics
+  estimatedDailySales: number
+  daysUntilStockout: number | null
+  jitaPrice: number | null
+  profitPerUnit: number
+  dailyProfit: number
+}
+
+/**
+ * Watchlist API response
+ */
+export interface WatchlistResponse {
+  success: boolean
+  items: WatchlistItem[]
+  structure_id: string | null
+  checked_at: string | null
+  summary?: {
+    total: number
+    needs_restock: number
+    in_stock: number
+    criticalCount: number
+    warningCount: number
+    okCount: number
+    noDataCount: number
+    totalDailyProfit: number
+  }
+}
+
+// ============================================================================
+// Undercut Tracker Types
+// ============================================================================
+
+/**
+ * Item being undercut by a competitor
+ */
+export interface UndercutItem {
+  type_id: number
+  type_name: string
+  your_order_id: number
+  your_price: number
+  your_price_formatted: string
+  your_volume_remain: number
+  competitor_price: number
+  competitor_price_formatted: string
+  competitor_order_id: number
+  undercut_price: number
+  undercut_price_formatted: string
+  undercut_price_eve: string
+  price_difference: number
+  price_difference_formatted: string
+  tick_size: number
+  // Days to lowest calculation
+  competitors_below_count: number
+  competitors_below_volume: number
+  vale_daily_volume: number
+  estimated_daily_sales: number
+  days_to_lowest: number | null
+}
+
+/**
+ * Item where you have the lowest price
+ */
+export interface SafeItem {
+  type_id: number
+  type_name: string
+  your_order_id: number
+  your_price: number
+  your_price_formatted: string
+  your_volume_remain: number
+  next_competitor_price: number | null
+  next_competitor_price_formatted: string | null
+}
+
+/**
+ * Undercut check API response
+ */
+export interface UndercutData {
+  undercut_items: UndercutItem[]
+  safe_items: SafeItem[]
+  summary: {
+    undercut_count: number
+    safe_count: number
+    total_orders_in_structure: number
+    structure_id: string
+    total_structure_orders: number
+  }
+  timing: {
+    total_ms: number
+  }
+}
+
+// ============================================================================
+// Sell Order Generator Types
+// ============================================================================
+
+/**
+ * Item for sell order generation
+ */
+export interface SellOrderItem {
+  type_id: number
+  type_name: string
+  quantity: number
+  has_competition: boolean
+  jita_price: number
+  jita_price_formatted: string
+  competitor_price: number | null
+  competitor_price_formatted: string | null
+  sell_price: number
+  sell_price_formatted: string
+  sell_price_eve: string
+  vale_daily_volume: number
+  estimated_daily_sales: number
+  isk_per_day: number
+  isk_per_day_formatted: string
+}
+
+/**
+ * Item with existing sell order (filtered out)
+ */
+export interface ExistingOrderItem {
+  type_id: number
+  type_name: string
+  quantity: number
+}
+
+/**
+ * Sell order generator API response
+ */
+export interface SellOrderData {
+  items: SellOrderItem[]
+  items_with_existing_orders: ExistingOrderItem[]
+  summary: {
+    total_items: number
+    total_with_competition: number
+    total_no_competition: number
+    total_isk_per_day: number
+    total_isk_per_day_formatted: string
+    filtered_out_existing_orders: number
+  }
+  timing: {
+    total_ms: number
+  }
+}
+
+// ============================================================================
+// Analysis Response Types
+// ============================================================================
+
+/**
+ * Analysis response from /api/market-seeder/analyze (SSE streaming)
+ */
+export interface AnalysisResponse {
+  success: boolean
+  generatedAt: string
+  config: {
+    structureId: string
+    transportCostPerM3: number
+    minProfitIsk: number
+    minDailyVolume: number
+    daysAnalyzed: number
+  }
+  summary: {
+    totalItemsAnalyzed: number
+    itemsPassingFilters: number
+    itemsWithCompetition: number
+    itemsNoCompetition: number
+    avgProfitMargin: number
+    avgProfitPerM3: number
+  }
+  items: ProfitAnalysis[]
+  timing: {
+    totalMs: number
+  }
+}
+

@@ -125,8 +125,8 @@ const JITA_STATION_ID = 60003760
  * Returns aggregated assets with type names and total quantities across all characters.
  */
 export async function GET(request: NextRequest) {
-  // Get authenticated user
-  const session = await getAuthenticatedUser()
+  // Get authenticated user from session or Authorization header
+  const session = await getAuthenticatedUser(request)
   
   if (!session) {
     return NextResponse.json(

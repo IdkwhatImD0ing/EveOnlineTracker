@@ -110,8 +110,8 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const structureId = searchParams.get('structure_id') || '1051567430261' // Default to 3T7-M8 Keepstar
   
-  // Get session with all characters
-  const session = await getSessionWithCharacters()
+  // Get session with all characters (from session cookie or Authorization header)
+  const session = await getSessionWithCharacters(request)
   
   if (!session) {
     return NextResponse.json(

@@ -104,7 +104,7 @@ function sendSSEEvent(
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getAuthenticatedUser()
+  const session = await getAuthenticatedUser(request)
 
   if (!session) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -124,8 +124,8 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Get access token from session
-  const authToken = await getValidAccessToken()
+  // Get access token from session or Authorization header
+  const authToken = await getValidAccessToken(undefined, request)
 
   if (!authToken) {
     return NextResponse.json(

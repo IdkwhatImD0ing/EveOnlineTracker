@@ -10,6 +10,8 @@ import { RotateCcw, Filter } from "lucide-react"
 export interface FilterState {
   minMargin: number
   maxJitaCost: number | null  // null = no limit
+  minOrdersPerDay: number | null  // null = no limit (uses 5% Vale hub factor)
+  minProfitPerDay: number | null  // null = no limit (ISK profit per day at hub)
   noCompetitionOnly: boolean
   selectedCategories: Set<string>
 }
@@ -36,6 +38,8 @@ const CATEGORIES = [
 const DEFAULT_FILTERS: FilterState = {
   minMargin: 10,
   maxJitaCost: null,  // No limit by default
+  minOrdersPerDay: null,  // No limit by default
+  minProfitPerDay: null,  // No limit by default
   noCompetitionOnly: false,
   selectedCategories: new Set([
     "Module", "Ship", "Charge", "Booster",
@@ -60,6 +64,18 @@ export function FilterSidebar({
     onFiltersChange({ ...filters, maxJitaCost: cost > 0 ? cost : null })
   }
 
+  const handleMinOrdersPerDayChange = (value: string) => {
+    // Parse value - empty string or 0 means no limit
+    const orders = parseFloat(value)
+    onFiltersChange({ ...filters, minOrdersPerDay: orders > 0 ? orders : null })
+  }
+
+  const handleMinProfitPerDayChange = (value: string) => {
+    // Parse value - empty string or 0 means no limit
+    const profit = parseFloat(value)
+    onFiltersChange({ ...filters, minProfitPerDay: profit > 0 ? profit : null })
+  }
+
   const handleNoCompetitionChange = (checked: boolean) => {
     onFiltersChange({ ...filters, noCompetitionOnly: checked })
   }
@@ -78,6 +94,8 @@ export function FilterSidebar({
     onFiltersChange({
       minMargin: DEFAULT_FILTERS.minMargin,
       maxJitaCost: DEFAULT_FILTERS.maxJitaCost,
+      minOrdersPerDay: DEFAULT_FILTERS.minOrdersPerDay,
+      minProfitPerDay: DEFAULT_FILTERS.minProfitPerDay,
       noCompetitionOnly: DEFAULT_FILTERS.noCompetitionOnly,
       selectedCategories: new Set(DEFAULT_FILTERS.selectedCategories),
     })
@@ -86,6 +104,8 @@ export function FilterSidebar({
   const hasActiveFilters =
     filters.minMargin !== DEFAULT_FILTERS.minMargin ||
     filters.maxJitaCost !== DEFAULT_FILTERS.maxJitaCost ||
+    filters.minOrdersPerDay !== DEFAULT_FILTERS.minOrdersPerDay ||
+    filters.minProfitPerDay !== DEFAULT_FILTERS.minProfitPerDay ||
     filters.noCompetitionOnly !== DEFAULT_FILTERS.noCompetitionOnly ||
     filters.selectedCategories.size !== DEFAULT_FILTERS.selectedCategories.size
 
@@ -135,6 +155,45 @@ export function FilterSidebar({
           />
           <p className="text-xs text-muted-foreground">
             Leave empty for no limit
+          </p>
+        </div>
+
+        {/* Min Orders/Day */}
+        <div className="space-y-2">
+          <Label htmlFor="minOrdersPerDay" className="text-sm font-medium">
+            Min Orders/Day
+          </Label>
+          <Input
+            id="minOrdersPerDay"
+            type="number"
+            min="0"
+            step="0.1"
+            placeholder="No limit"
+            value={filters.minOrdersPerDay ?? ""}
+            onChange={(e) => handleMinOrdersPerDayChange(e.target.value)}
+            className="h-9"
+          />
+          <p className="text-xs text-muted-foreground">
+            Est. daily sales @ 5% Vale
+          </p>
+        </div>
+
+        {/* Min Profit/Day */}
+        <div className="space-y-2">
+          <Label htmlFor="minProfitPerDay" className="text-sm font-medium">
+            Min Profit/Day (ISK)
+          </Label>
+          <Input
+            id="minProfitPerDay"
+            type="number"
+            min="0"
+            placeholder="No limit"
+            value={filters.minProfitPerDay ?? ""}
+            onChange={(e) => handleMinProfitPerDayChange(e.target.value)}
+            className="h-9"
+          />
+          <p className="text-xs text-muted-foreground">
+            Daily profit @ 5% Vale
           </p>
         </div>
 

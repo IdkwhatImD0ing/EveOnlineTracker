@@ -136,6 +136,9 @@ After running an analysis, filter results using the sidebar on the right:
 | Filter | Description |
 |--------|-------------|
 | **Min Margin %** | Minimum profit margin percentage (client-side filter) |
+| **Max Jita Cost** | Maximum Jita price in ISK (leave empty for no limit) |
+| **Min Orders/Day** | Minimum estimated daily sales at hub (Vale volume × 5% hub factor) |
+| **Min Profit/Day** | Minimum estimated daily profit in ISK (profit per unit × orders/day) |
 | **No Competition Only** | Show only items with no existing sell orders |
 | **Categories** | Checkboxes for Modules, Ships, Ammo, Boosters, Drones, Fighters, Implants, Deployables, Subsystems |
 | **Reset Filters** | Button to restore default filter values |
@@ -306,7 +309,7 @@ The main bottleneck is fetching ~5,800 Jita prices from ESI (20 concurrent reque
 ## Settings Persistence
 
 All settings are saved to localStorage:
-- `market-seeder-settings`: JSON object with structureId, transportCost, minMargin, minProfit, minVolume, noCompetitionOnly, selectedCategories
+- `market-seeder-settings`: JSON object with structureId, transportCost, minMargin, maxJitaCost, minOrdersPerDay, minProfitPerDay, minProfit, minVolume, noCompetitionOnly, selectedCategories
 
 ---
 
@@ -766,6 +769,56 @@ Each item has two copy buttons:
   }
 }
 ```
+
+---
+
+## Component Architecture
+
+The Market Seeder page is built using a modular component architecture for better maintainability.
+
+### File Structure
+
+```
+components/market-seeder/
+├── filter-sidebar.tsx      # Analysis tab sidebar filters
+├── results-table.tsx       # Analysis results table with sorting/pagination
+├── capital-tab.tsx         # Capital Efficiency dashboard
+├── analysis-tab.tsx        # Market analysis settings and results
+├── watchlist-tab.tsx       # Item watchlist with stock tracking
+├── depletion-tab.tsx       # Stock depletion predictions
+├── market-tab.tsx          # Container for Market sub-tabs
+├── undercut-subtab.tsx     # Undercut tracker
+├── sell-subtab.tsx         # Sell order generator
+├── progress-bar.tsx        # SSE progress indicator
+└── utils.ts                # Shared utilities and constants
+
+types/market-seeder.ts      # TypeScript interfaces
+```
+
+### State Management
+
+All state is managed in the parent `page.tsx` file and passed down to tab components as props. Each tab component receives:
+- Data state (loading, error, data)
+- Callbacks for actions (refresh, copy, etc.)
+- Filter/selection state where applicable
+
+### Shared Components
+
+| Component | Purpose |
+|-----------|---------|
+| `ProgressBar` | Reusable SSE progress indicator with stage icons |
+| `FilterSidebar` | Client-side filtering for analysis results |
+| `ResultsTable` | Sortable, paginated table with row expansion |
+
+### Utilities
+
+The `utils.ts` file exports shared functions and constants:
+- `formatIskShort()` - ISK formatting with K/M/B suffixes
+- `generateBuyText()` - Eve multibuy text generator
+- `getMinOrderQuantity()` - Minimum order quantity logic
+- `KNOWN_STRUCTURES` - Alliance structure list
+- `SUPPLY_DAYS_PRESETS` - Supply duration options
+- `DEFAULT_STRUCTURE_ID`, `DEFAULT_SUPPLY_DAYS` - Default values
 
 ---
 

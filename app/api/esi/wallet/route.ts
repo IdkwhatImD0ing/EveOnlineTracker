@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
@@ -11,9 +11,9 @@ const ESI_BASE = 'https://esi.evetech.net'
  * 
  * Returns aggregated wallet data across all characters.
  */
-export async function GET() {
-  // Get authenticated user from session
-  const session = await getAuthenticatedUser()
+export async function GET(request: NextRequest) {
+  // Get authenticated user from session or Authorization header
+  const session = await getAuthenticatedUser(request)
   
   if (!session) {
     return NextResponse.json(

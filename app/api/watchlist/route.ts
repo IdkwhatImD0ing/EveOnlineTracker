@@ -47,7 +47,7 @@ interface WatchlistItemWithStock extends WatchlistItem {
  *   - Authorization (optional): Bearer token from EVE SSO. Required if structure_id is provided.
  */
 export async function GET(request: NextRequest) {
-  const session = await getAuthenticatedUser()
+  const session = await getAuthenticatedUser(request)
 
   if (!session) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -98,8 +98,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get access token from session for structure stock check
-    const authToken = await getValidAccessToken()
+    // Get access token from session or Authorization header for structure stock check
+    const authToken = await getValidAccessToken(undefined, request)
     
     if (!authToken) {
       return NextResponse.json(
@@ -266,7 +266,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getAuthenticatedUser()
+    const session = await getAuthenticatedUser(request)
 
     if (!session) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })

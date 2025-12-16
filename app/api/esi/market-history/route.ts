@@ -13,9 +13,10 @@ const BATCH_DELAY_MS = 500 // Delay between batches to respect rate limits
 const SUPABASE_BATCH_SIZE = 1000 // Max rows per Supabase upsert
 
 // Fetch modes
-type FetchMode = 'initial' | 'daily' | 'legacy' | 'verify' | 'test_assets'
+type FetchMode = 'initial' | 'daily' | 'legacy' | 'verify' | 'test_assets' | 'backfill'
 const DEFAULT_INITIAL_DAYS = 365
 const DEFAULT_LEGACY_DAYS = 7
+const DEFAULT_TOTAL_CHUNKS = 24 // Split items into 24 chunks for hourly cron jobs
 
 // Debug file paths
 const CACHE_FILE_PATH = path.join(process.cwd(), 'data', 'market-history-cache.jsonl')
@@ -477,14 +478,18 @@ const CATEGORY_NAME_TO_ID: Record<string, number> = {
  * Modes:
  *   - initial: Fetch last N days (default 365) for initial data population
  *   - daily: Fetch only yesterday's data (for daily cron job - efficient append)
+ *   - backfill: Like initial but designed for manual chunked backfill (smaller default chunks)
  *   - legacy: Fetch last 7 days (original behavior)
  *   - verify: Check if specific type_ids exist in database (no ESI calls)
  *   - test_assets: Fetch only specific type_ids (for testing)
  * 
  * Query Parameters:
- *   - mode (optional): 'initial' | 'daily' | 'legacy' | 'verify' | 'test_assets'. Defaults to 'legacy'
- *   - days (optional): Number of days for 'initial' mode. Defaults to 365
+ *   - mode (optional): 'initial' | 'daily' | 'backfill' | 'legacy' | 'verify' | 'test_assets'. Defaults to 'legacy'
+ *   - days (optional): Number of days for 'initial'/'backfill' modes. Defaults to 365
  *   - region_id (optional): The region ID. Defaults to 10000002 (The Forge/Jita)
+ *   - chunk (optional): Which chunk to process (0 to total_chunks-1). Used with daily cron jobs.
+ *   - total_chunks (optional): Total number of chunks to split items into. Defaults to 24.
+ *                              Each item is assigned to chunk = typeId % total_chunks (deterministic, no duplicates/misses)
  *   - limit (optional): Limit number of items to process (for testing)
  *   - type_ids (optional): Comma-separated type_ids for 'verify' or 'test_assets' modes
  *   - categories (optional): Comma-separated category names or IDs to filter items
@@ -512,6 +517,12 @@ export async function GET(request: NextRequest) {
   const saveCache = searchParams.get('save_cache') === 'true'
   const saveReport = searchParams.get('save_report') === 'true'
   const skipDb = searchParams.get('skip_db') === 'true'
+  
+  // Chunking parameters for distributed cron jobs
+  const chunkParam = searchParams.get('chunk')
+  const totalChunksParam = searchParams.get('total_chunks')
+  const chunk = chunkParam !== null ? parseInt(chunkParam) : undefined
+  const totalChunks = totalChunksParam !== null ? parseInt(totalChunksParam) : DEFAULT_TOTAL_CHUNKS
 
   // Parse categories filter
   let categoryFilter: Set<number> | null = null
@@ -535,7 +546,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  console.log(`[Market History] Starting batch fetch - mode: ${mode}, region: ${regionId}${categoryFilter ? `, categories: [${Array.from(categoryFilter).join(', ')}]` : ''}`)
+  console.log(`[Market History] Starting batch fetch - mode: ${mode}, region: ${regionId}${chunk !== undefined ? `, chunk: ${chunk}/${totalChunks}` : ''}${categoryFilter ? `, categories: [${Array.from(categoryFilter).join(', ')}]` : ''}`)
 
   try {
     // Handle VERIFY mode - just check DB, no ESI calls
@@ -681,6 +692,21 @@ export async function GET(request: NextRequest) {
       console.log(`[Market History] Limited to ${items.length} items`)
     }
 
+    // Apply chunk filter if specified (for distributed cron jobs)
+    // Uses modulo-based assignment: each typeId deterministically maps to exactly one chunk
+    // This guarantees no duplicates and no misses regardless of source file order
+    if (chunk !== undefined) {
+      if (chunk < 0 || chunk >= totalChunks) {
+        return NextResponse.json(
+          { error: `Invalid chunk: ${chunk}. Must be between 0 and ${totalChunks - 1}` },
+          { status: 400 }
+        )
+      }
+      const beforeCount = items.length
+      items = items.filter(item => item.typeId % totalChunks === chunk)
+      console.log(`[Market History] Chunk ${chunk}/${totalChunks}: filtered to ${items.length} items (from ${beforeCount})`)
+    }
+
     // Step 2: Calculate date filter based on mode
     let fromDateStr: string
     let toDateStr: string | undefined
@@ -694,12 +720,19 @@ export async function GET(request: NextRequest) {
         modeDescription = `initial (last ${days} days)`
         break
       
+      case 'backfill':
+        // Like initial but designed for manual chunked backfill
+        fromDateStr = getDateStringDaysAgo(days)
+        toDateStr = undefined
+        modeDescription = `backfill (last ${days} days${chunk !== undefined ? `, chunk ${chunk}/${totalChunks}` : ''})`
+        break
+      
       case 'daily':
         // Fetch only yesterday's data
         const yesterday = getYesterdayDateString()
         fromDateStr = yesterday
         toDateStr = yesterday
-        modeDescription = `daily (${yesterday} only)`
+        modeDescription = `daily (${yesterday} only${chunk !== undefined ? `, chunk ${chunk}/${totalChunks}` : ''})`
         break
       
       case 'legacy':
@@ -776,6 +809,8 @@ export async function GET(request: NextRequest) {
         concurrent_requests: CONCURRENT_REQUESTS,
         date_from: fromDateStr,
         date_to: toDateStr || 'today',
+        chunk: chunk !== undefined ? chunk : null,
+        total_chunks: chunk !== undefined ? totalChunks : null,
         category_filter: categoryFilter ? Array.from(categoryFilter) : null
       },
       files: {

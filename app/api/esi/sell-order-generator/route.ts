@@ -255,8 +255,8 @@ const HANGAR_FLAGS = new Set([
  * Uses session-based authentication and aggregates assets from all linked characters.
  */
 export async function GET(request: NextRequest) {
-  // Get authenticated user from session
-  const session = await getAuthenticatedUser()
+  // Get authenticated user from session or Authorization header
+  const session = await getAuthenticatedUser(request)
 
   if (!session) {
     return NextResponse.json(
