@@ -7,7 +7,12 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cached-data'
-import { REGION_IDS, type TradeableItem } from '@/types/market-seeder'
+import { 
+  type TradeableItem, 
+  type RegionId,
+  DEFAULT_VOLUME_REGION_ID, 
+  VOLUME_REGIONS 
+} from '@/types/market-seeder'
 import { getAuthenticatedUser } from '@/lib/auth'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -69,6 +74,16 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const typeIdsParam = searchParams.get('type_ids')
     
+    // Parse volume region ID
+    const volumeRegionIdParam = searchParams.get('volume_region_id')
+    let volumeRegionId: RegionId = DEFAULT_VOLUME_REGION_ID
+    if (volumeRegionIdParam) {
+      const parsed = parseInt(volumeRegionIdParam)
+      if (VOLUME_REGIONS.some(r => r.id === parsed)) {
+        volumeRegionId = parsed as RegionId
+      }
+    }
+    
     if (!typeIdsParam) {
       return NextResponse.json(
         { error: 'type_ids parameter is required' },
@@ -96,7 +111,7 @@ export async function GET(request: NextRequest) {
     // Load tradeable items for name lookup and fetch market data in parallel
     const [tradeableItems, marketHistory, jitaPrices] = await Promise.all([
       loadTradeableItemsMap(),
-      getCachedMarketSeederStatistics(typeIds, 30, REGION_IDS.VALE_OF_SILENT),
+      getCachedMarketSeederStatistics(typeIds, 30, volumeRegionId),
       getCachedJitaPrices(typeIds)
     ])
     

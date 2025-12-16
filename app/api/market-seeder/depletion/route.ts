@@ -18,7 +18,6 @@ import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cach
 import { 
   REGION_IDS, 
   DEFAULT_HUB_FACTOR,
-  HUB_FACTOR_PRESETS,
   type TradeableItem,
   type RegionId,
   DEFAULT_VOLUME_REGION_ID,
@@ -143,12 +142,12 @@ export async function GET(request: NextRequest) {
   }
   const regionName = VOLUME_REGIONS.find(r => r.id === volumeRegionId)?.name ?? 'Unknown'
 
-  // Parse hub factor
+  // Parse hub factor (accept any positive number, not just presets)
   const hubFactorParam = searchParams.get('hub_factor')
   let hubFactor = DEFAULT_HUB_FACTOR
   if (hubFactorParam) {
     const parsed = parseFloat(hubFactorParam)
-    if (HUB_FACTOR_PRESETS.some(p => p.value === parsed)) {
+    if (!isNaN(parsed) && parsed > 0 && parsed <= 1) {
       hubFactor = parsed
     }
   }

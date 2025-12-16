@@ -32,7 +32,6 @@ import {
   MARKET_SEEDER_DEFAULTS,
   DEFAULT_VOLUME_REGION_ID,
   DEFAULT_HUB_FACTOR,
-  HUB_FACTOR_PRESETS,
   VOLUME_REGIONS,
 } from '@/types/market-seeder'
 import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
@@ -255,12 +254,12 @@ export async function GET(request: NextRequest) {
     }
   }
   
-  // Parse hub factor
+  // Parse hub factor (accept any positive number, not just presets)
   const hubFactorParam = searchParams.get('hub_factor')
   let hubFactor = DEFAULT_HUB_FACTOR
   if (hubFactorParam) {
     const parsed = parseFloat(hubFactorParam)
-    if (HUB_FACTOR_PRESETS.some(p => p.value === parsed)) {
+    if (!isNaN(parsed) && parsed > 0 && parsed <= 1) {
       hubFactor = parsed
     }
   }

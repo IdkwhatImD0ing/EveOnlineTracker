@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calculateUndercutPrice, formatPriceForEve, formatISK } from '@/lib/market-analysis'
 import { getNoCompetitionMarkup } from '@/lib/market-seeder'
-import { REGION_IDS, DEFAULT_HUB_FACTOR, HUB_FACTOR_PRESETS, DEFAULT_VOLUME_REGION_ID, VOLUME_REGIONS, type RegionId } from '@/types/market-seeder'
+import { REGION_IDS, DEFAULT_HUB_FACTOR, DEFAULT_VOLUME_REGION_ID, VOLUME_REGIONS, type RegionId } from '@/types/market-seeder'
 import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 import type { CharacterToken } from '@/types/auth'
 
@@ -276,12 +276,12 @@ export async function GET(request: NextRequest) {
   const structureId = searchParams.get('structure_id') || DEFAULT_STRUCTURE_ID
   const useStreaming = searchParams.get('stream') === 'true'
 
-  // Parse hub factor
+  // Parse hub factor (accept any positive number, not just presets)
   const hubFactorParam = searchParams.get('hub_factor')
   let hubFactor = DEFAULT_HUB_FACTOR
   if (hubFactorParam) {
     const parsed = parseFloat(hubFactorParam)
-    if (HUB_FACTOR_PRESETS.some(p => p.value === parsed)) {
+    if (!isNaN(parsed) && parsed > 0 && parsed <= 1) {
       hubFactor = parsed
     }
   }

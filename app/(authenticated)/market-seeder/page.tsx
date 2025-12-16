@@ -656,7 +656,11 @@ export default function MarketSeederPage() {
     setUndercutError(null)
 
     try {
-      const params = new URLSearchParams({ structure_id: structureId })
+      const params = new URLSearchParams({ 
+        structure_id: structureId,
+        volume_region_id: String(volumeRegionId),
+        hub_factor: String(hubFactor),
+      })
       const response = await fetch(`/api/esi/undercut-check?${params}`)
 
       if (!response.ok) {
@@ -671,7 +675,7 @@ export default function MarketSeederPage() {
     } finally {
       setUndercutLoading(false)
     }
-  }, [structureId])
+  }, [structureId, volumeRegionId, hubFactor])
 
   const copyUndercutPrice = useCallback(async (item: UndercutItem) => {
     navigator.clipboard.writeText(item.undercut_price_eve)
