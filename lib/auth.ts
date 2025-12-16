@@ -2,6 +2,7 @@
  * Authentication utilities for multi-account support
  */
 
+import { connection } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { refreshAccessToken } from '@/lib/eve-sso'
@@ -39,6 +40,7 @@ export function parseEveJWT(token: string): { characterId: number; characterName
  * Set the session cookie with user_id
  */
 export async function setSessionCookie(userId: string): Promise<void> {
+  await connection()
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE_NAME, userId, {
     httpOnly: true,
@@ -53,6 +55,7 @@ export async function setSessionCookie(userId: string): Promise<void> {
  * Clear the session cookie
  */
 export async function clearSessionCookie(): Promise<void> {
+  await connection()
   const cookieStore = await cookies()
   cookieStore.delete(SESSION_COOKIE_NAME)
 }
@@ -61,6 +64,7 @@ export async function clearSessionCookie(): Promise<void> {
  * Get user_id from session cookie
  */
 export async function getSessionUserId(): Promise<string | null> {
+  await connection()
   const cookieStore = await cookies()
   const session = cookieStore.get(SESSION_COOKIE_NAME)
   return session?.value || null

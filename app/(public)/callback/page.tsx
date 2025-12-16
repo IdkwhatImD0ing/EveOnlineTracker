@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,21 @@ interface CallbackResult {
   error?: string
 }
 
-export default function CallbackPage() {
+function LoadingCard() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-4">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-transparent to-transparent" />
+      <Card className="relative w-full max-w-md border-zinc-800 bg-zinc-950/80 backdrop-blur-sm">
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="size-12 animate-spin text-blue-400 mb-4" />
+          <p className="text-zinc-300 text-lg">Loading...</p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function CallbackContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [status, setStatus] = useState<CallbackStatus>("loading")
@@ -166,5 +180,13 @@ export default function CallbackPage() {
         </Card>
       )}
     </div>
+  )
+}
+
+export default function CallbackPage() {
+  return (
+    <Suspense fallback={<LoadingCard />}>
+      <CallbackContent />
+    </Suspense>
   )
 }
