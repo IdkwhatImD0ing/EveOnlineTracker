@@ -298,10 +298,26 @@ export const MARKET_SEEDER_DEFAULTS = {
 export const REGION_IDS = {
   THE_FORGE: 10000002,      // Jita
   VALE_OF_SILENT: 10000003, // Vale of the Silent (alliance hub)
+  DEKLEIN: 10000035,        // Deklein (null-sec)
   DOMAIN: 10000043,         // Amarr
   SINQ_LAISON: 10000032,    // Dodixie
   HEIMATAR: 10000030,       // Rens
 } as const
+
+export type RegionId = typeof REGION_IDS[keyof typeof REGION_IDS]
+
+/**
+ * Volume regions available for market analysis
+ * These are regions with market history data for volume/demand metrics
+ */
+export const VOLUME_REGIONS = [
+  { id: REGION_IDS.VALE_OF_SILENT, name: 'Vale of the Silent', shortName: 'Vale', description: 'Null-sec alliance territory' },
+  { id: REGION_IDS.DEKLEIN, name: 'Deklein', shortName: 'Deklein', description: 'Null-sec (Goonswarm)' },
+  { id: REGION_IDS.THE_FORGE, name: 'The Forge', shortName: 'Jita', description: 'High-sec trade hub' },
+] as const
+
+export type VolumeRegion = typeof VOLUME_REGIONS[number]
+export const DEFAULT_VOLUME_REGION_ID = REGION_IDS.VALE_OF_SILENT
 
 // ============================================================================
 // Capital Efficiency Types

@@ -19,9 +19,12 @@ import {
   type TargetPriceResult,
   type AnalysisSummary,
   type CachedStructureOrders,
+  type RegionId,
   MARKET_SEEDER_DEFAULTS,
   NO_COMPETITION_MARKUP_TIERS,
   REGION_IDS,
+  VOLUME_REGIONS,
+  DEFAULT_VOLUME_REGION_ID,
 } from '@/types/market-seeder'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -111,26 +114,36 @@ export async function fetchJitaMarketHistory(
 }
 
 /**
- * Query Vale of the Silent market history with progress callback
- * This provides actual demand data for the alliance hub region
+ * Get region name for logging
  */
-export async function fetchValeMarketHistoryWithProgress(
+function getRegionName(regionId: RegionId): string {
+  const region = VOLUME_REGIONS.find(r => r.id === regionId)
+  return region?.name ?? `Region ${regionId}`
+}
+
+/**
+ * Query market history for a specific region with progress callback
+ * This provides demand data for market analysis
+ */
+export async function fetchRegionMarketHistoryWithProgress(
   typeIds: number[],
+  regionId: RegionId = DEFAULT_VOLUME_REGION_ID,
   days: number = 30,
   onBatchProgress?: (batch: number, total: number) => void
 ): Promise<Map<number, JitaDemandMetrics>> {
   const supabase = createClient()
   const result = new Map<number, JitaDemandMetrics>()
+  const regionName = getRegionName(regionId)
   
   if (typeIds.length === 0) {
-    console.warn('[Market Seeder] No type IDs provided for Vale market history')
+    console.warn(`[Market Seeder] No type IDs provided for ${regionName} market history`)
     return result
   }
   
   const RPC_BATCH_SIZE = 200  // Process 200 type_ids per RPC call to avoid timeouts
   const totalBatches = Math.ceil(typeIds.length / RPC_BATCH_SIZE)
   
-  console.log(`[Market Seeder] Fetching Vale market history for ${typeIds.length} items in ${totalBatches} batches...`)
+  console.log(`[Market Seeder] Fetching ${regionName} market history for ${typeIds.length} items in ${totalBatches} batches...`)
   
   for (let i = 0; i < typeIds.length; i += RPC_BATCH_SIZE) {
     const batchTypeIds = typeIds.slice(i, i + RPC_BATCH_SIZE)
@@ -142,12 +155,12 @@ export async function fetchValeMarketHistoryWithProgress(
     try {
       const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
         p_type_ids: batchTypeIds,
-        p_region_id: REGION_IDS.VALE_OF_SILENT,
+        p_region_id: regionId,
         p_days_back: days
       })
       
       if (error) {
-        console.error(`[Market Seeder] Vale RPC batch ${batchNum}/${totalBatches} failed:`, error.message)
+        console.error(`[Market Seeder] ${regionName} RPC batch ${batchNum}/${totalBatches} failed:`, error.message)
         continue
       }
       
@@ -175,16 +188,28 @@ export async function fetchValeMarketHistoryWithProgress(
         }
       }
       
-      console.log(`[Market Seeder] Vale RPC batch ${batchNum}/${totalBatches}: ${data?.length || 0} results`)
+      console.log(`[Market Seeder] ${regionName} RPC batch ${batchNum}/${totalBatches}: ${data?.length || 0} results`)
       
     } catch (err) {
-      console.error(`[Market Seeder] Vale RPC batch ${batchNum}/${totalBatches} exception:`, err)
+      console.error(`[Market Seeder] ${regionName} RPC batch ${batchNum}/${totalBatches} exception:`, err)
     }
   }
   
-  console.log(`[Market Seeder] Vale market history: ${result.size} items with data out of ${typeIds.length} requested`)
+  console.log(`[Market Seeder] ${regionName} market history: ${result.size} items with data out of ${typeIds.length} requested`)
   
   return result
+}
+
+/**
+ * Query Vale of the Silent market history with progress callback
+ * @deprecated Use fetchRegionMarketHistoryWithProgress instead
+ */
+export async function fetchValeMarketHistoryWithProgress(
+  typeIds: number[],
+  days: number = 30,
+  onBatchProgress?: (batch: number, total: number) => void
+): Promise<Map<number, JitaDemandMetrics>> {
+  return fetchRegionMarketHistoryWithProgress(typeIds, REGION_IDS.VALE_OF_SILENT, days, onBatchProgress)
 }
 
 /**
@@ -711,6 +736,8 @@ export interface AnalyzeOptions {
   minProfitIsk?: number
   minDailyVolume?: number
   days?: number
+  /** Region ID for volume/demand data (default: Vale of the Silent) */
+  volumeRegionId?: RegionId
 }
 
 export interface AnalyzeOptionsWithProgress extends AnalyzeOptions {
@@ -742,8 +769,11 @@ export async function analyzeMarketWithProgress(options: AnalyzeOptionsWithProgr
     minProfitIsk = MARKET_SEEDER_DEFAULTS.MIN_PROFIT_ISK,
     minDailyVolume = MARKET_SEEDER_DEFAULTS.MIN_DAILY_VOLUME,
     days = MARKET_SEEDER_DEFAULTS.DAYS_TO_ANALYZE,
+    volumeRegionId = DEFAULT_VOLUME_REGION_ID,
     onProgress
   } = options
+  
+  const regionName = getRegionName(volumeRegionId)
   
   // Helper to send progress if callback provided
   const progress = (stage: string, message: string, percent: number, details?: Record<string, unknown>) => {
@@ -761,15 +791,15 @@ export async function analyzeMarketWithProgress(options: AnalyzeOptionsWithProgr
   // Extract type IDs for batch queries
   const typeIds = tradeableItems.map(item => item.typeId)
   
-  // Step 2: Fetch Vale market history for demand data (using batched RPC with progress)
-  progress('market_history', 'Fetching Vale market history from database...', 10)
+  // Step 2: Fetch market history for selected region (using batched RPC with progress)
+  progress('market_history', `Fetching ${regionName} market history from database...`, 10)
   const marketHistoryStart = Date.now()
-  const valeMarketHistory = await fetchValeMarketHistoryWithProgress(typeIds, days, (batch, total) => {
+  const regionMarketHistory = await fetchRegionMarketHistoryWithProgress(typeIds, volumeRegionId, days, (batch, total) => {
     const batchPercent = 10 + Math.round((batch / total) * 25)
-    progress('market_history', `Fetching Vale market history... ${batch}/${total} batches`, batchPercent, { batch, total })
+    progress('market_history', `Fetching ${regionName} market history... ${batch}/${total} batches`, batchPercent, { batch, total })
   })
   const marketHistoryMs = Date.now() - marketHistoryStart
-  progress('market_history', `Fetched ${valeMarketHistory.size} Vale market history records`, 35, { count: valeMarketHistory.size })
+  progress('market_history', `Fetched ${regionMarketHistory.size} ${regionName} market history records`, 35, { count: regionMarketHistory.size })
   
   // Step 3: Fetch structure orders
   progress('structure_orders', 'Fetching structure orders from ESI...', 40)
@@ -796,7 +826,7 @@ export async function analyzeMarketWithProgress(options: AnalyzeOptionsWithProgr
   for (const item of tradeableItems) {
     const analysis = analyzeItem(
       item,
-      valeMarketHistory.get(item.typeId),  // Use Vale data for demand metrics
+      regionMarketHistory.get(item.typeId),  // Use selected region for demand metrics
       structureOrders[item.typeId],
       jitaPrices.get(item.typeId),  // Use Jita prices for cost basis
       transportCostPerM3

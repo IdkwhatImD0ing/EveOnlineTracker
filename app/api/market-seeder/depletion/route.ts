@@ -15,7 +15,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cached-data'
-import { REGION_IDS, VALE_HUB_FACTOR, type TradeableItem } from '@/types/market-seeder'
+import { 
+  REGION_IDS, 
+  VALE_HUB_FACTOR, 
+  type TradeableItem,
+  type RegionId,
+  DEFAULT_VOLUME_REGION_ID,
+  VOLUME_REGIONS,
+} from '@/types/market-seeder'
 import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -123,6 +130,17 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     )
   }
+
+  // Parse volume region ID
+  const volumeRegionIdParam = searchParams.get('volume_region_id')
+  let volumeRegionId: RegionId = DEFAULT_VOLUME_REGION_ID
+  if (volumeRegionIdParam) {
+    const parsed = parseInt(volumeRegionIdParam)
+    if (VOLUME_REGIONS.some(r => r.id === parsed)) {
+      volumeRegionId = parsed as RegionId
+    }
+  }
+  const regionName = VOLUME_REGIONS.find(r => r.id === volumeRegionId)?.name ?? 'Unknown'
 
   // Get access token from session or Authorization header
   const authToken = await getValidAccessToken(undefined, request)
@@ -271,12 +289,12 @@ export async function GET(request: NextRequest) {
 
         sendSSEEvent(controller, encoder, 'progress', {
           stage: 'market',
-          message: `Fetching Vale market history (${batches.length} batch${batches.length > 1 ? 'es' : ''})...`,
+          message: `Fetching ${regionName} market history (${batches.length} batch${batches.length > 1 ? 'es' : ''})...`,
           percent: 35
         })
 
-        // Fetch Vale volumes and Jita prices
-        const valeVolumes = new Map<number, { avgDailyVolume: number; avgPrice: number }>()
+        // Fetch regional volumes and Jita prices
+        const regionVolumes = new Map<number, { avgDailyVolume: number; avgPrice: number }>()
         const jitaPrices = new Map<number, number>()
 
         for (let i = 0; i < batches.length; i++) {
@@ -288,14 +306,14 @@ export async function GET(request: NextRequest) {
             percent: 35 + ((i + 1) / batches.length) * 30
           })
 
-          // Fetch Vale volume data
-          const [valeData, priceData] = await Promise.all([
-            getCachedMarketSeederStatistics(batch, 30, REGION_IDS.VALE_OF_SILENT),
+          // Fetch regional volume data
+          const [regionData, priceData] = await Promise.all([
+            getCachedMarketSeederStatistics(batch, 30, volumeRegionId),
             getCachedJitaPrices(batch)
           ])
 
-          for (const [typeId, data] of valeData) {
-            valeVolumes.set(typeId, {
+          for (const [typeId, data] of regionData) {
+            regionVolumes.set(typeId, {
               avgDailyVolume: data.avgDailyVolume,
               avgPrice: data.avgPrice
             })
@@ -317,17 +335,17 @@ export async function GET(request: NextRequest) {
 
         for (const [typeId, orderData] of ordersByType) {
           const item = tradeableItems.get(typeId)
-          const valeData = valeVolumes.get(typeId)
+          const regionData = regionVolumes.get(typeId)
           const jitaPrice = jitaPrices.get(typeId)
 
-          const avgDailyVolume = valeData?.avgDailyVolume || 0
+          const avgDailyVolume = regionData?.avgDailyVolume || 0
           const estimatedDailySales = avgDailyVolume * VALE_HUB_FACTOR
 
           const daysUntilStockout = estimatedDailySales > 0
             ? orderData.total_volume / estimatedDailySales
             : null
 
-          const jitaBuyPrice = jitaPrice || valeData?.avgPrice || 0
+          const jitaBuyPrice = jitaPrice || regionData?.avgPrice || 0
           const profitPerUnit = orderData.lowest_price - jitaBuyPrice
           const dailyProfitPotential = estimatedDailySales * Math.max(0, profitPerUnit)
 

@@ -3,10 +3,13 @@ import { createClient } from '@/utils/supabase/server'
 import {
   type CapitalOrder,
   type CapitalEfficiencyResponse,
+  type RegionId,
   DEAD_CAPITAL_THRESHOLD_DAYS,
   MARKET_SEEDER_DEFAULTS,
   REGION_IDS,
   VALE_HUB_FACTOR,
+  DEFAULT_VOLUME_REGION_ID,
+  VOLUME_REGIONS,
 } from '@/types/market-seeder'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 import * as fs from 'fs'
@@ -73,27 +76,29 @@ async function loadItemNames(): Promise<Map<number, TradeableItem>> {
 }
 
 /**
- * Fetch Vale of the Silent market history for the given type IDs
- * This provides actual regional demand data for the alliance hub
+ * Fetch market history volumes for the given type IDs from a specific region
+ * This provides actual regional demand data for the analysis
  */
-async function fetchValeVolumes(
+async function fetchRegionVolumes(
   typeIds: number[],
+  regionId: RegionId = DEFAULT_VOLUME_REGION_ID,
   days: number = 30
 ): Promise<Map<number, number>> {
   if (typeIds.length === 0) return new Map()
 
   const supabase = createClient()
   const result = new Map<number, number>()
+  const regionName = VOLUME_REGIONS.find(r => r.id === regionId)?.name ?? `Region ${regionId}`
 
-  // Use the RPC function for efficient batch query - fetching Vale data
+  // Use the RPC function for efficient batch query
   const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
     p_type_ids: typeIds,
-    p_region_id: REGION_IDS.VALE_OF_SILENT,
+    p_region_id: regionId,
     p_days_back: days
   })
 
   if (error) {
-    console.error('[Capital Efficiency] Failed to fetch Vale market history:', error)
+    console.error(`[Capital Efficiency] Failed to fetch ${regionName} market history:`, error)
     return result
   }
 
@@ -180,11 +185,12 @@ function daysSince(isoDate: string): number {
  * GET /api/esi/capital-efficiency
  * 
  * Analyzes capital efficiency of character's active sell orders.
- * Uses actual Vale of the Silent market data for demand estimation.
+ * Uses regional market data for demand estimation.
  * 
  * Query Parameters:
  *   - character_id (required): The character ID
  *   - transport_cost (optional): ISK per m³ (default: 450)
+ *   - volume_region_id (optional): Region ID for volume data (default: 10000003 / Vale of the Silent)
  * 
  * Headers:
  *   - Authorization (required): Bearer token from EVE SSO
@@ -195,6 +201,16 @@ export async function GET(request: NextRequest) {
   const transportCostPerM3 = parseFloat(
     searchParams.get('transport_cost') || String(MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3)
   )
+  
+  // Parse volume region ID
+  const volumeRegionIdParam = searchParams.get('volume_region_id')
+  let volumeRegionId: RegionId = DEFAULT_VOLUME_REGION_ID
+  if (volumeRegionIdParam) {
+    const parsed = parseInt(volumeRegionIdParam)
+    if (VOLUME_REGIONS.some(r => r.id === parsed)) {
+      volumeRegionId = parsed as RegionId
+    }
+  }
 
   // Get session with all characters (from session cookie or Authorization header)
   const session = await getSessionWithCharacters(request)
@@ -277,9 +293,9 @@ export async function GET(request: NextRequest) {
     const typeIds = [...new Set(sellOrders.map(o => o.type_id))]
     console.log(`[Capital Efficiency] Fetching market data for ${typeIds.length} unique items`)
     
-    // Fetch Vale volumes for demand estimation and Jita prices for cost basis
-    const [valeVolumes, jitaPrices] = await Promise.all([
-      fetchValeVolumes(typeIds),
+    // Fetch regional volumes for demand estimation and Jita prices for cost basis
+    const [regionVolumes, jitaPrices] = await Promise.all([
+      fetchRegionVolumes(typeIds, volumeRegionId),
       fetchJitaPrices(typeIds),
     ])
     
@@ -288,12 +304,12 @@ export async function GET(request: NextRequest) {
     
     for (const order of sellOrders) {
       const item = itemNames.get(order.type_id)
-      const valeDailyVolume = valeVolumes.get(order.type_id) || 0
+      const regionDailyVolume = regionVolumes.get(order.type_id) || 0
       const jitaBuyPrice = jitaPrices.get(order.type_id) || null
       
-      // Calculate metrics - using Vale volume × 5% hub factor
+      // Calculate metrics - using regional volume × 5% hub factor
       const capitalDeployed = order.price * order.volume_remain
-      const estimatedDailySales = valeDailyVolume * VALE_HUB_FACTOR
+      const estimatedDailySales = regionDailyVolume * VALE_HUB_FACTOR
       const daysToSell = estimatedDailySales > 0 
         ? order.volume_remain / estimatedDailySales 
         : null
@@ -334,7 +350,7 @@ export async function GET(request: NextRequest) {
         locationId: order.location_id,
         issued: order.issued,
         capitalDeployed,
-        jitaDailyVolume: valeDailyVolume,  // Now using Vale volume
+        jitaDailyVolume: regionDailyVolume,  // Using selected region volume
         estimatedDailySales,
         daysToSell,
         daysListed,

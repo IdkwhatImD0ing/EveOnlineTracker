@@ -31,6 +31,7 @@ import {
   generateBuyText,
   transformApiItemsToUiItems,
 } from "@/components/market-seeder/utils"
+import { RegionSelector, useVolumeRegion } from "@/components/ui/region-selector"
 
 // Tab components
 import { CapitalTab } from "@/components/market-seeder/capital-tab"
@@ -40,6 +41,11 @@ import { DepletionTab } from "@/components/market-seeder/depletion-tab"
 import { MarketTab } from "@/components/market-seeder/market-tab"
 
 export default function MarketSeederPage() {
+  // ============================================================================
+  // Volume Region State
+  // ============================================================================
+  const { regionId: volumeRegionId, setRegionId: setVolumeRegionId, regionInfo } = useVolumeRegion()
+
   // ============================================================================
   // Search Form State
   // ============================================================================
@@ -300,6 +306,7 @@ export default function MarketSeederPage() {
         transportCost,
         minProfit,
         minVolume,
+        volume_region_id: String(volumeRegionId),
         stream: "true",
       })
 
@@ -386,7 +393,7 @@ export default function MarketSeederPage() {
       setIsLoading(false)
       setProgress(null)
     }
-  }, [structureId, transportCost, minProfit, minVolume, clearSelection])
+  }, [structureId, transportCost, minProfit, minVolume, volumeRegionId, clearSelection])
 
   // ============================================================================
   // Watchlist Functions
@@ -509,7 +516,7 @@ export default function MarketSeederPage() {
     setDepletionProgress({ stage: "starting", message: "Connecting...", percent: 0 })
 
     try {
-      const response = await fetch(`/api/market-seeder/depletion?structure_id=${structureId}`)
+      const response = await fetch(`/api/market-seeder/depletion?structure_id=${structureId}&volume_region_id=${volumeRegionId}`)
 
       if (!response.ok) {
         const data = await response.json()
@@ -575,7 +582,7 @@ export default function MarketSeederPage() {
       setDepletionLoading(false)
       setDepletionProgress(null)
     }
-  }, [structureId])
+  }, [structureId, volumeRegionId])
 
   const copyDepletionBuyText = useCallback(async () => {
     const itemsByUrgency = {
@@ -612,7 +619,10 @@ export default function MarketSeederPage() {
     setCapitalError(null)
 
     try {
-      const params = new URLSearchParams({ transport_cost: transportCost })
+      const params = new URLSearchParams({ 
+        transport_cost: transportCost,
+        volume_region_id: String(volumeRegionId),
+      })
       const response = await fetch(`/api/esi/capital-efficiency?${params}`)
 
       if (!response.ok) {
@@ -627,7 +637,7 @@ export default function MarketSeederPage() {
     } finally {
       setCapitalLoading(false)
     }
-  }, [transportCost])
+  }, [transportCost, volumeRegionId])
 
   // ============================================================================
   // Undercut Functions
@@ -805,6 +815,12 @@ export default function MarketSeederPage() {
               Find profitable items to import from Jita
             </p>
           </div>
+          <RegionSelector
+            value={volumeRegionId}
+            onChange={setVolumeRegionId}
+            label="Volume Region"
+            size="default"
+          />
         </header>
 
         {/* Main Tabs */}

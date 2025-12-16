@@ -59,7 +59,16 @@ Runs full profitability analysis and returns ranked item recommendations.
 | noCompetitionOnly | boolean | No | false | Only return items with no existing competition |
 | transportCost | number | No | 450 | Transport cost per m³ (ISK) |
 | days | integer | No | 30 | Days of market history to analyze |
+| volume_region_id | integer | No | 10000003 | Region ID for volume/demand data (see below) |
 | stream | boolean | No | false | Enable Server-Sent Events for progress updates |
+
+**Supported Volume Regions:**
+
+| Region | ID | Description |
+|--------|-----|-------------|
+| Vale of the Silent | 10000003 | Default - Null-sec alliance territory |
+| Deklein | 10000035 | Null-sec (Goonswarm) |
+| The Forge | 10000002 | High-sec trade hub (Jita) |
 
 **Headers:**
 
@@ -453,9 +462,45 @@ curl "http://localhost:3000/api/market-seeder/market-data?type_ids=2048,3170,112
 
 ---
 
+## GET /api/market-seeder/depletion
+
+Predicts stock depletion for items in a structure, helping identify when you'll run out of stock. Uses Server-Sent Events for progress updates.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| structure_id | string | Yes | - | Target structure ID |
+| volume_region_id | integer | No | 10000003 | Region ID for volume/demand data |
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| Authorization | Yes | Bearer token from EVE SSO |
+
+**Response Format:**
+
+Returns SSE events:
+- `progress` - Progress updates during analysis
+- `complete` - Final predictions with depletion estimates
+- `error` - Error message if analysis fails
+
+**Depletion Categories:**
+
+| Category | Days Until Stockout | Description |
+|----------|---------------------|-------------|
+| Critical | < 3 days | Immediate restocking needed |
+| Warning | 3-7 days | Plan restocking soon |
+| OK | > 7 days | Stock levels healthy |
+| No Data | null | No volume data available |
+
+---
+
 ## Related Files
 
 - `app/api/market-seeder/analyze/route.ts` - API endpoint with SSE streaming support
+- `app/api/market-seeder/depletion/route.ts` - Depletion prediction with SSE streaming
 - `app/api/market-seeder/market-data/route.ts` - Lightweight market data endpoint for depletion predictor
 - `lib/market-seeder.ts` - Core algorithm with progress callbacks
 - `types/market-seeder.ts` - TypeScript interfaces

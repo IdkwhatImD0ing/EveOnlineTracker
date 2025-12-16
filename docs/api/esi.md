@@ -487,30 +487,30 @@ curl -X GET "http://localhost:3000/api/esi/market-history?mode=legacy" \
 - Upserts to Supabase `market_history` table (ON CONFLICT replace)
 - Failed fetches are normal - many items have no regional market data
 
-**Vercel Cron (72 Hourly Jobs):**
+**Vercel Cron (48 Jobs - Under 50 Limit):**
 
-Items are distributed across 24 hourly chunks per region, with 3 regions running at different minute offsets:
+Items are distributed across chunks per region, with 3 regions running at different minute offsets:
 
-| Region | ID | Schedule | Jobs |
-|--------|-----|----------|------|
-| The Forge (Jita) | 10000002 | :00 each hour | 24 |
-| Vale of the Silent | 10000003 | :20 each hour | 24 |
-| Deklein | 10000035 | :40 each hour | 24 |
-| **Total** | | | **72** |
+| Region | ID | Schedule | Chunks | Items/Chunk |
+|--------|-----|----------|--------|-------------|
+| The Forge (Jita) | 10000002 | :00 hourly | 20 | ~292 |
+| Vale of the Silent | 10000003 | :20 hourly | 20 | ~292 |
+| Deklein | 10000035 | :40 every 3h | 8 | ~730 |
+| **Total** | | | **48** | |
 
 Example cron entries:
 ```json
 {
   "crons": [
-    { "path": "/api/esi/market-history?mode=daily&chunk=0", "schedule": "0 0 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=1", "schedule": "0 1 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=0", "schedule": "20 0 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000035&chunk=0", "schedule": "40 0 * * *" }
+    { "path": "/api/esi/market-history?mode=daily&chunk=0&total_chunks=20", "schedule": "0 0 * * *" },
+    { "path": "/api/esi/market-history?mode=daily&chunk=1&total_chunks=20", "schedule": "0 1 * * *" },
+    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=0&total_chunks=20", "schedule": "20 0 * * *" },
+    { "path": "/api/esi/market-history?mode=daily&region_id=10000035&chunk=0&total_chunks=8", "schedule": "40 0 * * *" }
   ]
 }
 ```
 
-Each chunk processes ~244 items (~15-20 seconds), well under Vercel Hobby's 60-second limit.
+Jita/Vale chunks process ~292 items (~20-25s), Deklein chunks ~730 items (~45-50s), all under Vercel Hobby's 60-second limit.
 
 **Setup Workflow:**
 1. Run `?mode=backfill&chunk=N&total_chunks=100` iteratively to populate 365 days of history (Jita & Vale only)
@@ -1031,6 +1031,81 @@ Examples:
 - 500,000 ISK → tick = 100 ISK → undercut = 494,900 ISK
 - 5,000,000 ISK → tick = 1,000 ISK → undercut = 4,999,000 ISK
 - 50,000,000 ISK → tick = 10,000 ISK → undercut = 49,990,000 ISK
+
+---
+
+### GET /api/esi/capital-efficiency
+
+Analyzes capital efficiency of your active sell orders by calculating estimated days to sell based on regional market volume data.
+
+**Authentication:** Required (EVE SSO Bearer token)
+
+**Required Scopes:**
+- `esi-markets.read_character_orders.v1` - To read your character's market orders
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| transport_cost | number | No | 450 | Transport cost per m³ (ISK) |
+| volume_region_id | integer | No | 10000003 | Region ID for volume/demand data |
+
+**Supported Volume Regions:**
+
+| Region | ID | Description |
+|--------|-----|-------------|
+| Vale of the Silent | 10000003 | Default - Null-sec alliance territory |
+| Deklein | 10000035 | Null-sec (Goonswarm) |
+| The Forge | 10000002 | High-sec trade hub (Jita) |
+
+**Headers:**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| Authorization | Yes | Bearer token from EVE SSO |
+
+**Example Request:**
+```bash
+curl -X GET "http://localhost:3000/api/esi/capital-efficiency?volume_region_id=10000035" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "characterId": 123456789,
+  "analyzedAt": "2025-12-11T12:00:00Z",
+  "summary": {
+    "totalCapitalDeployed": 5000000000,
+    "totalOrders": 50,
+    "totalDailyRevenue": 100000000,
+    "avgDaysToSell": 25.5,
+    "effectiveAPY": 45.2,
+    "deadCapitalThreshold": 90,
+    "deadCapitalValue": 500000000,
+    "deadCapitalOrders": 5,
+    "fastCapital": 2000000000,
+    "moderateCapital": 1500000000,
+    "slowCapital": 1000000000
+  },
+  "orders": [...],
+  "config": {
+    "hubFactor": 0.05,
+    "transportCostPerM3": 450,
+    "deadCapitalThresholdDays": 90
+  }
+}
+```
+
+**Efficiency Categories:**
+
+| Category | Days to Sell | Description |
+|----------|--------------|-------------|
+| Fast | ≤ 14 days | Quick turnover |
+| Moderate | 15-30 days | Normal cycle |
+| Slow | 31-90 days | Consider price reduction |
+| Dead | > 90 days | Capital stuck, action needed |
 
 ---
 

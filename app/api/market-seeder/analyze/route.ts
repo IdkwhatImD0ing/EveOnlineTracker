@@ -9,9 +9,10 @@
  * Query Parameters:
  *   - structure_id (required): Target structure ID for the alliance market hub
  *   - minProfit (optional): Minimum profit per unit in ISK (default: 100000)
- *   - minVolume (optional): Minimum Vale daily volume (default: 10)
+ *   - minVolume (optional): Minimum daily volume (default: 10)
  *   - transportCost (optional): ISK per m³ transport cost (default: 450)
  *   - days (optional): Days of market history to analyze (default: 30)
+ *   - volume_region_id (optional): Region ID for volume data (default: 10000003 / Vale of the Silent)
  *   - stream (optional): If 'true', returns Server-Sent Events with progress updates
  * 
  * Note: minMargin and category filtering are now handled client-side for better UX
@@ -27,7 +28,10 @@ import {
 } from '@/lib/market-seeder'
 import {
   type ProfitAnalysis,
+  type RegionId,
   MARKET_SEEDER_DEFAULTS,
+  DEFAULT_VOLUME_REGION_ID,
+  VOLUME_REGIONS,
 } from '@/types/market-seeder'
 import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
 
@@ -127,10 +131,11 @@ async function handleStreamingRequest(
     minVolume: number
     transportCost: number
     days: number
+    volumeRegionId: RegionId
     startTime: number
   }
 ) {
-  const { structureId, authToken, minProfit, minVolume, transportCost, days, startTime } = params
+  const { structureId, authToken, minProfit, minVolume, transportCost, days, volumeRegionId, startTime } = params
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -154,6 +159,7 @@ async function handleStreamingRequest(
           minProfitIsk: minProfit,
           minDailyVolume: minVolume,
           days,
+          volumeRegionId,
           onProgress
         })
 
@@ -236,6 +242,16 @@ export async function GET(request: NextRequest) {
   const days = parseInt(searchParams.get('days') || String(MARKET_SEEDER_DEFAULTS.DAYS_TO_ANALYZE))
   const streamMode = searchParams.get('stream') === 'true'
   
+  // Parse volume region ID (validate against allowed regions)
+  const volumeRegionIdParam = searchParams.get('volume_region_id')
+  let volumeRegionId: RegionId = DEFAULT_VOLUME_REGION_ID
+  if (volumeRegionIdParam) {
+    const parsed = parseInt(volumeRegionIdParam)
+    if (VOLUME_REGIONS.some(r => r.id === parsed)) {
+      volumeRegionId = parsed as RegionId
+    }
+  }
+  
   // Validate required parameters
   if (!structureId) {
     return NextResponse.json(
@@ -271,12 +287,13 @@ export async function GET(request: NextRequest) {
       minVolume,
       transportCost,
       days,
+      volumeRegionId,
       startTime
     })
   }
   
   try {
-    console.log(`[Market Seeder API] Starting analysis for structure ${structureId}`)
+    console.log(`[Market Seeder API] Starting analysis for structure ${structureId} with volume region ${volumeRegionId}`)
     
     // Run analysis (without progress callback for non-streaming mode)
     const result = await analyzeMarketWithProgress({
@@ -286,6 +303,7 @@ export async function GET(request: NextRequest) {
       minProfitIsk: minProfit,
       minDailyVolume: minVolume,
       days,
+      volumeRegionId,
     })
     
     // Generate ranked lists (returns all items sorted by score)
