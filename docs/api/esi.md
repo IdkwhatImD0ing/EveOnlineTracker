@@ -487,35 +487,35 @@ curl -X GET "http://localhost:3000/api/esi/market-history?mode=legacy" \
 - Upserts to Supabase `market_history` table (ON CONFLICT replace)
 - Failed fetches are normal - many items have no regional market data
 
-**Vercel Cron (48 Jobs - Under 50 Limit):**
+**Vercel Cron (20 Jobs - Hobby Plan Limit):**
 
 Items are distributed across chunks per region, with 3 regions running at different minute offsets:
 
 | Region | ID | Schedule | Chunks | Items/Chunk |
 |--------|-----|----------|--------|-------------|
-| The Forge (Jita) | 10000002 | :00 hourly | 20 | ~292 |
-| Vale of the Silent | 10000003 | :20 hourly | 20 | ~292 |
-| Deklein | 10000035 | :40 every 3h | 8 | ~730 |
-| **Total** | | | **48** | |
+| The Forge (Jita) | 10000002 | :00 every 3h | 8 | ~730 |
+| Vale of the Silent | 10000003 | :20 every 3h | 8 | ~730 |
+| Deklein | 10000035 | :40 every 6h | 4 (of 8) | ~730 |
+| **Total** | | | **20** | |
 
 Example cron entries:
 ```json
 {
   "crons": [
-    { "path": "/api/esi/market-history?mode=daily&chunk=0&total_chunks=20", "schedule": "0 0 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=1&total_chunks=20", "schedule": "0 1 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=0&total_chunks=20", "schedule": "20 0 * * *" },
+    { "path": "/api/esi/market-history?mode=daily&chunk=0&total_chunks=8", "schedule": "0 0 * * *" },
+    { "path": "/api/esi/market-history?mode=daily&chunk=1&total_chunks=8", "schedule": "0 3 * * *" },
+    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=0&total_chunks=8", "schedule": "20 0 * * *" },
     { "path": "/api/esi/market-history?mode=daily&region_id=10000035&chunk=0&total_chunks=8", "schedule": "40 0 * * *" }
   ]
 }
 ```
 
-Jita/Vale chunks process ~292 items (~20-25s), Deklein chunks ~730 items (~45-50s), all under Vercel Hobby's 60-second limit.
+All chunks process ~730 items (~45-50s), staying under Vercel Hobby's 60-second limit. Deklein uses `total_chunks=8` but only schedules 4 jobs (chunks 0, 2, 4, 6) to stay within the 20 cron job limit, meaning half its items update daily (rotating coverage).
 
 **Setup Workflow:**
 1. Run `?mode=backfill&chunk=N&total_chunks=100` iteratively to populate 365 days of history (Jita & Vale only)
-2. Hourly cron jobs run `?mode=daily&chunk=N` to append yesterday's data
-3. All 24 chunks complete daily = full item coverage
+2. Cron jobs run `?mode=daily&chunk=N` every 3 hours to append yesterday's data
+3. All 8 Jita/Vale chunks complete daily = full item coverage; Deklein rotates 4 chunks daily
 4. Historical data grows over time (no data is deleted)
 
 ---
