@@ -487,36 +487,45 @@ curl -X GET "http://localhost:3000/api/esi/market-history?mode=legacy" \
 - Upserts to Supabase `market_history` table (ON CONFLICT replace)
 - Failed fetches are normal - many items have no regional market data
 
-**Vercel Cron (20 Jobs - Hobby Plan Limit):**
+**Cron Jobs (via cron-job.org):**
 
-Items are distributed across chunks per region, with 3 regions running at different minute offsets:
+Since Vercel's free tier only allows 2 cron jobs, we use [cron-job.org](https://cron-job.org) as an external cron service. Jobs are provisioned via API using the setup script.
+
+Items are distributed across 48 cron jobs with 3 regions running at different minute offsets:
 
 | Region | ID | Schedule | Chunks | Items/Chunk |
 |--------|-----|----------|--------|-------------|
-| The Forge (Jita) | 10000002 | :00 every 3h | 8 | ~730 |
-| Vale of the Silent | 10000003 | :20 every 3h | 8 | ~730 |
-| Deklein | 10000035 | :40 every 6h | 4 (of 8) | ~730 |
-| **Total** | | | **20** | |
+| The Forge (Jita) | 10000002 | :00 hourly (hours 0-19) | 20 | ~292 |
+| Vale of the Silent | 10000003 | :20 hourly (hours 0-19) | 20 | ~292 |
+| Deklein | 10000035 | :40 every 3h | 8 | ~730 |
+| **Total** | | | **48** | |
 
-Example cron entries:
-```json
-{
-  "crons": [
-    { "path": "/api/esi/market-history?mode=daily&chunk=0&total_chunks=8", "schedule": "0 0 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=1&total_chunks=8", "schedule": "0 3 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=0&total_chunks=8", "schedule": "20 0 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000035&chunk=0&total_chunks=8", "schedule": "40 0 * * *" }
-  ]
-}
+**Setup Script:**
+
+```bash
+# Set required environment variables in .env.local:
+# CRONJOB_API_KEY=your-cron-job-org-api-key
+# CRON_SECRET=your-cron-secret
+# VERCEL_URL=your-app.vercel.app
+
+# Create all 48 cron jobs
+npx tsx scripts/setup-cron-jobs.ts
+
+# List existing jobs
+npx tsx scripts/setup-cron-jobs.ts --list
+
+# Delete all jobs and recreate
+npx tsx scripts/setup-cron-jobs.ts --delete
 ```
 
-All chunks process ~730 items (~45-50s), staying under Vercel Hobby's 60-second limit. Deklein uses `total_chunks=8` but only schedules 4 jobs (chunks 0, 2, 4, 6) to stay within the 20 cron job limit, meaning half its items update daily (rotating coverage).
+The script creates jobs that call the market history endpoint with the `Authorization: Bearer <CRON_SECRET>` header.
 
 **Setup Workflow:**
 1. Run `?mode=backfill&chunk=N&total_chunks=100` iteratively to populate 365 days of history (Jita & Vale only)
-2. Cron jobs run `?mode=daily&chunk=N` every 3 hours to append yesterday's data
-3. All 8 Jita/Vale chunks complete daily = full item coverage; Deklein rotates 4 chunks daily
-4. Historical data grows over time (no data is deleted)
+2. Run `npx tsx scripts/setup-cron-jobs.ts` to create all 48 cron jobs on cron-job.org
+3. Cron jobs run `?mode=daily&chunk=N` hourly to append yesterday's data
+4. All 48 chunks complete daily = full item coverage for all 3 regions
+5. Historical data grows over time (no data is deleted)
 
 ---
 

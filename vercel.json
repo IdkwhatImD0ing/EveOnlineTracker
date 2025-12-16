@@ -1,27 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [
-    { "path": "/api/esi/market-history?mode=daily&chunk=0&total_chunks=8", "schedule": "0 0 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=1&total_chunks=8", "schedule": "0 3 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=2&total_chunks=8", "schedule": "0 6 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=3&total_chunks=8", "schedule": "0 9 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=4&total_chunks=8", "schedule": "0 12 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=5&total_chunks=8", "schedule": "0 15 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=6&total_chunks=8", "schedule": "0 18 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&chunk=7&total_chunks=8", "schedule": "0 21 * * *" },
-
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=0&total_chunks=8", "schedule": "20 0 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=1&total_chunks=8", "schedule": "20 3 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=2&total_chunks=8", "schedule": "20 6 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=3&total_chunks=8", "schedule": "20 9 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=4&total_chunks=8", "schedule": "20 12 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=5&total_chunks=8", "schedule": "20 15 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=6&total_chunks=8", "schedule": "20 18 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000003&chunk=7&total_chunks=8", "schedule": "20 21 * * *" },
-
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000035&chunk=0&total_chunks=8", "schedule": "40 0 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000035&chunk=2&total_chunks=8", "schedule": "40 6 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000035&chunk=4&total_chunks=8", "schedule": "40 12 * * *" },
-    { "path": "/api/esi/market-history?mode=daily&region_id=10000035&chunk=6&total_chunks=8", "schedule": "40 18 * * *" }
-  ]
+  "crons": []
 }

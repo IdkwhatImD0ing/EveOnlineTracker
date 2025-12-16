@@ -28,6 +28,34 @@ Downloads and processes the following data from Fuzzwork:
 Also generates:
 - `blueprint-search.json` - Lightweight blueprint data for search autocomplete
 
+### `setup-cron-jobs.ts`
+
+Creates cron jobs on [cron-job.org](https://cron-job.org) for automated market history updates.
+
+**Usage:**
+```bash
+# Create all 48 cron jobs
+npx tsx scripts/setup-cron-jobs.ts
+
+# List existing jobs
+npx tsx scripts/setup-cron-jobs.ts --list
+
+# Delete all jobs and recreate
+npx tsx scripts/setup-cron-jobs.ts --delete
+```
+
+**Required Environment Variables:**
+- `CRONJOB_API_KEY` - Your cron-job.org API key
+- `CRON_SECRET` - The secret used to authenticate cron requests
+- `VERCEL_URL` - Your deployed Vercel app URL
+
+**Jobs Created:**
+| Region | Jobs | Schedule |
+|--------|------|----------|
+| The Forge (Jita) | 20 | :00 hourly (hours 0-19) |
+| Vale of the Silent | 20 | :20 hourly (hours 0-19) |
+| Deklein | 8 | :40 every 3h |
+
 ### `extract-item-types.ts`
 
 Extracts tradeable item types from EVE Online JSONL static data files.
@@ -158,9 +186,10 @@ GET /api/esi/market-history-test
 GET /api/esi/market-history-test?type_id=587
 ```
 
-**Vercel Cron Schedule:**
-- Runs weekly on Sundays at 12:00 UTC
-- Configured in `vercel.json`
+**Cron Schedule (via cron-job.org):**
+- 48 jobs run daily across 3 regions
+- Configured via `scripts/setup-cron-jobs.ts`
+- See `docs/api/esi.md` for full schedule details
 
 **Database Table:** `market_history`
 - Stores last 7 days of price history per item
