@@ -29,6 +29,7 @@ import {
   DEFAULT_STRUCTURE_ID,
   DEFAULT_SUPPLY_DAYS,
   generateBuyText,
+  transformApiItemsToUiItems,
 } from "@/components/market-seeder/utils"
 
 // Tab components
@@ -241,15 +242,19 @@ export default function MarketSeederPage() {
     setSelectedItems(new Set())
   }, [])
 
-  const getSelectedItemsData = useCallback((): ProfitAnalysis[] => {
+  // Transform API items to UI items with formatted fields (once)
+  const transformedItems = useMemo((): ProfitAnalysis[] => {
     if (!result) return []
-    return result.items.filter(item => selectedItems.has(item.typeId))
-  }, [result, selectedItems])
+    return transformApiItemsToUiItems(result.items)
+  }, [result])
+
+  const getSelectedItemsData = useCallback((): ProfitAnalysis[] => {
+    return transformedItems.filter(item => selectedItems.has(item.typeId))
+  }, [transformedItems, selectedItems])
 
   const filteredItems = useMemo(() => {
-    if (!result) return []
     const HUB_FACTOR = 0.05
-    return result.items.filter(item => {
+    return transformedItems.filter(item => {
       const ordersPerDay = item.avgDailyVolume * HUB_FACTOR
       const profitPerDay = item.profitPerUnit * item.avgDailyVolume * HUB_FACTOR
       return (
@@ -261,7 +266,7 @@ export default function MarketSeederPage() {
         (!filters.noCompetitionOnly || !item.hasCompetition)
       )
     })
-  }, [result, filters])
+  }, [transformedItems, filters])
 
   const copyBuyText = useCallback(async () => {
     const items = getSelectedItemsData()

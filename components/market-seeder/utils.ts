@@ -1,5 +1,9 @@
 import { type ProfitAnalysis } from "./results-table"
-import { type DepletionPrediction, type WatchlistItem } from "@/types/market-seeder"
+import { 
+  type ProfitAnalysis as ApiProfitAnalysis,
+  type DepletionPrediction, 
+  type WatchlistItem 
+} from "@/types/market-seeder"
 
 // ============================================================================
 // Constants
@@ -44,6 +48,43 @@ export function formatIskShort(value: number): string {
     return `${(value / 1_000).toFixed(0)}K`
   }
   return value.toString()
+}
+
+/**
+ * Hub factor for estimating local demand from Vale volume
+ */
+const HUB_FACTOR = 0.05
+
+/**
+ * Transform API ProfitAnalysis to UI ProfitAnalysis with formatted fields
+ * Adds all the formatted string values needed for display
+ */
+export function transformApiItemToUiItem(item: ApiProfitAnalysis): ProfitAnalysis {
+  const iskPerDay = item.profitPerUnit * item.avgDailyVolume * HUB_FACTOR
+  
+  return {
+    ...item,
+    jitaSellPriceFormatted: formatIskShort(item.jitaSellPrice),
+    transportCostFormatted: formatIskShort(item.transportCostPerUnit),
+    totalCostFormatted: formatIskShort(item.totalCostPerUnit),
+    competitorLowestPriceFormatted: item.competitorLowestPrice !== null 
+      ? formatIskShort(item.competitorLowestPrice) 
+      : null,
+    targetSellPriceFormatted: formatIskShort(item.targetSellPrice),
+    profitPerUnitFormatted: formatIskShort(item.profitPerUnit),
+    profitMarginPctFormatted: `${item.profitMarginPct.toFixed(0)}%`,
+    profitPerM3Formatted: formatIskShort(item.profitPerM3),
+    iskPerDay,
+    iskPerDayFormatted: formatIskShort(iskPerDay),
+    compositeScoreFormatted: item.compositeScore.toFixed(0),
+  }
+}
+
+/**
+ * Transform an array of API items to UI items
+ */
+export function transformApiItemsToUiItems(items: ApiProfitAnalysis[]): ProfitAnalysis[] {
+  return items.map(transformApiItemToUiItem)
 }
 
 /**
