@@ -235,15 +235,19 @@ async function main() {
   console.log(`Target URL: https://${baseUrl}`)
   console.log(`CRON_SECRET: ${CRON_SECRET ? '[SET]' : '[MISSING]'}\n`)
 
-  // Check for --delete flag to remove existing jobs
+  // Check for flags
   const shouldDelete = process.argv.includes('--delete')
   const shouldCreate = process.argv.includes('--create') || !process.argv.includes('--list')
   const shouldList = process.argv.includes('--list')
+  const shouldFill = process.argv.includes('--fill') // Only create missing jobs
 
   // List existing jobs
   console.log('Fetching existing jobs...')
   const existingJobs = await listExistingJobs()
   console.log(`Found ${existingJobs.length} existing jobs\n`)
+
+  // Build set of existing job titles for quick lookup
+  const existingTitles = new Set(existingJobs.map((job: { title: string }) => job.title))
 
   if (shouldList) {
     console.log('Existing jobs:')
@@ -267,6 +271,7 @@ async function main() {
       await sleep(1000) // Rate limit deletes too
     }
     console.log('')
+    existingTitles.clear() // Clear since we deleted them
   }
 
   if (!shouldCreate) {
@@ -274,7 +279,20 @@ async function main() {
   }
 
   // Generate and create jobs
-  const jobDefinitions = generateJobDefinitions()
+  let jobDefinitions = generateJobDefinitions()
+  
+  // If --fill flag, only create missing jobs
+  if (shouldFill) {
+    const missingJobs = jobDefinitions.filter(job => !existingTitles.has(job.title))
+    console.log(`Found ${missingJobs.length} missing jobs out of ${jobDefinitions.length} total\n`)
+    jobDefinitions = missingJobs
+    
+    if (missingJobs.length === 0) {
+      console.log('All jobs already exist!')
+      return
+    }
+  }
+  
   console.log(`Creating ${jobDefinitions.length} cron jobs...\n`)
 
   let successCount = 0
