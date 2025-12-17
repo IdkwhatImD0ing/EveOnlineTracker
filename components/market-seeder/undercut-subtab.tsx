@@ -1,9 +1,17 @@
 "use client"
 
+import { useState, useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Loader2,
   RefreshCw,
@@ -15,6 +23,8 @@ import {
   Minus,
   Package,
   HelpCircle,
+  User,
+  Users,
 } from "lucide-react"
 import { type UndercutItem, type SafeItem, type UndercutData } from "@/types/market-seeder"
 import { EveItemIcon } from "@/components/eve-item-icon"
@@ -36,6 +46,43 @@ export function UndercutSubtab({
   onRefresh,
   onCopyPrice,
 }: UndercutSubtabProps) {
+  const [selectedCharacter, setSelectedCharacter] = useState<string>("all")
+
+  // Extract unique characters from data
+  const characters = useMemo(() => {
+    if (!data) return []
+    const charMap = new Map<number, string>()
+    data.undercut_items.forEach(item => {
+      charMap.set(item.character_id, item.character_name)
+    })
+    data.safe_items.forEach(item => {
+      charMap.set(item.character_id, item.character_name)
+    })
+    return Array.from(charMap.entries()).map(([id, name]) => ({ id, name }))
+  }, [data])
+
+  // Filter items based on selected character
+  const filteredUndercutItems = useMemo(() => {
+    if (!data || selectedCharacter === "all") return data?.undercut_items ?? []
+    const charId = parseInt(selectedCharacter)
+    return data.undercut_items.filter(item => item.character_id === charId)
+  }, [data, selectedCharacter])
+
+  const filteredSafeItems = useMemo(() => {
+    if (!data || selectedCharacter === "all") return data?.safe_items ?? []
+    const charId = parseInt(selectedCharacter)
+    return data.safe_items.filter(item => item.character_id === charId)
+  }, [data, selectedCharacter])
+
+  // Calculate filtered summary counts
+  const filteredSummary = useMemo(() => {
+    return {
+      undercut_count: filteredUndercutItems.length,
+      safe_count: filteredSafeItems.length,
+      total_orders_in_structure: filteredUndercutItems.length + filteredSafeItems.length,
+    }
+  }, [filteredUndercutItems, filteredSafeItems])
+
   return (
     <div className="space-y-6">
       {/* Header Card */}
@@ -51,23 +98,69 @@ export function UndercutSubtab({
                 Check if competitors have undercut your sell orders and get copy-pasteable prices to beat them
               </CardDescription>
             </div>
-            <Button
-              onClick={onRefresh}
-              disabled={loading}
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
-                  Checking...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="size-4 mr-2" />
-                  Check Undercuts
-                </>
+            <div className="flex items-center gap-3">
+              {/* Character Filter */}
+              {data && characters.length > 1 && (
+                <Select value={selectedCharacter} onValueChange={setSelectedCharacter}>
+                  <SelectTrigger className="w-[200px]">
+                    {selectedCharacter === "all" ? (
+                      <div className="flex items-center gap-2">
+                        <Users className="size-4" />
+                        <span>All Characters</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={`https://images.evetech.net/characters/${selectedCharacter}/portrait?size=32`}
+                          alt=""
+                          className="size-5 rounded-full"
+                        />
+                        <span className="truncate">
+                          {characters.find(c => c.id.toString() === selectedCharacter)?.name}
+                        </span>
+                      </div>
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <Users className="size-5" />
+                        <span>All Characters</span>
+                      </div>
+                    </SelectItem>
+                    {characters.map(char => (
+                      <SelectItem key={char.id} value={char.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={`https://images.evetech.net/characters/${char.id}/portrait?size=32`}
+                            alt=""
+                            className="size-5 rounded-full"
+                          />
+                          <span>{char.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
-            </Button>
+              <Button
+                onClick={onRefresh}
+                disabled={loading}
+                size="lg"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin mr-2" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="size-4 mr-2" />
+                    Check Undercuts
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -83,14 +176,14 @@ export function UndercutSubtab({
       {/* Summary Cards */}
       {data && (
         <div className="grid gap-4 md:grid-cols-3">
-          <Card className={data.summary.undercut_count > 0 ? "border-red-500/50" : ""}>
+          <Card className={filteredSummary.undercut_count > 0 ? "border-red-500/50" : ""}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-lg ${data.summary.undercut_count > 0 ? "bg-red-500/10" : "bg-muted"}`}>
-                  <AlertTriangle className={`size-6 ${data.summary.undercut_count > 0 ? "text-red-500" : "text-muted-foreground"}`} />
+                <div className={`p-3 rounded-lg ${filteredSummary.undercut_count > 0 ? "bg-red-500/10" : "bg-muted"}`}>
+                  <AlertTriangle className={`size-6 ${filteredSummary.undercut_count > 0 ? "text-red-500" : "text-muted-foreground"}`} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{data.summary.undercut_count}</p>
+                  <p className="text-2xl font-bold">{filteredSummary.undercut_count}</p>
                   <p className="text-sm text-muted-foreground">Being Undercut</p>
                 </div>
               </div>
@@ -103,7 +196,7 @@ export function UndercutSubtab({
                   <Check className="size-6 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{data.summary.safe_count}</p>
+                  <p className="text-2xl font-bold">{filteredSummary.safe_count}</p>
                   <p className="text-sm text-muted-foreground">Lowest Price</p>
                 </div>
               </div>
@@ -116,7 +209,7 @@ export function UndercutSubtab({
                   <Package className="size-6 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{data.summary.total_orders_in_structure}</p>
+                  <p className="text-2xl font-bold">{filteredSummary.total_orders_in_structure}</p>
                   <p className="text-sm text-muted-foreground">Your Orders</p>
                 </div>
               </div>
@@ -126,12 +219,12 @@ export function UndercutSubtab({
       )}
 
       {/* Undercut Items List */}
-      {data && data.undercut_items.length > 0 && (
+      {data && filteredUndercutItems.length > 0 && (
         <Card className="border-red-500/30">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2 text-red-500">
               <AlertTriangle className="size-5" />
-              Items Being Undercut ({data.undercut_items.length})
+              Items Being Undercut ({filteredUndercutItems.length})
             </CardTitle>
             <CardDescription>
               Sorted by days until your order becomes lowest. Click undercut price to copy.
@@ -139,7 +232,7 @@ export function UndercutSubtab({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data.undercut_items.map((item) => {
+              {filteredUndercutItems.map((item) => {
                 // Color coding for days to lowest
                 const daysColor = item.days_to_lowest === null
                   ? "text-muted-foreground"
@@ -167,9 +260,14 @@ export function UndercutSubtab({
                         >
                           {item.type_name}
                         </button>
-                        <p className="text-xs text-muted-foreground">
-                          {item.your_volume_remain} units remaining
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{item.your_volume_remain} units remaining</span>
+                          <span className="text-muted-foreground/50">•</span>
+                          <span className="flex items-center gap-1">
+                            <User className="size-3" />
+                            {item.character_name}
+                          </span>
+                        </div>
                       </div>
                       <Badge
                         variant="secondary"
@@ -238,12 +336,12 @@ export function UndercutSubtab({
       )}
 
       {/* Safe Items List */}
-      {data && data.safe_items.length > 0 && (
+      {data && filteredSafeItems.length > 0 && (
         <Card className="border-emerald-500/30">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2 text-emerald-600">
               <Check className="size-5" />
-              Lowest Price ({data.safe_items.length})
+              Lowest Price ({filteredSafeItems.length})
             </CardTitle>
             <CardDescription>
               You have the lowest price on these items
@@ -251,7 +349,7 @@ export function UndercutSubtab({
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {data.safe_items.map((item) => (
+              {filteredSafeItems.map((item) => (
                 <div
                   key={item.your_order_id}
                   className="flex items-center gap-4 p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5"
@@ -267,9 +365,14 @@ export function UndercutSubtab({
                     >
                       {item.type_name}
                     </button>
-                    <p className="text-xs text-muted-foreground">
-                      {item.your_volume_remain} units remaining
-                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{item.your_volume_remain} units remaining</span>
+                      <span className="text-muted-foreground/50">•</span>
+                      <span className="flex items-center gap-1">
+                        <User className="size-3" />
+                        {item.character_name}
+                      </span>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">Your Price</p>
@@ -312,21 +415,25 @@ export function UndercutSubtab({
       )}
 
       {/* No undercuts state */}
-      {data && data.undercut_items.length === 0 && data.safe_items.length > 0 && (
+      {data && filteredUndercutItems.length === 0 && filteredSafeItems.length > 0 && (
         <Alert>
           <Check className="size-4 text-emerald-500" />
           <AlertDescription>
-            All your orders have the lowest price! No action needed.
+            {selectedCharacter === "all" 
+              ? "All your orders have the lowest price! No action needed."
+              : "All orders for this character have the lowest price! No action needed."}
           </AlertDescription>
         </Alert>
       )}
 
       {/* No orders in structure */}
-      {data && data.summary.total_orders_in_structure === 0 && (
+      {data && filteredSummary.total_orders_in_structure === 0 && (
         <Alert>
           <AlertCircle className="size-4" />
           <AlertDescription>
-            You have no sell orders in this structure. Place some orders first to track undercuts.
+            {selectedCharacter === "all"
+              ? "You have no sell orders in this structure. Place some orders first to track undercuts."
+              : "This character has no sell orders in this structure."}
           </AlertDescription>
         </Alert>
       )}

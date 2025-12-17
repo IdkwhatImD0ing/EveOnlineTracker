@@ -55,6 +55,39 @@ Two dropdowns in the page header control demand estimation:
 
 These settings persist in localStorage and apply to all tabs (Capital, Analysis, Depletion, etc.).
 
+### System Filter
+
+When your sell orders span multiple structures/systems, a **System** dropdown appears in the Capital tab header. This allows you to:
+
+- View metrics for **All Systems** (default) - aggregated view of all orders
+- Filter to a **specific structure** - view orders and recalculated metrics for one location only
+
+The dropdown shows:
+- Structure name (for known structures like 3T7-M8 Keepstar)
+- Structure ID (for unknown structures)
+- Order count per location in parentheses
+
+When a specific system is selected, all metrics (Total ISK Deployed, Daily Revenue, APY, efficiency breakdown) are recalculated for only that location's orders.
+
+### Character Breakdown
+
+When you have multiple EVE characters linked to your account, the Capital tab shows a **Capital by Character** section with:
+
+- **Pie Chart** - Visual breakdown of capital distribution across characters, color-coded
+- **Character Cards** - Summary for each character showing:
+  - Character name
+  - Capital deployed (ISK)
+  - Percentage of total capital
+  - Number of orders
+  - Effective APY
+
+A **Character** dropdown filter appears in the header when you have multiple characters, allowing you to:
+
+- View metrics for **All Characters** (default) - aggregated view across all accounts
+- Filter to a **specific character** - view orders and recalculated metrics for one character only
+
+Each order in the Orders List shows the owning character name with a color-coded indicator matching the pie chart.
+
 ### Efficiency Categories
 
 Orders are categorized by how long they'll take to sell:
@@ -115,17 +148,47 @@ The Capital tab requires character-level order access, not just structure market
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| character_id | string | Required - Your character ID |
 | transport_cost | number | Optional - ISK/m³ for cost basis (default: 450) |
 | volume_region_id | number | Optional - Region ID for volume data (default: 10000003 / Vale) |
 | hub_factor | number | Optional - Hub factor percentage (default: 0.05 / 5%) |
 
 Returns:
 - Summary metrics (total deployed, daily revenue, APY, dead capital)
-- Per-order breakdown with efficiency classification
+- Per-order breakdown with efficiency classification and character ownership
 - Capital allocation by efficiency category
+- Capital allocation by character (with per-character APY and daily revenue)
+
+**Per-Order Fields:**
+
+Each order includes `characterId` and `characterName` indicating which linked character owns that sell order.
+
+**Per-Character Summary:**
+
+| Field | Description |
+|-------|-------------|
+| characterId | EVE character ID |
+| characterName | Character name |
+| capitalDeployed | Total ISK deployed by this character |
+| orderCount | Number of active sell orders |
+| percentage | Percentage of total capital |
+| dailyRevenue | Estimated daily revenue |
+| effectiveAPY | Character's portfolio APY |
 
 **Note:** Demand estimation uses the selected region's market data × configurable hub factor (default: 5%).
+
+### Progress Tracking
+
+The Capital Efficiency analysis uses Server-Sent Events (SSE) to show real-time progress:
+
+| Stage | Description |
+|-------|-------------|
+| starting | Initializing analysis |
+| characters | Fetching orders for each linked character |
+| metadata | Loading item names and categories |
+| market_data | Fetching regional volumes and Jita prices |
+| analyzing | Calculating efficiency metrics for each order |
+| summary | Computing portfolio-wide metrics |
+| complete | Analysis finished |
 
 ---
 
@@ -140,7 +203,7 @@ Configure the analysis parameters:
 | **Structure** | Dropdown to select your alliance market hub (default: 3T7-M8 Keepstar). Includes "Other (Custom ID)" option. |
 | **Transport Cost** | ISK per m³ for Jump Freighter shipping (default: 450) |
 | **Min Profit/Unit** | Minimum profit per unit in ISK (default: 100,000) |
-| **Min Vale Vol/Day** | Minimum daily volume in Vale of the Silent (default: 10) |
+| **Min [Region] Vol/Day** | Minimum daily volume in the selected Volume Region (default: 10). Label changes based on header Volume Region setting (e.g., "Min Vale Vol/Day", "Min Deklein Vol/Day", "Min Jita Vol/Day"). |
 
 ### Sidebar Filters
 
@@ -262,7 +325,7 @@ Items must meet these thresholds to appear (configurable via Advanced Settings):
 
 | Filter | Default | Description |
 |--------|---------|-------------|
-| Min Volume/Day | 10 units | Minimum average daily trading volume in Vale |
+| Min Volume/Day | 10 units | Minimum average daily trading volume in the selected Volume Region |
 | Min Profit Margin | 10% | Minimum profit as percentage of cost |
 | Min Profit per Unit | 100,000 ISK | Minimum ISK profit per unit |
 | Min Jita Price | 10,000 ISK | Fixed minimum price threshold |
@@ -356,8 +419,8 @@ After checking stock levels, a **Copy Restock List** button appears when there a
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| Include Critical | Checkbox - include items with < 3 days stock | Checked |
-| Include Warning | Checkbox - include items with 3-7 days stock | Checked |
+| Include Critical | Checkbox - include items with 0 stock | Checked |
+| Include Warning | Checkbox - include items with < 3 days stock | Checked |
 | Days of supply | 1, 3, 7, 14, 30 days | 7 days (1 week) |
 | Limit items | All matched, Top 5, Top 10, Top 20 | All matched |
 
@@ -366,6 +429,7 @@ Each checkbox shows a badge with the count of items in that urgency level.
 **Behavior:**
 - Filters items based on selected urgency checkboxes
 - Items are ranked by urgency (most critical first)
+- Items with existing sell orders from the user are not included in Critical or Warning counts
 - Copy button shows exact count of items that will be copied
 - Uses Eve Online multibuy format: `Item Name Quantity`
 - Quantity = estimatedDailySales × selected days (minimum 1)
@@ -391,21 +455,21 @@ daily_profit = estimated_daily_sales × profit_per_unit
 
 ### Urgency Levels
 
-Items are color-coded by how soon they'll run out:
+Items are color-coded by their urgency status. Items where you have an existing sell order are not flagged as critical or warning:
 
-| Level | Days Remaining | Visual |
-|-------|----------------|--------|
-| Critical | < 3 days | Red border + "Critical" badge |
-| Warning | 3-7 days | Amber border + "Low Stock" badge |
-| Safe | > 7 days | Green border + "OK" badge |
+| Level | Condition | Visual |
+|-------|-----------|--------|
+| Critical | 0 stock AND no sell order | Red border + "Out of Stock" badge |
+| Warning | < 3 days AND no sell order | Amber border + "Low Stock" badge |
+| Safe | >= 3 days OR has sell order | Green border + "OK" badge |
 | No Data | N/A | Gray badge (no Vale volume data) |
 
 ### Summary Cards
 
 When items are in the watchlist, summary cards show:
 - **Items Tracked**: Number of items being tracked
-- **Critical**: Items with < 3 days of stock (red highlight)
-- **Warning**: Items with 3-7 days of stock (amber highlight)
+- **Critical**: Items with 0 stock (red highlight)
+- **Warning**: Items with < 3 days of stock (amber highlight)
 - **Daily Profit Potential**: Total ISK/day across all items
 
 ### Item Cards
@@ -575,6 +639,8 @@ Quickly identify when competitors have undercut your sell orders and get the exa
 4. Compares against all structure sell orders
 5. For each item where a competitor has a lower price, calculates the 1-tick undercut price
 
+**Self-Undercut Filtering:** Orders are excluded from the "Being Undercut" list if another of your linked characters already holds the lowest price for that item type. This prevents showing actionable alerts when you're already winning the price war with another account.
+
 #### Tick Size Rules
 
 EVE Online limits prices to 4 significant figures. The tick size depends on price magnitude:
@@ -590,6 +656,15 @@ EVE Online limits prices to 4 significant figures. The tick size depends on pric
 | 100M - 999M ISK | 10,000 ISK | 500,000,000 → 499,990,000 |
 | 1B+ ISK | 100,000 ISK | 5,000,000,000 → 4,999,900,000 |
 
+#### Character Filter
+
+When you have multiple characters with orders in the structure, a **Character** dropdown appears in the header. This allows you to:
+
+- View orders for **All Characters** (default) - see all orders across accounts
+- Filter to a **specific character** - focus on one account at a time
+
+The summary cards and item lists update to reflect only the selected character's orders.
+
 #### Summary Cards
 
 | Card | Description |
@@ -602,6 +677,7 @@ EVE Online limits prices to 4 significant figures. The tick size depends on pric
 
 Items being undercut are shown with red highlighting:
 - Item icon and name
+- **Character name** - Shows which account owns this order
 - Your current price
 - Competitor's lower price
 - Price difference
@@ -609,7 +685,7 @@ Items being undercut are shown with red highlighting:
 
 Click the copy button to:
 1. Copy the undercut price to your clipboard
-2. Automatically open the market details window for that item in your EVE client
+2. Automatically open the market details window for that item in the EVE client of the character who owns the order
 
 Then paste directly into EVE's "Modify Order" dialog to update your price.
 
@@ -617,6 +693,7 @@ Then paste directly into EVE's "Modify Order" dialog to update your price.
 
 Items where you have the lowest price are shown with green highlighting:
 - Item icon and name
+- **Character name** - Shows which account owns this order
 - Your price
 - Next competitor price (if any)
 
@@ -633,7 +710,7 @@ Items where you have the lowest price are shown with green highlighting:
 2. Switch to the Market tab, then the Undercut sub-tab
 3. Click **Check Undercuts**
 4. Review items being undercut (red section)
-5. Click the copy button next to each undercut price (this also opens the market window in EVE)
+5. Click the copy button next to each undercut price (this also opens the market window in that character's EVE client)
 6. In EVE, modify your order and paste the new price
 7. Re-check periodically to stay competitive
 
@@ -653,12 +730,20 @@ Items where you have the lowest price are shown with green highlighting:
   "undercut_items": [{
     "type_id": 2048,
     "type_name": "Damage Control II",
+    "character_id": 12345678,
+    "character_name": "Your Character",
     "your_price": 500000,
     "competitor_price": 495000,
     "undercut_price": 494900,
     "undercut_price_eve": "494,900.00"
   }],
-  "safe_items": [...],
+  "safe_items": [{
+    "type_id": 2046,
+    "type_name": "Co-Processor II",
+    "character_id": 12345678,
+    "character_name": "Your Character",
+    "your_price": 450000
+  }],
   "summary": {
     "undercut_count": 5,
     "safe_count": 12,
@@ -716,11 +801,26 @@ Quickly create sell orders for items in your 3T7 hangar with optimal pricing. It
 Each item shows:
 - Item icon and name
 - Quantity in inventory
+- **Character ownership** - Which character(s) have the item (with portraits for multi-character items)
 - Competition badge (green = no competition, amber = competition)
 - **Sell Price** - The optimal price to list at
 - **Jita Price** - Current Jita price for reference
 - **Vol/Day** - Estimated daily sales (Regional volume × hub factor)
 - **ISK/Day** - Estimated daily revenue (Vol/Day × Sell Price)
+
+#### Character Filter
+
+When multiple characters are linked, a dropdown appears in the header allowing you to filter items by character. This shows only items where the selected character has inventory, making it easy to focus on one character's assets at a time.
+
+#### Side-by-Side Layout
+
+The Sell sub-tab uses a two-column layout on large screens:
+- **Left column (wider)**: Sell orders with pricing and copy buttons
+- **Right column (sticky)**: "Do Not Sell" items - always visible while scrolling
+  - **Has Existing Orders**: Items you already have sell orders for (blue)
+  - **Filtered Out**: Items excluded by current filters (amber) with reason badges
+
+On smaller screens, the layout stacks vertically with sell orders first.
 
 #### Copy Buttons
 
@@ -764,6 +864,9 @@ Each item has two copy buttons:
     "type_id": 2048,
     "type_name": "Damage Control II",
     "quantity": 50,
+    "characters": [
+      { "id": 123456789, "name": "Main Character" }
+    ],
     "has_competition": false,
     "jita_price": 450000,
     "jita_price_formatted": "450.00K ISK",
@@ -785,6 +888,10 @@ Each item has two copy buttons:
   }
 }
 ```
+
+**Character Ownership:**
+
+Each sell order item includes a `characters` array showing which linked characters have the item in their inventory. When multiple characters have the same item, all are listed. The UI displays character portraits and allows filtering by character using the dropdown in the header.
 
 ---
 

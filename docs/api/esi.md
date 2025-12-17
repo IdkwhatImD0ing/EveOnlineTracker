@@ -1155,6 +1155,10 @@ curl -X GET "http://localhost:3000/api/esi/sell-order-generator?structure_id=105
       "type_id": 2048,
       "type_name": "Damage Control II",
       "quantity": 50,
+      "characters": [
+        { "id": 123456789, "name": "Main Character" },
+        { "id": 987654321, "name": "Alt Character" }
+      ],
       "has_competition": false,
       "jita_price": 450000,
       "jita_price_formatted": "450.00K ISK",
@@ -1200,6 +1204,7 @@ curl -X GET "http://localhost:3000/api/esi/sell-order-generator?structure_id=105
 | type_id | number | EVE type ID |
 | type_name | string | Item name |
 | quantity | number | Quantity in inventory at the structure |
+| characters | array | Characters that have this item: `[{ id: number, name: string }]` |
 | has_competition | boolean | Whether there are existing sell orders |
 | jita_price | number | Current Jita sell price |
 | sell_price | number | Recommended sell price |
@@ -1236,6 +1241,7 @@ Opens the market details window for a specific item type in the EVE Online clien
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | type_id | integer | Yes | The item type ID to open in the market window |
+| character_id | integer | No | The character ID to open the window for. If provided, uses that character's token (opens in their EVE client). If not provided, uses the main character's token. |
 
 **Headers:**
 
@@ -1245,7 +1251,12 @@ Opens the market details window for a specific item type in the EVE Online clien
 
 **Example Request:**
 ```bash
+# Open market window on main character
 curl -X POST "http://localhost:3000/api/esi/ui/open-market-window?type_id=2048" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# Open market window on a specific character
+curl -X POST "http://localhost:3000/api/esi/ui/open-market-window?type_id=2048&character_id=12345678" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
@@ -1253,7 +1264,8 @@ curl -X POST "http://localhost:3000/api/esi/ui/open-market-window?type_id=2048" 
 ```json
 {
   "success": true,
-  "type_id": 2048
+  "type_id": 2048,
+  "character_id": 12345678
 }
 ```
 
@@ -1269,6 +1281,7 @@ curl -X POST "http://localhost:3000/api/esi/ui/open-market-window?type_id=2048" 
 
 **Notes:**
 - This endpoint is called automatically when copying undercut prices
+- When `character_id` is provided, the market window opens in the EVE client logged into that character
 - The EVE client must be running for the window to open
 - Part of the ESI UI rate limit group (900 requests / 15 minutes)
 

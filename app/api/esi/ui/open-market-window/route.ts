@@ -11,6 +11,9 @@ const ESI_BASE = 'https://esi.evetech.net'
  * 
  * Query Parameters:
  * - type_id: The item type ID to open in the market window
+ * - character_id (optional): The character ID to open the window for. 
+ *   If provided, uses that character's token (opens in their EVE client).
+ *   If not provided, uses the main character's token.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     const typeId = request.nextUrl.searchParams.get('type_id')
+    const characterId = request.nextUrl.searchParams.get('character_id')
 
     if (!typeId) {
       return NextResponse.json(
@@ -33,8 +37,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get access token from session or Authorization header
-    const authToken = await getValidAccessToken(undefined, request)
+    // Get access token for specific character if provided, otherwise main character
+    const authToken = await getValidAccessToken(
+      characterId ? parseInt(characterId) : undefined,
+      request
+    )
     
     if (!authToken) {
       return NextResponse.json(
@@ -90,7 +97,11 @@ export async function POST(request: NextRequest) {
 
     // ESI returns 204 No Content on success
     return NextResponse.json(
-      { success: true, type_id: parseInt(typeId) },
+      { 
+        success: true, 
+        type_id: parseInt(typeId),
+        character_id: characterId ? parseInt(characterId) : undefined
+      },
       { status: 200 }
     )
 

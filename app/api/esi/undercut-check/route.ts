@@ -28,6 +28,12 @@ interface CharacterOrder {
   volume_total: number
 }
 
+// Extended order type that includes owner information
+interface CharacterOrderWithOwner extends CharacterOrder {
+  character_id: number
+  character_name: string
+}
+
 interface StructureOrder {
   duration: number
   is_buy_order: boolean
@@ -64,6 +70,9 @@ interface UndercutItem {
   vale_daily_volume: number
   estimated_daily_sales: number
   days_to_lowest: number | null  // null if no sales data
+  // Character info
+  character_id: number
+  character_name: string
 }
 
 interface SafeItem {
@@ -75,6 +84,9 @@ interface SafeItem {
   your_volume_remain: number
   next_competitor_price: number | null
   next_competitor_price_formatted: string | null
+  // Character info
+  character_id: number
+  character_name: string
 }
 
 // Load inv-types for name lookups
@@ -155,8 +167,8 @@ export async function GET(request: NextRequest) {
   try {
     const startTime = Date.now()
 
-    // Step 1: Fetch all characters' market orders and aggregate
-    let allCharOrders: CharacterOrder[] = []
+    // Step 1: Fetch all characters' market orders and aggregate with owner info
+    let allCharOrders: CharacterOrderWithOwner[] = []
     
     for (const character of session.allCharacters) {
       // Get valid access token for this character
@@ -176,7 +188,13 @@ export async function GET(request: NextRequest) {
 
       if (charOrdersResponse.ok) {
         const orders: CharacterOrder[] = await charOrdersResponse.json()
-        allCharOrders = allCharOrders.concat(orders)
+        // Tag each order with its owner's character info
+        const ordersWithOwner: CharacterOrderWithOwner[] = orders.map(order => ({
+          ...order,
+          character_id: character.character_id,
+          character_name: character.character_name,
+        }))
+        allCharOrders = allCharOrders.concat(ordersWithOwner)
       }
     }
     
@@ -268,6 +286,9 @@ export async function GET(request: NextRequest) {
       // Competitors with lower prices
       competitors_below_count: number
       competitors_below_volume: number
+      // Character info
+      character_id: number
+      character_name: string
     }
     
     const preliminaryUndercuts: PreliminaryUndercut[] = []
@@ -278,6 +299,32 @@ export async function GET(request: NextRequest) {
 
     for (const myOrder of myStructureOrders) {
       const typeOrders = ordersByType[myOrder.type_id] || []
+      
+      // Find absolute lowest price (including own orders)
+      const allSellOrdersSorted = [...typeOrders].sort((a, b) => a.price - b.price)
+      const absoluteLowest = allSellOrdersSorted[0]
+      
+      // If one of my characters has the absolute lowest price, don't show as undercut
+      // This prevents showing "undercut" alerts when you've already won the price war with another character
+      if (absoluteLowest && myOrderIds.has(absoluteLowest.order_id)) {
+        const typeName = getTypeName(myOrder.type_id)
+        // Find the next competitor price (first order not owned by us)
+        const nextCompetitor = allSellOrdersSorted.find(o => !myOrderIds.has(o.order_id))
+        
+        safeItems.push({
+          type_id: myOrder.type_id,
+          type_name: typeName,
+          your_order_id: myOrder.order_id,
+          your_price: myOrder.price,
+          your_price_formatted: formatISK(myOrder.price),
+          your_volume_remain: myOrder.volume_remain,
+          next_competitor_price: nextCompetitor?.price ?? null,
+          next_competitor_price_formatted: nextCompetitor ? formatISK(nextCompetitor.price) : null,
+          character_id: myOrder.character_id,
+          character_name: myOrder.character_name,
+        })
+        continue
+      }
       
       // Get competitor orders (not yours) sorted by price
       const competitorOrders = typeOrders
@@ -297,6 +344,8 @@ export async function GET(request: NextRequest) {
           your_volume_remain: myOrder.volume_remain,
           next_competitor_price: null,
           next_competitor_price_formatted: null,
+          character_id: myOrder.character_id,
+          character_name: myOrder.character_name,
         })
       } else {
         const lowestCompetitor = competitorOrders[0]
@@ -317,6 +366,8 @@ export async function GET(request: NextRequest) {
             competitor_order_id: lowestCompetitor.order_id,
             competitors_below_count: competitorsBelowMe.length,
             competitors_below_volume: competitorsBelowVolume,
+            character_id: myOrder.character_id,
+            character_name: myOrder.character_name,
           })
         } else {
           // You have the lowest price (or equal)
@@ -329,6 +380,8 @@ export async function GET(request: NextRequest) {
             your_volume_remain: myOrder.volume_remain,
             next_competitor_price: lowestCompetitor.price,
             next_competitor_price_formatted: formatISK(lowestCompetitor.price),
+            character_id: myOrder.character_id,
+            character_name: myOrder.character_name,
           })
         }
       }
@@ -385,6 +438,8 @@ export async function GET(request: NextRequest) {
         vale_daily_volume: valeDailyVolume,
         estimated_daily_sales: estimatedDailySales,
         days_to_lowest: daysToLowest,
+        character_id: prelim.character_id,
+        character_name: prelim.character_name,
       }
     })
 

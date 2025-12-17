@@ -48,7 +48,8 @@ Fetches all watchlist items, optionally with current stock levels from a structu
       "daysUntilStockout": null,
       "jitaPrice": null,
       "profitPerUnit": 0,
-      "dailyProfit": 0
+      "dailyProfit": 0,
+      "hasSellOrder": false
     }
   ],
   "structure_id": null,
@@ -77,7 +78,8 @@ Fetches all watchlist items, optionally with current stock levels from a structu
       "daysUntilStockout": 1.2,
       "jitaPrice": 450000,
       "profitPerUnit": 175000,
-      "dailyProfit": 21962500
+      "dailyProfit": 21962500,
+      "hasSellOrder": true
     },
     {
       "id": "uuid",
@@ -94,7 +96,8 @@ Fetches all watchlist items, optionally with current stock levels from a structu
       "daysUntilStockout": null,
       "jitaPrice": 320000,
       "profitPerUnit": 0,
-      "dailyProfit": 0
+      "dailyProfit": 0,
+      "hasSellOrder": false
     }
   ],
   "structure_id": "1051567430261",
@@ -105,8 +108,8 @@ Fetches all watchlist items, optionally with current stock levels from a structu
     "in_stock": 1,
     "criticalCount": 1,
     "warningCount": 0,
-    "okCount": 0,
-    "noDataCount": 1,
+    "okCount": 1,
+    "noDataCount": 0,
     "totalDailyProfit": 21962500
   }
 }
@@ -123,20 +126,22 @@ Fetches all watchlist items, optionally with current stock levels from a structu
 | `jitaPrice` | Current lowest Jita sell price |
 | `profitPerUnit` | lowest_price - jitaPrice |
 | `dailyProfit` | estimatedDailySales × profitPerUnit |
+| `hasSellOrder` | True if the authenticated user has a sell order for this item in the structure |
 
 **Summary Fields:**
 
 | Field | Description |
 |-------|-------------|
-| `criticalCount` | Items with < 3 days until stockout |
-| `warningCount` | Items with 3-7 days until stockout |
-| `okCount` | Items with > 7 days until stockout |
+| `criticalCount` | Items with 0 stock AND user has no sell order |
+| `warningCount` | Items with < 3 days until stockout AND user has no sell order |
+| `okCount` | Items with >= 3 days until stockout OR user has sell order |
 | `noDataCount` | Items with no sales volume data |
 | `totalDailyProfit` | Sum of daily profit across all items |
 
 **Notes:**
-- Items are sorted by days until stockout (critical first), then by needs_restock, then alphabetically
+- Items are sorted by urgency: items without sell orders first (need attention), then by days until stockout, then alphabetically
 - Depletion metrics use Vale of the Silent market data × 5% hub factor
+- Items with existing sell orders from the user are not flagged as critical or warning
 
 ---
 

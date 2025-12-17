@@ -7,7 +7,7 @@ import {
   VOLUME_REGIONS,
   type RegionId 
 } from '@/types/market-seeder'
-import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
+import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -16,6 +16,15 @@ interface MarketOrder {
   price: number
   volume_remain: number
   is_buy_order: boolean
+}
+
+interface CharacterOrder {
+  type_id: number
+  price: number
+  volume_remain: number
+  is_buy_order: boolean
+  location_id: number
+  order_id: number
 }
 
 interface WatchlistItem {
@@ -38,6 +47,8 @@ interface WatchlistItemWithStock extends WatchlistItem {
   jitaPrice: number | null
   profitPerUnit: number
   dailyProfit: number
+  // Sell order status - true if user has a sell order for this item
+  hasSellOrder: boolean
 }
 
 /**
@@ -52,7 +63,8 @@ interface WatchlistItemWithStock extends WatchlistItem {
  *   - Authorization (optional): Bearer token from EVE SSO. Required if structure_id is provided.
  */
 export async function GET(request: NextRequest) {
-  const session = await getAuthenticatedUser(request)
+  // Get session with all characters for sell order checking
+  const session = await getSessionWithCharacters(request)
 
   if (!session) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -113,6 +125,7 @@ export async function GET(request: NextRequest) {
         jitaPrice: null,
         profitPerUnit: 0,
         dailyProfit: 0,
+        hasSellOrder: false,
       }))
 
       return NextResponse.json({
@@ -131,6 +144,41 @@ export async function GET(request: NextRequest) {
         { error: 'Not authenticated. Login with EVE SSO to check structure stock.' },
         { status: 401 }
       )
+    }
+
+    // Fetch user's character sell orders in parallel with structure orders
+    // to determine which items the user already has sell orders for
+    const userSellOrderTypeIds = new Set<number>()
+    
+    // Fetch all characters' market orders
+    for (const character of session.allCharacters) {
+      const charAccessToken = await getValidAccessToken(character.character_id)
+      if (!charAccessToken) continue
+      
+      try {
+        const charOrdersResponse = await fetch(
+          `${ESI_BASE}/characters/${character.character_id}/orders/`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${charAccessToken}`,
+              'X-Compatibility-Date': '2025-11-06',
+            },
+          }
+        )
+
+        if (charOrdersResponse.ok) {
+          const orders: CharacterOrder[] = await charOrdersResponse.json()
+          // Filter to sell orders in the target structure and add type_ids to set
+          for (const order of orders) {
+            if (!order.is_buy_order && order.location_id.toString() === structureId) {
+              userSellOrderTypeIds.add(order.type_id)
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to fetch orders for character ${character.character_id}:`, err)
+      }
     }
 
     // Fetch structure orders
@@ -179,6 +227,9 @@ export async function GET(request: NextRequest) {
       const stock = stockInfo?.volume ?? 0
       const lowestPrice = stockInfo?.lowestPrice ?? null
       
+      // Check if user has a sell order for this item
+      const hasSellOrder = userSellOrderTypeIds.has(item.type_id)
+      
       // Calculate depletion metrics
       const avgDailyVolume = regionStats?.avgDailyVolume || 0
       const estimatedDailySales = avgDailyVolume * hubFactor
@@ -205,11 +256,17 @@ export async function GET(request: NextRequest) {
         jitaPrice: jitaBuyPrice,
         profitPerUnit,
         dailyProfit,
+        hasSellOrder,
       }
     })
 
-    // Sort: stock 0 first (out of stock), then by days until stockout, then alphabetically
+    // Sort: items without sell orders first (need attention), then by urgency
+    // Within each group: stock 0 first, then by days until stockout, then alphabetically
     itemsWithStock.sort((a, b) => {
+      // Items without sell orders come first (they need attention)
+      if (a.hasSellOrder !== b.hasSellOrder) {
+        return a.hasSellOrder ? 1 : -1
+      }
       // Out of stock items come first
       const aOutOfStock = a.stock === 0
       const bOutOfStock = b.stock === 0
@@ -227,7 +284,10 @@ export async function GET(request: NextRequest) {
     })
 
     // Calculate summary with depletion-style counts
-    // Stock 0 = critical (already out of stock)
+    // New logic:
+    // - Critical: stock = 0 AND user has no sell order
+    // - Warning: stock > 0 AND daysUntilStockout < 3 AND user has no sell order
+    // - OK: everything else (>= 3 days OR user has sell order)
     let criticalCount = 0
     let warningCount = 0
     let okCount = 0
@@ -237,16 +297,20 @@ export async function GET(request: NextRequest) {
     for (const item of itemsWithStock) {
       totalDailyProfit += item.dailyProfit
       
-      // Stock 0 is always critical
-      if (item.stock === 0) {
+      // If user has a sell order, it's always OK (not critical or warning)
+      if (item.hasSellOrder) {
+        okCount++
+      } else if (item.stock === 0) {
+        // Stock 0 and no sell order = critical
         criticalCount++
       } else if (item.daysUntilStockout === null) {
+        // No sales data
         noDataCount++
       } else if (item.daysUntilStockout < 3) {
-        criticalCount++
-      } else if (item.daysUntilStockout < 7) {
+        // Less than 3 days and no sell order = warning
         warningCount++
       } else {
+        // 3+ days = OK
         okCount++
       }
     }
@@ -291,7 +355,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getAuthenticatedUser(request)
+    const session = await getSessionWithCharacters(request)
 
     if (!session) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })

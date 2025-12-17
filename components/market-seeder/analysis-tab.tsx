@@ -66,6 +66,9 @@ interface AnalysisTabProps {
   // Hub factor display
   hubFactorPercent?: string  // e.g. "5%" - for display in labels
   hubFactor?: number  // Actual hub factor value (default: 0.05)
+
+  // Volume region display
+  volumeRegionShortName?: string  // e.g. "Vale", "Deklein", "Jita" - for display in labels
 }
 
 export function AnalysisTab({
@@ -99,6 +102,7 @@ export function AnalysisTab({
   setIsCustomSupplyDays,
   hubFactorPercent = "5%",
   hubFactor = 0.05,
+  volumeRegionShortName = "Vale",
 }: AnalysisTabProps) {
   return (
     <div className="space-y-6">
@@ -165,7 +169,7 @@ export function AnalysisTab({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="minVolume">Min Vale Vol/Day</Label>
+              <Label htmlFor="minVolume">Min {volumeRegionShortName} Vol/Day</Label>
               <Input
                 id="minVolume"
                 type="number"

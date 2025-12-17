@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import {
   type CapitalOrder,
   type CapitalEfficiencyResponse,
+  type CharacterCapitalSummary,
   type RegionId,
   DEAD_CAPITAL_THRESHOLD_DAYS,
   MARKET_SEEDER_DEFAULTS,
@@ -32,6 +33,12 @@ interface ESIMarketOrder {
   range: string
 }
 
+// Extended order type with character info attached
+interface OrderWithCharacter extends ESIMarketOrder {
+  characterId: number
+  characterName: string
+}
+
 interface TradeableItem {
   typeId: number
   name: string
@@ -41,6 +48,19 @@ interface TradeableItem {
   categoryName: string
   volume: number
   marketGroupId: number | null
+}
+
+/**
+ * SSE Helper: Send an event to the stream
+ */
+function sendSSEEvent(
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder,
+  event: string,
+  data: unknown
+) {
+  const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+  controller.enqueue(encoder.encode(message))
 }
 
 /**
@@ -186,9 +206,9 @@ function daysSince(isoDate: string): number {
  * 
  * Analyzes capital efficiency of character's active sell orders.
  * Uses regional market data for demand estimation.
+ * Returns Server-Sent Events with progress updates during analysis.
  * 
  * Query Parameters:
- *   - character_id (required): The character ID
  *   - transport_cost (optional): ISK per m³ (default: 450)
  *   - volume_region_id (optional): Region ID for volume data (default: 10000003 / Vale of the Silent)
  *   - hub_factor (optional): Hub factor percentage (default: 0.05 / 5%)
@@ -197,7 +217,6 @@ function daysSince(isoDate: string): number {
  *   - Authorization (required): Bearer token from EVE SSO
  */
 export async function GET(request: NextRequest) {
-  const startTime = Date.now()
   const searchParams = request.nextUrl.searchParams
   const transportCostPerM3 = parseFloat(
     searchParams.get('transport_cost') || String(MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3)
@@ -240,230 +259,370 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  try {
-    // Step 1: Fetch all characters' market orders and aggregate
-    let allOrders: ESIMarketOrder[] = []
-    
-    for (const character of session.allCharacters) {
-      const accessToken = await getValidAccessToken(character.character_id)
-      if (!accessToken) continue
-      
-      console.log(`[Capital Efficiency] Fetching orders for character ${character.character_id}`)
-      const ordersResponse = await fetch(
-        `${ESI_BASE}/characters/${character.character_id}/orders/`,
-        {
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-            'X-Compatibility-Date': '2025-11-06',
+  const encoder = new TextEncoder()
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const startTime = Date.now()
+
+      try {
+        // Progress: Starting
+        sendSSEEvent(controller, encoder, 'progress', {
+          stage: 'starting',
+          message: 'Starting capital efficiency analysis...',
+          percent: 0
+        })
+
+        // Step 1: Fetch all characters' market orders
+        sendSSEEvent(controller, encoder, 'progress', {
+          stage: 'characters',
+          message: `Fetching orders for ${session.allCharacters.length} character${session.allCharacters.length !== 1 ? 's' : ''}...`,
+          percent: 5
+        })
+
+        let allOrders: OrderWithCharacter[] = []
+        
+        for (let i = 0; i < session.allCharacters.length; i++) {
+          const character = session.allCharacters[i]
+          const accessToken = await getValidAccessToken(character.character_id)
+          if (!accessToken) continue
+          
+          sendSSEEvent(controller, encoder, 'progress', {
+            stage: 'characters',
+            message: `Fetching orders for ${character.character_name}...`,
+            percent: 5 + ((i + 1) / session.allCharacters.length) * 15
+          })
+
+          console.log(`[Capital Efficiency] Fetching orders for character ${character.character_id} (${character.character_name})`)
+          const ordersResponse = await fetch(
+            `${ESI_BASE}/characters/${character.character_id}/orders/`,
+            {
+              headers: {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'X-Compatibility-Date': '2025-11-06',
+              },
+            }
+          )
+
+          if (ordersResponse.ok) {
+            const orders: ESIMarketOrder[] = await ordersResponse.json()
+            // Attach character info to each order
+            const ordersWithCharacter = orders.map(o => ({
+              ...o,
+              characterId: character.character_id,
+              characterName: character.character_name,
+            }))
+            allOrders = allOrders.concat(ordersWithCharacter)
+          }
+        }
+        
+        // Filter to only sell orders
+        const sellOrders = allOrders.filter(o => !o.is_buy_order)
+        console.log(`[Capital Efficiency] Found ${sellOrders.length} active sell orders`)
+
+        if (sellOrders.length === 0) {
+          const emptyResponse: CapitalEfficiencyResponse = {
+            success: true,
+            characterId: session.mainCharacter?.character_id ?? 0,
+            analyzedAt: new Date().toISOString(),
+            summary: {
+              totalCapitalDeployed: 0,
+              totalOrders: 0,
+              totalDailyRevenue: 0,
+              avgDaysToSell: 0,
+              effectiveAPY: 0,
+              deadCapitalThreshold: DEAD_CAPITAL_THRESHOLD_DAYS,
+              deadCapitalValue: 0,
+              deadCapitalOrders: 0,
+              fastCapital: 0,
+              moderateCapital: 0,
+              slowCapital: 0,
+              byCharacter: [],
+            },
+            orders: [],
+            config: {
+              hubFactor,
+              transportCostPerM3,
+              deadCapitalThresholdDays: DEAD_CAPITAL_THRESHOLD_DAYS,
+            },
+          }
+          sendSSEEvent(controller, encoder, 'complete', emptyResponse)
+          controller.close()
+          return
+        }
+
+        // Step 2: Load item metadata
+        sendSSEEvent(controller, encoder, 'progress', {
+          stage: 'metadata',
+          message: 'Loading item metadata...',
+          percent: 25
+        })
+        const itemNames = await loadItemNames()
+        
+        // Step 3: Get unique type IDs and fetch market data
+        const typeIds = [...new Set(sellOrders.map(o => o.type_id))]
+        console.log(`[Capital Efficiency] Fetching market data for ${typeIds.length} unique items`)
+        
+        sendSSEEvent(controller, encoder, 'progress', {
+          stage: 'market_data',
+          message: `Fetching market data for ${typeIds.length} items...`,
+          percent: 35
+        })
+
+        // Fetch regional volumes for demand estimation and Jita prices for cost basis
+        const [regionVolumes, jitaPrices] = await Promise.all([
+          fetchRegionVolumes(typeIds, volumeRegionId),
+          fetchJitaPrices(typeIds),
+        ])
+
+        sendSSEEvent(controller, encoder, 'progress', {
+          stage: 'market_data',
+          message: 'Market data loaded',
+          percent: 70
+        })
+        
+        // Step 4: Analyze each order
+        sendSSEEvent(controller, encoder, 'progress', {
+          stage: 'analyzing',
+          message: `Analyzing ${sellOrders.length} orders...`,
+          percent: 75
+        })
+
+        const capitalOrders: CapitalOrder[] = []
+        
+        for (const order of sellOrders) {
+          const item = itemNames.get(order.type_id)
+          const regionDailyVolume = regionVolumes.get(order.type_id) || 0
+          const jitaBuyPrice = jitaPrices.get(order.type_id) || null
+          
+          // Calculate metrics - using regional volume × hub factor
+          const capitalDeployed = order.price * order.volume_remain
+          const estimatedDailySales = regionDailyVolume * hubFactor
+          const daysToSell = estimatedDailySales > 0 
+            ? order.volume_remain / estimatedDailySales 
+            : null
+          const daysListed = daysSince(order.issued)
+          
+          // Calculate profit if we have Jita price
+          const itemVolume = item?.volume || 0.01
+          const transportCost = itemVolume * transportCostPerM3
+          const profitPerUnit = jitaBuyPrice !== null 
+            ? order.price - jitaBuyPrice - transportCost 
+            : null
+          const totalProfit = profitPerUnit !== null 
+            ? profitPerUnit * order.volume_remain 
+            : null
+          
+          // Calculate APY: (annual profit / capital) * 100
+          // APY = (profitPerUnit / totalCost) * (365 / daysToSell) * 100
+          let effectiveAPY: number | null = null
+          if (profitPerUnit !== null && jitaBuyPrice !== null && daysToSell !== null && daysToSell > 0) {
+            const totalCost = jitaBuyPrice + transportCost
+            if (totalCost > 0) {
+              effectiveAPY = (profitPerUnit / totalCost) * (365 / daysToSell) * 100
+            }
+          }
+          
+          const efficiency = getEfficiencyCategory(daysToSell)
+          const isDeadCapital = efficiency === 'dead'
+          
+          capitalOrders.push({
+            orderId: order.order_id,
+            typeId: order.type_id,
+            itemName: item?.name || `Unknown Item ${order.type_id}`,
+            categoryName: item?.categoryName || null,
+            groupName: item?.groupName || null,
+            characterId: order.characterId,
+            characterName: order.characterName,
+            price: order.price,
+            volumeRemain: order.volume_remain,
+            volumeTotal: order.volume_total,
+            locationId: order.location_id,
+            issued: order.issued,
+            capitalDeployed,
+            jitaDailyVolume: regionDailyVolume,  // Using selected region volume
+            estimatedDailySales,
+            daysToSell,
+            daysListed,
+            jitaBuyPrice,
+            transportCost,
+            profitPerUnit,
+            totalProfit,
+            effectiveAPY,
+            isDeadCapital,
+            efficiency,
+          })
+        }
+        
+        // Step 5: Calculate summary metrics
+        sendSSEEvent(controller, encoder, 'progress', {
+          stage: 'summary',
+          message: 'Calculating summary metrics...',
+          percent: 90
+        })
+
+        const totalCapitalDeployed = capitalOrders.reduce((sum, o) => sum + o.capitalDeployed, 0)
+        
+        // Calculate capital-weighted average days to sell
+        let weightedDaysSum = 0
+        let capitalWithDays = 0
+        for (const order of capitalOrders) {
+          if (order.daysToSell !== null) {
+            weightedDaysSum += order.daysToSell * order.capitalDeployed
+            capitalWithDays += order.capitalDeployed
+          }
+        }
+        const avgDaysToSell = capitalWithDays > 0 ? weightedDaysSum / capitalWithDays : 0
+        
+        // Calculate total daily revenue (sum of capitalDeployed / daysToSell for each)
+        const totalDailyRevenue = capitalOrders.reduce((sum, o) => {
+          if (o.daysToSell !== null && o.daysToSell > 0) {
+            return sum + (o.capitalDeployed / o.daysToSell)
+          }
+          return sum
+        }, 0)
+        
+        // Calculate portfolio-wide APY
+        let totalWeightedAPY = 0
+        let capitalWithAPY = 0
+        for (const order of capitalOrders) {
+          if (order.effectiveAPY !== null && order.effectiveAPY > 0) {
+            totalWeightedAPY += order.effectiveAPY * order.capitalDeployed
+            capitalWithAPY += order.capitalDeployed
+          }
+        }
+        const effectiveAPY = capitalWithAPY > 0 ? totalWeightedAPY / capitalWithAPY : 0
+        
+        // Dead capital
+        const deadOrders = capitalOrders.filter(o => o.isDeadCapital)
+        const deadCapitalValue = deadOrders.reduce((sum, o) => sum + o.capitalDeployed, 0)
+        
+        // Capital by efficiency
+        const fastCapital = capitalOrders
+          .filter(o => o.efficiency === 'fast')
+          .reduce((sum, o) => sum + o.capitalDeployed, 0)
+        const moderateCapital = capitalOrders
+          .filter(o => o.efficiency === 'moderate')
+          .reduce((sum, o) => sum + o.capitalDeployed, 0)
+        const slowCapital = capitalOrders
+          .filter(o => o.efficiency === 'slow')
+          .reduce((sum, o) => sum + o.capitalDeployed, 0)
+        
+        // Capital by character
+        const characterMap = new Map<number, {
+          characterId: number
+          characterName: string
+          capital: number
+          orderCount: number
+          dailyRevenue: number
+          weightedAPY: number
+          capitalWithAPY: number
+        }>()
+        
+        for (const order of capitalOrders) {
+          const existing = characterMap.get(order.characterId)
+          const orderDailyRevenue = (order.daysToSell !== null && order.daysToSell > 0)
+            ? order.capitalDeployed / order.daysToSell
+            : 0
+          
+          if (existing) {
+            existing.capital += order.capitalDeployed
+            existing.orderCount++
+            existing.dailyRevenue += orderDailyRevenue
+            if (order.effectiveAPY !== null && order.effectiveAPY > 0) {
+              existing.weightedAPY += order.effectiveAPY * order.capitalDeployed
+              existing.capitalWithAPY += order.capitalDeployed
+            }
+          } else {
+            characterMap.set(order.characterId, {
+              characterId: order.characterId,
+              characterName: order.characterName,
+              capital: order.capitalDeployed,
+              orderCount: 1,
+              dailyRevenue: orderDailyRevenue,
+              weightedAPY: (order.effectiveAPY !== null && order.effectiveAPY > 0)
+                ? order.effectiveAPY * order.capitalDeployed
+                : 0,
+              capitalWithAPY: (order.effectiveAPY !== null && order.effectiveAPY > 0)
+                ? order.capitalDeployed
+                : 0,
+            })
+          }
+        }
+        
+        // Convert to array and calculate percentages
+        const byCharacter: CharacterCapitalSummary[] = Array.from(characterMap.values())
+          .map(c => ({
+            characterId: c.characterId,
+            characterName: c.characterName,
+            capitalDeployed: c.capital,
+            orderCount: c.orderCount,
+            percentage: totalCapitalDeployed > 0 ? Math.round((c.capital / totalCapitalDeployed) * 1000) / 10 : 0,
+            dailyRevenue: c.dailyRevenue,
+            effectiveAPY: c.capitalWithAPY > 0 ? Math.round((c.weightedAPY / c.capitalWithAPY) * 10) / 10 : 0,
+          }))
+          .sort((a, b) => b.capitalDeployed - a.capitalDeployed)  // Sort by capital, highest first
+        
+        // Sort by days to sell descending (slowest first to highlight dead capital)
+        capitalOrders.sort((a, b) => {
+          if (a.daysToSell === null) return 1
+          if (b.daysToSell === null) return -1
+          return b.daysToSell - a.daysToSell
+        })
+        
+        const response: CapitalEfficiencyResponse = {
+          success: true,
+          characterId: session.mainCharacter?.character_id ?? 0,
+          analyzedAt: new Date().toISOString(),
+          summary: {
+            totalCapitalDeployed,
+            totalOrders: capitalOrders.length,
+            totalDailyRevenue,
+            avgDaysToSell: Math.round(avgDaysToSell * 10) / 10,
+            effectiveAPY: Math.round(effectiveAPY * 10) / 10,
+            deadCapitalThreshold: DEAD_CAPITAL_THRESHOLD_DAYS,
+            deadCapitalValue,
+            deadCapitalOrders: deadOrders.length,
+            fastCapital,
+            moderateCapital,
+            slowCapital,
+            byCharacter,
+          },
+          orders: capitalOrders,
+          config: {
+            hubFactor,
+            transportCostPerM3,
+            deadCapitalThresholdDays: DEAD_CAPITAL_THRESHOLD_DAYS,
           },
         }
-      )
+        
+        console.log(`[Capital Efficiency] Analysis complete in ${Date.now() - startTime}ms`)
+        
+        // Send complete event
+        sendSSEEvent(controller, encoder, 'progress', {
+          stage: 'complete',
+          message: 'Analysis complete!',
+          percent: 100
+        })
+        sendSSEEvent(controller, encoder, 'complete', response)
 
-      if (ordersResponse.ok) {
-        const orders: ESIMarketOrder[] = await ordersResponse.json()
-        allOrders = allOrders.concat(orders)
+      } catch (error) {
+        console.error('[Capital Efficiency] Error:', error)
+        sendSSEEvent(controller, encoder, 'error', {
+          message: error instanceof Error ? error.message : 'Failed to analyze capital efficiency'
+        })
+      } finally {
+        controller.close()
       }
     }
-    
-    // Filter to only sell orders
-    const sellOrders = allOrders.filter(o => !o.is_buy_order)
-    console.log(`[Capital Efficiency] Found ${sellOrders.length} active sell orders`)
+  })
 
-    if (sellOrders.length === 0) {
-      return NextResponse.json({
-        success: true,
-        characterId: session.mainCharacter?.character_id ?? 0,
-        analyzedAt: new Date().toISOString(),
-        summary: {
-          totalCapitalDeployed: 0,
-          totalOrders: 0,
-          totalDailyRevenue: 0,
-          avgDaysToSell: 0,
-          effectiveAPY: 0,
-          deadCapitalThreshold: DEAD_CAPITAL_THRESHOLD_DAYS,
-          deadCapitalValue: 0,
-          deadCapitalOrders: 0,
-          fastCapital: 0,
-          moderateCapital: 0,
-          slowCapital: 0,
-        },
-        orders: [],
-        config: {
-          hubFactor,
-          transportCostPerM3,
-          deadCapitalThresholdDays: DEAD_CAPITAL_THRESHOLD_DAYS,
-        },
-      } as CapitalEfficiencyResponse)
-    }
-
-    // Step 2: Load item metadata
-    const itemNames = await loadItemNames()
-    
-    // Step 3: Get unique type IDs and fetch market data
-    const typeIds = [...new Set(sellOrders.map(o => o.type_id))]
-    console.log(`[Capital Efficiency] Fetching market data for ${typeIds.length} unique items`)
-    
-    // Fetch regional volumes for demand estimation and Jita prices for cost basis
-    const [regionVolumes, jitaPrices] = await Promise.all([
-      fetchRegionVolumes(typeIds, volumeRegionId),
-      fetchJitaPrices(typeIds),
-    ])
-    
-    // Step 4: Analyze each order
-    const capitalOrders: CapitalOrder[] = []
-    
-    for (const order of sellOrders) {
-      const item = itemNames.get(order.type_id)
-      const regionDailyVolume = regionVolumes.get(order.type_id) || 0
-      const jitaBuyPrice = jitaPrices.get(order.type_id) || null
-      
-      // Calculate metrics - using regional volume × hub factor
-      const capitalDeployed = order.price * order.volume_remain
-      const estimatedDailySales = regionDailyVolume * hubFactor
-      const daysToSell = estimatedDailySales > 0 
-        ? order.volume_remain / estimatedDailySales 
-        : null
-      const daysListed = daysSince(order.issued)
-      
-      // Calculate profit if we have Jita price
-      const itemVolume = item?.volume || 0.01
-      const transportCost = itemVolume * transportCostPerM3
-      const profitPerUnit = jitaBuyPrice !== null 
-        ? order.price - jitaBuyPrice - transportCost 
-        : null
-      const totalProfit = profitPerUnit !== null 
-        ? profitPerUnit * order.volume_remain 
-        : null
-      
-      // Calculate APY: (annual profit / capital) * 100
-      // APY = (profitPerUnit / totalCost) * (365 / daysToSell) * 100
-      let effectiveAPY: number | null = null
-      if (profitPerUnit !== null && jitaBuyPrice !== null && daysToSell !== null && daysToSell > 0) {
-        const totalCost = jitaBuyPrice + transportCost
-        if (totalCost > 0) {
-          effectiveAPY = (profitPerUnit / totalCost) * (365 / daysToSell) * 100
-        }
-      }
-      
-      const efficiency = getEfficiencyCategory(daysToSell)
-      const isDeadCapital = efficiency === 'dead'
-      
-      capitalOrders.push({
-        orderId: order.order_id,
-        typeId: order.type_id,
-        itemName: item?.name || `Unknown Item ${order.type_id}`,
-        categoryName: item?.categoryName || null,
-        groupName: item?.groupName || null,
-        price: order.price,
-        volumeRemain: order.volume_remain,
-        volumeTotal: order.volume_total,
-        locationId: order.location_id,
-        issued: order.issued,
-        capitalDeployed,
-        jitaDailyVolume: regionDailyVolume,  // Using selected region volume
-        estimatedDailySales,
-        daysToSell,
-        daysListed,
-        jitaBuyPrice,
-        transportCost,
-        profitPerUnit,
-        totalProfit,
-        effectiveAPY,
-        isDeadCapital,
-        efficiency,
-      })
-    }
-    
-    // Step 5: Calculate summary metrics
-    const totalCapitalDeployed = capitalOrders.reduce((sum, o) => sum + o.capitalDeployed, 0)
-    
-    // Calculate capital-weighted average days to sell
-    let weightedDaysSum = 0
-    let capitalWithDays = 0
-    for (const order of capitalOrders) {
-      if (order.daysToSell !== null) {
-        weightedDaysSum += order.daysToSell * order.capitalDeployed
-        capitalWithDays += order.capitalDeployed
-      }
-    }
-    const avgDaysToSell = capitalWithDays > 0 ? weightedDaysSum / capitalWithDays : 0
-    
-    // Calculate total daily revenue (sum of capitalDeployed / daysToSell for each)
-    const totalDailyRevenue = capitalOrders.reduce((sum, o) => {
-      if (o.daysToSell !== null && o.daysToSell > 0) {
-        return sum + (o.capitalDeployed / o.daysToSell)
-      }
-      return sum
-    }, 0)
-    
-    // Calculate portfolio-wide APY
-    let totalWeightedAPY = 0
-    let capitalWithAPY = 0
-    for (const order of capitalOrders) {
-      if (order.effectiveAPY !== null && order.effectiveAPY > 0) {
-        totalWeightedAPY += order.effectiveAPY * order.capitalDeployed
-        capitalWithAPY += order.capitalDeployed
-      }
-    }
-    const effectiveAPY = capitalWithAPY > 0 ? totalWeightedAPY / capitalWithAPY : 0
-    
-    // Dead capital
-    const deadOrders = capitalOrders.filter(o => o.isDeadCapital)
-    const deadCapitalValue = deadOrders.reduce((sum, o) => sum + o.capitalDeployed, 0)
-    
-    // Capital by efficiency
-    const fastCapital = capitalOrders
-      .filter(o => o.efficiency === 'fast')
-      .reduce((sum, o) => sum + o.capitalDeployed, 0)
-    const moderateCapital = capitalOrders
-      .filter(o => o.efficiency === 'moderate')
-      .reduce((sum, o) => sum + o.capitalDeployed, 0)
-    const slowCapital = capitalOrders
-      .filter(o => o.efficiency === 'slow')
-      .reduce((sum, o) => sum + o.capitalDeployed, 0)
-    
-    // Sort by days to sell descending (slowest first to highlight dead capital)
-    capitalOrders.sort((a, b) => {
-      if (a.daysToSell === null) return 1
-      if (b.daysToSell === null) return -1
-      return b.daysToSell - a.daysToSell
-    })
-    
-    const response: CapitalEfficiencyResponse = {
-      success: true,
-      characterId: session.mainCharacter?.character_id ?? 0,
-      analyzedAt: new Date().toISOString(),
-      summary: {
-        totalCapitalDeployed,
-        totalOrders: capitalOrders.length,
-        totalDailyRevenue,
-        avgDaysToSell: Math.round(avgDaysToSell * 10) / 10,
-        effectiveAPY: Math.round(effectiveAPY * 10) / 10,
-        deadCapitalThreshold: DEAD_CAPITAL_THRESHOLD_DAYS,
-        deadCapitalValue,
-        deadCapitalOrders: deadOrders.length,
-        fastCapital,
-        moderateCapital,
-        slowCapital,
-      },
-      orders: capitalOrders,
-      config: {
-        hubFactor,
-        transportCostPerM3,
-        deadCapitalThresholdDays: DEAD_CAPITAL_THRESHOLD_DAYS,
-      },
-    }
-    
-    console.log(`[Capital Efficiency] Analysis complete in ${Date.now() - startTime}ms`)
-    return NextResponse.json(response)
-
-  } catch (error) {
-    console.error('[Capital Efficiency] Error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to analyze capital efficiency' },
-      { status: 500 }
-    )
-  }
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
 }
-

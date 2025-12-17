@@ -63,11 +63,16 @@ interface StructureOrder {
   volume_total: number
 }
 
+export interface SellOrderItemCharacter {
+  id: number
+  name: string
+}
+
 export interface SellOrderItem {
   type_id: number
   type_name: string
   quantity: number
-  characters: string[]  // Characters that have this item
+  characters: SellOrderItemCharacter[]  // Characters that have this item
 
   // Pricing
   has_competition: boolean
@@ -330,7 +335,7 @@ export async function GET(request: NextRequest) {
           })
 
           const locationId = parseInt(structureId)
-          const assetsByType = new Map<number, { quantity: number; characters: Set<string> }>()
+          const assetsByType = new Map<number, { quantity: number; characters: Map<number, string> }>()
 
           for (let i = 0; i < characterTokens.length; i++) {
             const token = characterTokens[i]
@@ -345,11 +350,11 @@ export async function GET(request: NextRequest) {
                 const existing = assetsByType.get(asset.type_id)
                 if (existing) {
                   existing.quantity += asset.quantity
-                  existing.characters.add(token.character_name)
+                  existing.characters.set(token.character_id, token.character_name)
                 } else {
                   assetsByType.set(asset.type_id, {
                     quantity: asset.quantity,
-                    characters: new Set([token.character_name])
+                    characters: new Map([[token.character_id, token.character_name]])
                   })
                 }
               }
@@ -549,7 +554,7 @@ export async function GET(request: NextRequest) {
               type_id: typeId,
               type_name: getTypeName(typeId),
               quantity: data.quantity,
-              characters: Array.from(data.characters),
+              characters: Array.from(data.characters.entries()).map(([id, name]) => ({ id, name })),
 
               has_competition: hasCompetition,
               jita_price: jitaPrice,
@@ -622,7 +627,7 @@ export async function GET(request: NextRequest) {
     const locationId = parseInt(structureId)
 
     // Step 1: Fetch assets from all characters
-    const assetsByType = new Map<number, { quantity: number; characters: Set<string> }>()
+    const assetsByType = new Map<number, { quantity: number; characters: Map<number, string> }>()
 
     for (const token of characterTokens) {
       try {
@@ -636,11 +641,11 @@ export async function GET(request: NextRequest) {
           const existing = assetsByType.get(asset.type_id)
           if (existing) {
             existing.quantity += asset.quantity
-            existing.characters.add(token.character_name)
+            existing.characters.set(token.character_id, token.character_name)
           } else {
             assetsByType.set(asset.type_id, {
               quantity: asset.quantity,
-              characters: new Set([token.character_name])
+              characters: new Map([[token.character_id, token.character_name]])
             })
           }
         }
@@ -772,7 +777,7 @@ export async function GET(request: NextRequest) {
         type_id: typeId,
         type_name: getTypeName(typeId),
         quantity: data.quantity,
-        characters: Array.from(data.characters),
+        characters: Array.from(data.characters.entries()).map(([id, name]) => ({ id, name })),
 
         has_competition: hasCompetition,
         jita_price: jitaPrice,

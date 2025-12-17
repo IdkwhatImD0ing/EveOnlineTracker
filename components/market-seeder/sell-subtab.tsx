@@ -1,18 +1,23 @@
 "use client"
 
-import { useMemo } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Loader2,
   RefreshCw,
   AlertCircle,
-  ChevronDown,
   Copy,
   Check,
   AlertTriangle,
@@ -22,6 +27,8 @@ import {
   HelpCircle,
   Ban,
   Filter,
+  User,
+  Users,
 } from "lucide-react"
 import { type SellOrderItem, type SellOrderData, type ExistingOrderItem, type ProgressState } from "@/types/market-seeder"
 import { EveItemIcon } from "@/components/eve-item-icon"
@@ -82,6 +89,22 @@ export function SellSubtab({
   onCopyAll,
   hubFactorPercent = "5%",
 }: SellSubtabProps) {
+  const [selectedCharacter, setSelectedCharacter] = useState<string>("all")
+
+  // Extract unique characters from data
+  const characters = useMemo(() => {
+    if (!data) return []
+    const charMap = new Map<number, string>()
+    data.items.forEach(item => {
+      if (item.characters) {
+        item.characters.forEach(char => {
+          charMap.set(char.id, char.name)
+        })
+      }
+    })
+    return Array.from(charMap.entries()).map(([id, name]) => ({ id, name }))
+  }, [data])
+
   // Filter and sort items
   const filteredItems = useMemo(() => {
     if (!data) return []
@@ -92,6 +115,11 @@ export function SellSubtab({
         if (item.isk_per_day < minIskPerDay) return false
         if (competitionFilter === "no_competition" && item.has_competition) return false
         if (competitionFilter === "with_competition" && !item.has_competition) return false
+        // Character filter: show items where selected character has inventory
+        if (selectedCharacter !== "all" && item.characters) {
+          const charId = parseInt(selectedCharacter)
+          if (!item.characters.some(c => c.id === charId)) return false
+        }
         return true
       })
       .sort((a, b) => {
@@ -106,7 +134,7 @@ export function SellSubtab({
             return 0
         }
       })
-  }, [data, minQuantity, minIskPerDay, competitionFilter, sortBy])
+  }, [data, minQuantity, minIskPerDay, competitionFilter, sortBy, selectedCharacter])
 
   // Calculate "do not sell" items
   const doNotSellItems = useMemo(() => {
@@ -114,6 +142,13 @@ export function SellSubtab({
 
     const filteredOut: FilteredOutItem[] = data.items
       .filter(item => !filteredItems.includes(item))
+      // Also filter by character if one is selected
+      .filter(item => {
+        if (selectedCharacter === "all") return true
+        if (!item.characters) return false
+        const charId = parseInt(selectedCharacter)
+        return item.characters.some(c => c.id === charId)
+      })
       .map(item => {
         let reason: FilteredOutItem['reason'] = 'quantity'
         if (item.quantity < minQuantity) reason = 'quantity'
@@ -127,7 +162,7 @@ export function SellSubtab({
       existingOrders: data.items_with_existing_orders,
       filteredOut,
     }
-  }, [data, filteredItems, minQuantity, minIskPerDay, competitionFilter])
+  }, [data, filteredItems, minQuantity, minIskPerDay, competitionFilter, selectedCharacter])
 
   return (
     <div className="space-y-6">
@@ -144,23 +179,69 @@ export function SellSubtab({
                 Generate optimal sell prices for your inventory in 3T7. Uses tiered markup for items with no competition.
               </CardDescription>
             </div>
-            <Button
-              onClick={onRefresh}
-              disabled={loading}
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="size-4 mr-2" />
-                  Generate Sell Orders
-                </>
+            <div className="flex items-center gap-3">
+              {/* Character Filter */}
+              {data && characters.length > 1 && (
+                <Select value={selectedCharacter} onValueChange={setSelectedCharacter}>
+                  <SelectTrigger className="w-[200px]">
+                    {selectedCharacter === "all" ? (
+                      <div className="flex items-center gap-2">
+                        <Users className="size-4" />
+                        <span>All Characters</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={`https://images.evetech.net/characters/${selectedCharacter}/portrait?size=32`}
+                          alt=""
+                          className="size-5 rounded-full"
+                        />
+                        <span className="truncate">
+                          {characters.find(c => c.id.toString() === selectedCharacter)?.name}
+                        </span>
+                      </div>
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <Users className="size-5" />
+                        <span>All Characters</span>
+                      </div>
+                    </SelectItem>
+                    {characters.map(char => (
+                      <SelectItem key={char.id} value={char.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={`https://images.evetech.net/characters/${char.id}/portrait?size=32`}
+                            alt=""
+                            className="size-5 rounded-full"
+                          />
+                          <span>{char.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
-            </Button>
+              <Button
+                onClick={onRefresh}
+                disabled={loading}
+                size="lg"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin mr-2" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="size-4 mr-2" />
+                    Generate Sell Orders
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -350,168 +431,199 @@ export function SellSubtab({
         </div>
       )}
 
-      {/* Sell Order Items Table */}
-      {data && filteredItems.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ShoppingCart className="size-5" />
-              Sell Orders ({filteredItems.length} items)
-            </CardTitle>
-            <CardDescription>
-              Sorted by ISK/day (highest first). Items with no competition use tiered markup pricing.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {filteredItems.map((item) => (
-                <div
-                  key={item.type_id}
-                  className={`p-4 rounded-lg border transition-colors ${item.has_competition
-                    ? "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10"
-                    : "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10"
-                    }`}
-                >
-                  {/* Top row: Item info */}
-                  <div className="flex items-center gap-4 mb-3">
-                    <EveItemIcon typeId={item.type_id} size={32} className="size-8 rounded" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{item.type_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.quantity.toLocaleString()} units in inventory
-                      </p>
-                    </div>
-                    <Badge
-                      variant="secondary"
-                      className={item.has_competition ? "bg-amber-500/20 text-amber-600" : "bg-emerald-500/20 text-emerald-600"}
-                    >
-                      {item.has_competition ? "Competition" : "No Competition"}
-                    </Badge>
-                  </div>
-
-                  {/* Stats row */}
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex-1 grid grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-muted-foreground text-xs">Sell Price</p>
-                        <p className="font-medium">{item.sell_price_formatted}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Jita Price</p>
-                        <p className="font-medium text-muted-foreground">{item.jita_price_formatted}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Vol/Day ({hubFactorPercent})</p>
-                        <p className="font-medium">{item.estimated_daily_sales.toFixed(2)} units</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">ISK/Day</p>
-                        <p className="font-medium text-blue-500">{item.isk_per_day_formatted}</p>
-                      </div>
-                    </div>
-
-                    {/* Copy buttons */}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="min-w-[100px]"
-                        onClick={() => onCopyName(item)}
-                      >
-                        {copiedNameId === item.type_id ? (
-                          <>
-                            <Check className="size-4 mr-2 text-emerald-500" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="size-4 mr-2" />
-                            Name
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="min-w-[140px] font-mono"
-                        onClick={() => onCopyPrice(item)}
-                      >
-                        {copiedPriceId === item.type_id ? (
-                          <>
-                            <Check className="size-4 mr-2 text-emerald-500" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="size-4 mr-2" />
-                            {item.sell_price_eve}
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Empty state */}
-      {!data && !loading && !error && (
-        <Card className="border-dashed">
-          <CardContent className="py-12">
-            <div className="text-center space-y-4">
-              <div className="mx-auto size-12 rounded-full bg-muted flex items-center justify-center">
-                <ShoppingCart className="size-6 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="font-medium">Generate Sell Orders</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Click &quot;Generate Sell Orders&quot; to analyze your 3T7 inventory and get optimal sell prices
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* No items state */}
-      {data && data.items.length === 0 && (
-        <Alert>
-          <AlertCircle className="size-4" />
-          <AlertDescription>
-            No sellable items found in your 3T7 inventory. Items need Jita price data to generate sell orders.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* All items filtered out */}
-      {data && data.items.length > 0 && filteredItems.length === 0 && (
-        <Alert>
-          <AlertCircle className="size-4" />
-          <AlertDescription>
-            All {data.items.length} items filtered out. Try lowering the minimum quantity filter.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Do Not Sell Section */}
-      {data && (doNotSellItems.existingOrders.length > 0 || doNotSellItems.filteredOut.length > 0) && (
-        <Collapsible>
-          <Card className="border-muted">
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Ban className="size-4 text-muted-foreground" />
-                    Do Not Sell ({doNotSellItems.existingOrders.length + doNotSellItems.filteredOut.length} items)
-                  </CardTitle>
-                  <ChevronDown className="size-4 text-muted-foreground" />
-                </div>
+      {/* Main Content: Side-by-side layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
+        {/* Left Column: Sell Orders */}
+        <div className="space-y-6">
+          {/* Sell Order Items Table */}
+          {data && filteredItems.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ShoppingCart className="size-5" />
+                  Sell Orders ({filteredItems.length} items)
+                </CardTitle>
+                <CardDescription>
+                  Sorted by ISK/day (highest first). Items with no competition use tiered markup pricing.
+                </CardDescription>
               </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
+              <CardContent>
+                <div className="space-y-3">
+                  {filteredItems.map((item) => (
+                    <div
+                      key={item.type_id}
+                      className={`p-4 rounded-lg border transition-colors ${item.has_competition
+                        ? "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10"
+                        : "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10"
+                        }`}
+                    >
+                      {/* Top row: Item info */}
+                      <div className="flex items-center gap-4 mb-3">
+                        <EveItemIcon typeId={item.type_id} size={32} className="size-8 rounded" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{item.type_name}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{item.quantity.toLocaleString()} units</span>
+                            {item.characters && item.characters.length > 0 && (
+                              <>
+                                <span className="text-muted-foreground/50">•</span>
+                                <span className="flex items-center gap-1">
+                                  <User className="size-3" />
+                                  {item.characters.length === 1 ? (
+                                    item.characters[0].name
+                                  ) : (
+                                    `${item.characters.length} characters`
+                                  )}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {/* Character portraits for multi-character items */}
+                        {item.characters && item.characters.length > 1 && (
+                          <div className="flex -space-x-2">
+                            {item.characters.slice(0, 3).map(char => (
+                              <img
+                                key={char.id}
+                                src={`https://images.evetech.net/characters/${char.id}/portrait?size=32`}
+                                alt={char.name}
+                                title={char.name}
+                                className="size-6 rounded-full border-2 border-background"
+                              />
+                            ))}
+                            {item.characters.length > 3 && (
+                              <div className="size-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs font-medium">
+                                +{item.characters.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <Badge
+                          variant="secondary"
+                          className={item.has_competition ? "bg-amber-500/20 text-amber-600" : "bg-emerald-500/20 text-emerald-600"}
+                        >
+                          {item.has_competition ? "Competition" : "No Competition"}
+                        </Badge>
+                      </div>
+
+                      {/* Stats row */}
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex-1 grid grid-cols-4 gap-4">
+                          <div>
+                            <p className="text-muted-foreground text-xs">Sell Price</p>
+                            <p className="font-medium">{item.sell_price_formatted}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Jita Price</p>
+                            <p className="font-medium text-muted-foreground">{item.jita_price_formatted}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Vol/Day ({hubFactorPercent})</p>
+                            <p className="font-medium">{item.estimated_daily_sales.toFixed(2)} units</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">ISK/Day</p>
+                            <p className="font-medium text-blue-500">{item.isk_per_day_formatted}</p>
+                          </div>
+                        </div>
+
+                        {/* Copy buttons */}
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="min-w-[100px]"
+                            onClick={() => onCopyName(item)}
+                          >
+                            {copiedNameId === item.type_id ? (
+                              <>
+                                <Check className="size-4 mr-2 text-emerald-500" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="size-4 mr-2" />
+                                Name
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="min-w-[140px] font-mono"
+                            onClick={() => onCopyPrice(item)}
+                          >
+                            {copiedPriceId === item.type_id ? (
+                              <>
+                                <Check className="size-4 mr-2 text-emerald-500" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="size-4 mr-2" />
+                                {item.sell_price_eve}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty state */}
+          {!data && !loading && !error && (
+            <Card className="border-dashed">
+              <CardContent className="py-12">
+                <div className="text-center space-y-4">
+                  <div className="mx-auto size-12 rounded-full bg-muted flex items-center justify-center">
+                    <ShoppingCart className="size-6 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Generate Sell Orders</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Click &quot;Generate Sell Orders&quot; to analyze your 3T7 inventory and get optimal sell prices
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No items state */}
+          {data && data.items.length === 0 && (
+            <Alert>
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                No sellable items found in your 3T7 inventory. Items need Jita price data to generate sell orders.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* All items filtered out */}
+          {data && data.items.length > 0 && filteredItems.length === 0 && (
+            <Alert>
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                All {data.items.length} items filtered out. Try lowering the minimum quantity filter.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        {/* Right Column: Do Not Sell */}
+        <div className="lg:sticky lg:top-4 lg:self-start">
+          {data && (doNotSellItems.existingOrders.length > 0 || doNotSellItems.filteredOut.length > 0) ? (
+            <Card className="border-muted">
+              <CardHeader className="py-4">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Ban className="size-4 text-muted-foreground" />
+                  Do Not Sell ({doNotSellItems.existingOrders.length + doNotSellItems.filteredOut.length} items)
+                </CardTitle>
+              </CardHeader>
               <CardContent className="pt-0 space-y-4">
                 {/* Existing Orders */}
                 {doNotSellItems.existingOrders.length > 0 && (
@@ -522,10 +634,10 @@ export function SellSubtab({
                     </h4>
                     <div className="space-y-1 max-h-48 overflow-y-auto">
                       {doNotSellItems.existingOrders.map((item) => (
-                        <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-blue-500/5 rounded">
-                          <EveItemIcon typeId={item.type_id} size={32} className="size-8 shrink-0" />
-                          <span className="flex-1 truncate">{item.type_name}</span>
-                          <span className="text-muted-foreground font-mono text-xs">{item.quantity.toLocaleString()}</span>
+                        <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-blue-500/5 rounded min-w-0">
+                          <EveItemIcon typeId={item.type_id} size={32} className="size-5 shrink-0" />
+                          <span className="flex-1 truncate text-xs">{item.type_name}</span>
+                          <span className="text-muted-foreground font-mono text-xs shrink-0">{item.quantity.toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
@@ -541,16 +653,15 @@ export function SellSubtab({
                     </h4>
                     <div className="space-y-1 max-h-48 overflow-y-auto">
                       {doNotSellItems.filteredOut.map((item) => (
-                        <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-amber-500/5 rounded">
-                          <EveItemIcon typeId={item.type_id} size={32} className="size-8 shrink-0" />
-                          <span className="flex-1 truncate">{item.type_name}</span>
-                          <span className="text-muted-foreground font-mono text-xs">{item.quantity.toLocaleString()}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {item.reason === 'quantity' ? 'Low Qty'
-                              : item.reason === 'isk_per_day' ? 'Low ISK/Day'
-                                : item.reason === 'competition' ? 'Has Competition'
-                                  : item.reason === 'no_competition' ? 'No Competition'
-                                    : 'Filter'}
+                        <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-amber-500/5 rounded min-w-0">
+                          <EveItemIcon typeId={item.type_id} size={32} className="size-5 shrink-0" />
+                          <span className="flex-1 truncate text-xs">{item.type_name}</span>
+                          <Badge variant="outline" className="text-[10px] shrink-0 px-1">
+                            {item.reason === 'quantity' ? 'Qty'
+                              : item.reason === 'isk_per_day' ? 'ISK'
+                                : item.reason === 'competition' ? 'Comp'
+                                  : item.reason === 'no_competition' ? 'NoComp'
+                                    : '?'}
                           </Badge>
                         </div>
                       ))}
@@ -558,10 +669,21 @@ export function SellSubtab({
                   </div>
                 )}
               </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      )}
+            </Card>
+          ) : data ? (
+            <Card className="border-dashed border-muted">
+              <CardContent className="py-8">
+                <div className="text-center space-y-2">
+                  <div className="mx-auto size-10 rounded-full bg-muted flex items-center justify-center">
+                    <Check className="size-5 text-emerald-500" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">All items can be sold</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      </div>
 
       {/* Pricing info */}
       <div className="text-xs text-muted-foreground flex items-center gap-2">

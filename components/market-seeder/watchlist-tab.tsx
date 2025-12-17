@@ -78,18 +78,22 @@ export function WatchlistTab({
   const existingTypeIds = new Set(items.map(item => item.type_id))
 
   // Group items by urgency
+  // New logic:
+  // - Critical: stock = 0 AND user has no sell order
+  // - Warning: stock > 0 AND daysUntilStockout < 3 AND user has no sell order  
+  // - Fine: everything else (>= 3 days OR user has sell order)
   const itemsByUrgency = {
     critical: items.filter(i =>
-      (i.stock ?? 0) === 0 || (i.daysUntilStockout !== null && i.daysUntilStockout < 3)
+      (i.stock ?? 0) === 0 && !i.hasSellOrder
     ),
     warning: items.filter(i =>
       (i.stock ?? 0) > 0 &&
+      !i.hasSellOrder &&
       i.daysUntilStockout !== null &&
-      i.daysUntilStockout >= 3 &&
-      i.daysUntilStockout < 7
+      i.daysUntilStockout < 3
     ),
     safe: items.filter(i =>
-      i.daysUntilStockout !== null && i.daysUntilStockout >= 7
+      i.hasSellOrder || (i.daysUntilStockout !== null && i.daysUntilStockout >= 3)
     ),
   }
 
@@ -290,7 +294,7 @@ export function WatchlistTab({
               <p className="text-2xl font-bold text-destructive">
                 {itemsByUrgency.critical.length}
               </p>
-              <p className="text-sm text-muted-foreground">Critical (out/&lt;3 days)</p>
+              <p className="text-sm text-muted-foreground">Critical (out of stock)</p>
             </CardContent>
           </Card>
           <Card className="border-amber-500/50">
@@ -298,7 +302,7 @@ export function WatchlistTab({
               <p className="text-2xl font-bold text-amber-500">
                 {itemsByUrgency.warning.length}
               </p>
-              <p className="text-sm text-muted-foreground">Warning (3-7 days)</p>
+              <p className="text-sm text-muted-foreground">Warning (&lt;3 days)</p>
             </CardContent>
           </Card>
           <Card>
@@ -380,14 +384,18 @@ export function WatchlistTab({
       ) : (
         <div className="space-y-3">
           {items.map((item) => {
-            // Stock 0 = critical (already out), otherwise base on days until stockout
-            const urgencyLevel = (item.stock ?? 0) === 0
-              ? 'critical'
-              : item.daysUntilStockout === null
-                ? 'none'
-                : item.daysUntilStockout < 3
-                  ? 'critical'
-                  : item.daysUntilStockout < 7
+            // Determine urgency level:
+            // - If user has a sell order, it's always 'safe' (not actionable)
+            // - Critical: stock = 0 AND no sell order
+            // - Warning: stock > 0 AND daysUntilStockout < 3 AND no sell order
+            // - Safe: daysUntilStockout >= 3 OR user has sell order
+            const urgencyLevel = item.hasSellOrder
+              ? 'safe'
+              : (item.stock ?? 0) === 0
+                ? 'critical'
+                : item.daysUntilStockout === null
+                  ? 'none'
+                  : item.daysUntilStockout < 3
                     ? 'warning'
                     : 'safe'
 
@@ -440,16 +448,10 @@ export function WatchlistTab({
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      {urgencyLevel === 'critical' && (item.stock ?? 0) === 0 && (
+                      {urgencyLevel === 'critical' && (
                         <Badge variant="destructive" className="gap-1">
                           <AlertTriangle className="size-3" />
                           Out of Stock
-                        </Badge>
-                      )}
-                      {urgencyLevel === 'critical' && (item.stock ?? 0) > 0 && (
-                        <Badge variant="destructive" className="gap-1">
-                          <AlertTriangle className="size-3" />
-                          Critical
                         </Badge>
                       )}
                       {urgencyLevel === 'warning' && (

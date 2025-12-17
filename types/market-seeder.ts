@@ -361,6 +361,10 @@ export interface CapitalOrder {
   categoryName: string | null
   groupName: string | null
   
+  // Character info - which account owns this order
+  characterId: number
+  characterName: string
+  
   // Order details
   price: number                    // Sell price per unit
   volumeRemain: number             // Units remaining
@@ -394,6 +398,19 @@ export interface CapitalOrder {
 }
 
 /**
+ * Per-character capital summary
+ */
+export interface CharacterCapitalSummary {
+  characterId: number
+  characterName: string
+  capitalDeployed: number           // Total ISK deployed by this character
+  orderCount: number                // Number of orders
+  percentage: number                // Percentage of total capital
+  dailyRevenue: number              // Estimated daily revenue
+  effectiveAPY: number              // Character's portfolio APY
+}
+
+/**
  * Full capital efficiency analysis response
  */
 export interface CapitalEfficiencyResponse {
@@ -418,6 +435,9 @@ export interface CapitalEfficiencyResponse {
     fastCapital: number              // ISK in <14 day orders
     moderateCapital: number          // ISK in 14-30 day orders
     slowCapital: number              // ISK in 30-90 day orders
+    
+    // Breakdown by character
+    byCharacter: CharacterCapitalSummary[]
   }
   
   // Per-order breakdown
@@ -468,6 +488,8 @@ export interface WatchlistItem {
   jitaPrice: number | null
   profitPerUnit: number
   dailyProfit: number
+  // Sell order status - true if user has a sell order for this item
+  hasSellOrder: boolean
 }
 
 /**
@@ -519,6 +541,9 @@ export interface UndercutItem {
   vale_daily_volume: number
   estimated_daily_sales: number
   days_to_lowest: number | null
+  // Character info - which account owns this order
+  character_id: number
+  character_name: string
 }
 
 /**
@@ -533,6 +558,9 @@ export interface SafeItem {
   your_volume_remain: number
   next_competitor_price: number | null
   next_competitor_price_formatted: string | null
+  // Character info - which account owns this order
+  character_id: number
+  character_name: string
 }
 
 /**
@@ -558,12 +586,21 @@ export interface UndercutData {
 // ============================================================================
 
 /**
+ * Character info for sell order items
+ */
+export interface SellOrderItemCharacter {
+  id: number
+  name: string
+}
+
+/**
  * Item for sell order generation
  */
 export interface SellOrderItem {
   type_id: number
   type_name: string
   quantity: number
+  characters: SellOrderItemCharacter[]  // Characters that have this item in inventory
   has_competition: boolean
   jita_price: number
   jita_price_formatted: string

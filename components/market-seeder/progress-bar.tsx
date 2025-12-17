@@ -38,6 +38,10 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
   vale: Database,
   calculating: BarChart3,
   complete: Check,
+  // Capital efficiency stages
+  characters: Globe,
+  metadata: Package,
+  market_data: Database,
 }
 
 export { STAGE_ICONS }

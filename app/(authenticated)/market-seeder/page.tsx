@@ -130,6 +130,7 @@ export default function MarketSeederPage() {
   const [capitalData, setCapitalData] = useState<CapitalEfficiencyResponse | null>(null)
   const [capitalLoading, setCapitalLoading] = useState(false)
   const [capitalError, setCapitalError] = useState<string | null>(null)
+  const [capitalProgress, setCapitalProgress] = useState<ProgressState | null>(null)
 
   // ============================================================================
   // Undercut Tracker State
@@ -625,6 +626,7 @@ export default function MarketSeederPage() {
   const fetchCapitalEfficiency = useCallback(async () => {
     setCapitalLoading(true)
     setCapitalError(null)
+    setCapitalProgress({ stage: "starting", message: "Starting...", percent: 0 })
 
     try {
       const params = new URLSearchParams({ 
@@ -639,12 +641,62 @@ export default function MarketSeederPage() {
         throw new Error(data.error || "Failed to fetch capital efficiency data")
       }
 
-      const data: CapitalEfficiencyResponse = await response.json()
-      setCapitalData(data)
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error("No response body")
+
+      const decoder = new TextDecoder()
+      let buffer = ""
+      let currentEventType = ""
+      let currentEventData = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() || ""
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEventType = line.slice(7).trim()
+          } else if (line.startsWith("data: ")) {
+            currentEventData = line.slice(6)
+          } else if (line === "") {
+            if (currentEventType && currentEventData) {
+              try {
+                const data = JSON.parse(currentEventData)
+
+                if (currentEventType === "progress") {
+                  setCapitalProgress({
+                    stage: data.stage,
+                    message: data.message,
+                    percent: data.percent,
+                  })
+                } else if (currentEventType === "complete") {
+                  setCapitalData(data)
+                  setCapitalProgress(null)
+                } else if (currentEventType === "error") {
+                  throw new Error(data.message)
+                }
+              } catch (e) {
+                if (e instanceof SyntaxError) {
+                  console.warn("Failed to parse SSE data:", currentEventData)
+                } else {
+                  throw e
+                }
+              }
+            }
+            currentEventType = ""
+            currentEventData = ""
+          }
+        }
+      }
     } catch (err) {
       setCapitalError(err instanceof Error ? err.message : "Failed to analyze capital efficiency")
     } finally {
       setCapitalLoading(false)
+      setCapitalProgress(null)
     }
   }, [transportCost, volumeRegionId, hubFactor])
 
@@ -682,7 +734,8 @@ export default function MarketSeederPage() {
     setUndercutCopiedId(item.your_order_id)
     setTimeout(() => setUndercutCopiedId(null), 2000)
 
-    fetch(`/api/esi/ui/open-market-window?type_id=${item.type_id}`, {
+    // Open market window for the specific character who owns this order
+    fetch(`/api/esi/ui/open-market-window?type_id=${item.type_id}&character_id=${item.character_id}`, {
       method: 'POST',
     }).catch((err) => {
       console.warn('Failed to open market window:', err)
@@ -905,6 +958,7 @@ export default function MarketSeederPage() {
               data={capitalData}
               loading={capitalLoading}
               error={capitalError}
+              progress={capitalProgress}
               onRefresh={fetchCapitalEfficiency}
             />
           </TabsContent>
@@ -942,6 +996,7 @@ export default function MarketSeederPage() {
               setIsCustomSupplyDays={setIsCustomSupplyDays}
               hubFactorPercent={hubFactorPercent}
               hubFactor={hubFactor}
+              volumeRegionShortName={regionInfo.shortName}
             />
           </TabsContent>
 
