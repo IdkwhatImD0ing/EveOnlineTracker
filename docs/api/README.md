@@ -63,17 +63,24 @@ Or for list endpoints:
 | 401 | Unauthorized - Missing or invalid session |
 | 403 | Forbidden - Account pending approval |
 | 404 | Not Found - Resource doesn't exist |
+| 429 | Too Many Requests - Rate limit exceeded |
 | 500 | Server Error - Internal error |
 
 ### Authentication
 
 **All endpoints require authentication** except for the public auth flow routes (`/api/auth/eve/login`, `/api/auth/eve/callback`, `/api/auth/session`).
 
-Authentication is session-based using HTTP-only cookies set after EVE SSO login. Additionally, users must have `allowed=true` in the database to access protected endpoints. New users are created with `allowed=false` and must be approved by an administrator.
+Authentication is session-based using HTTP-only cookies set after EVE SSO login. Users are assigned roles that control access:
+- `public` - Pending approval (non-Slyce alliance members)
+- `slyce` - Auto-approved Slyce alliance members
+- `user`, `pro` - Manually approved by admin
+- `admin` - Full access including admin dashboard
+
+**Note:** Currently all protected endpoints require `admin` role.
 
 **Protected Endpoints** return:
 - `401 Unauthorized` if no valid session exists
-- `403 Forbidden` if user is authenticated but `allowed=false`
+- `403 Forbidden` if user is authenticated but lacks required role
 
 **Cron/Scheduled Job Endpoints** (`/api/esi/market-history*`) require the `CRON_SECRET` via Authorization header:
 
@@ -180,7 +187,61 @@ When using Vercel Cron, set `CRON_SECRET` as an environment variable and Vercel 
 
 ## Rate Limiting
 
-The application does not implement rate limiting directly, but external APIs have their own limits:
+All protected API endpoints implement rate limiting using Vercel KV (Redis). The limits are:
+
+- **10 requests per minute per user**
+- Rate limiting is based on the authenticated user's ID
+- Uses a sliding window counter algorithm
+
+### Rate Limit Headers
+
+All responses from rate-limited endpoints include the following headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Maximum requests allowed per window (10) |
+| `X-RateLimit-Remaining` | Remaining requests in current window |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets |
+
+### Rate Limit Response (429)
+
+When the rate limit is exceeded, the API returns:
+
+```json
+{
+  "error": "Too many requests",
+  "retryAfter": 45
+}
+```
+
+The response includes:
+- `Retry-After` header with seconds until the limit resets
+- `retryAfter` field in the JSON body
+
+### Frontend Handling
+
+The application provides an API client (`lib/api-client.ts`) that automatically:
+1. Detects 429 responses
+2. Shows a toast notification with the retry duration
+3. Throws a `RateLimitException` that can be caught for custom handling
+
+Example usage:
+```typescript
+import { apiFetch, isRateLimitError } from '@/lib/api-client'
+
+try {
+  const data = await apiFetch('/api/projects')
+} catch (error) {
+  if (isRateLimitError(error)) {
+    // Rate limited - toast already shown
+    console.log(`Retry after ${error.retryAfter} seconds`)
+  }
+}
+```
+
+### External API Limits
+
+In addition to our own rate limiting, external APIs have their own limits:
 
 - **Janice API**: Fair use policy
 - **EVE ESI**: Standard ESI rate limits apply

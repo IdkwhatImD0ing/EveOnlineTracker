@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -475,6 +475,141 @@ const CATEGORY_NAME_TO_ID: Record<string, number> = {
 }
 
 /**
+ * Parameters for background market history processing
+ */
+interface MarketHistoryParams {
+  mode: FetchMode
+  days: number
+  regionId: number
+  limit?: number
+  chunk?: number
+  totalChunks: number
+  categoryFilter: Set<number> | null
+  saveCache: boolean
+  saveReport: boolean
+  skipDb: boolean
+}
+
+/**
+ * Process market history in the background (called via after())
+ * This function handles the heavy ESI fetching and database operations
+ */
+async function processMarketHistoryBackground(params: MarketHistoryParams): Promise<void> {
+  const startTime = Date.now()
+  const { mode, days, regionId, limit, chunk, totalChunks, categoryFilter, saveCache, saveReport, skipDb } = params
+
+  try {
+    // Step 1: Read tradeable items
+    let items = await readTradeableItems()
+    console.log(`[Market History BG] Loaded ${items.length} tradeable items`)
+
+    // Apply category filter if specified
+    if (categoryFilter) {
+      const beforeCount = items.length
+      items = items.filter(item => categoryFilter.has(item.categoryId))
+      console.log(`[Market History BG] Filtered to ${items.length} items (from ${beforeCount}) by categories: [${Array.from(categoryFilter).join(', ')}]`)
+      
+      // Log breakdown by category
+      const categoryBreakdown: Record<string, number> = {}
+      for (const item of items) {
+        categoryBreakdown[item.categoryName] = (categoryBreakdown[item.categoryName] || 0) + 1
+      }
+      console.log(`[Market History BG] Category breakdown: ${JSON.stringify(categoryBreakdown)}`)
+    }
+
+    // Apply limit if specified (for testing)
+    if (limit && limit > 0) {
+      items = items.slice(0, limit)
+      console.log(`[Market History BG] Limited to ${items.length} items`)
+    }
+
+    // Apply chunk filter if specified (for distributed cron jobs)
+    if (chunk !== undefined) {
+      const beforeCount = items.length
+      items = items.filter(item => item.typeId % totalChunks === chunk)
+      console.log(`[Market History BG] Chunk ${chunk}/${totalChunks}: filtered to ${items.length} items (from ${beforeCount})`)
+    }
+
+    // Step 2: Calculate date filter based on mode
+    let fromDateStr: string
+    let toDateStr: string | undefined
+    let modeDescription: string
+
+    switch (mode) {
+      case 'initial':
+        fromDateStr = getDateStringDaysAgo(days)
+        toDateStr = undefined
+        modeDescription = `initial (last ${days} days)`
+        break
+      
+      case 'backfill':
+        fromDateStr = getDateStringDaysAgo(days)
+        toDateStr = undefined
+        modeDescription = `backfill (last ${days} days${chunk !== undefined ? `, chunk ${chunk}/${totalChunks}` : ''})`
+        break
+      
+      case 'daily':
+        const yesterday = getYesterdayDateString()
+        fromDateStr = yesterday
+        toDateStr = yesterday
+        modeDescription = `daily (${yesterday} only${chunk !== undefined ? `, chunk ${chunk}/${totalChunks}` : ''})`
+        break
+      
+      case 'legacy':
+      default:
+        fromDateStr = getDateStringDaysAgo(DEFAULT_LEGACY_DAYS)
+        toDateStr = undefined
+        modeDescription = `legacy (last ${DEFAULT_LEGACY_DAYS} days)`
+        break
+    }
+
+    console.log(`[Market History BG] Mode: ${modeDescription}, from: ${fromDateStr}${toDateStr ? `, to: ${toDateStr}` : ''}`)
+
+    // Step 3: Fetch market history from ESI in batches
+    console.log(`[Market History BG] Fetching from ESI (${CONCURRENT_REQUESTS} concurrent)...`)
+    const { rows, results } = await processBatches(items, regionId, fromDateStr, toDateStr, saveCache)
+
+    const esiFetchTime = Date.now() - startTime
+    console.log(`[Market History BG] ESI fetch complete in ${esiFetchTime}ms`)
+
+    // Step 4: Save import report if requested
+    if (saveReport) {
+      saveImportReport(results, mode, rows.length)
+    }
+
+    // Step 5: Upsert to Supabase unless skip_db is set
+    let inserted = 0
+
+    if (!skipDb && rows.length > 0) {
+      console.log(`[Market History BG] Upserting ${rows.length} rows to Supabase...`)
+      const supabaseStartTime = Date.now()
+      const upsertResult = await upsertToSupabase(rows)
+      inserted = upsertResult.inserted
+      const supabaseTime = Date.now() - supabaseStartTime
+      
+      if (upsertResult.errors.length > 0) {
+        console.error(`[Market History BG] Supabase errors: ${JSON.stringify(upsertResult.errors)}`)
+      }
+      console.log(`[Market History BG] Supabase upsert complete in ${supabaseTime}ms`)
+    } else if (skipDb) {
+      console.log(`[Market History BG] Skipping database (skip_db=true)`)
+    }
+
+    // Step 6: Log final stats
+    const successfulFetches = results.filter(r => r.success).length
+    const failedFetches = results.filter(r => !r.success).length
+    const itemsWithData = results.filter(r => r.success && r.entries > 0).length
+    const totalTime = Date.now() - startTime
+
+    console.log(`[Market History BG] Complete! mode=${mode}, region=${regionId}, chunk=${chunk ?? 'all'}/${totalChunks}`)
+    console.log(`[Market History BG] Stats: ${successfulFetches} success, ${failedFetches} failed, ${itemsWithData} with data, ${inserted} rows inserted, ${totalTime}ms total`)
+
+  } catch (error) {
+    console.error('[Market History BG] Fatal error in background processing:', error)
+  }
+}
+
+/**
  * GET /api/esi/market-history
  * 
  * Fetches market history for all tradeable items from ESI and stores in Supabase.
@@ -676,164 +811,76 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Standard modes: initial, daily, legacy
-    // Step 1: Read tradeable items
-    let items = await readTradeableItems()
-    console.log(`[Market History] Loaded ${items.length} tradeable items`)
-
-    // Apply category filter if specified
-    if (categoryFilter) {
-      const beforeCount = items.length
-      items = items.filter(item => categoryFilter!.has(item.categoryId))
-      console.log(`[Market History] Filtered to ${items.length} items (from ${beforeCount}) by categories: [${Array.from(categoryFilter).join(', ')}]`)
-      
-      // Log breakdown by category
-      const categoryBreakdown: Record<string, number> = {}
-      for (const item of items) {
-        categoryBreakdown[item.categoryName] = (categoryBreakdown[item.categoryName] || 0) + 1
-      }
-      console.log(`[Market History] Category breakdown: ${JSON.stringify(categoryBreakdown)}`)
+    // Standard modes: initial, daily, legacy, backfill
+    // These are typically triggered by cron jobs, so we use after() to process in background
+    // This allows us to return immediately and avoid cron-job.org's 30 second timeout
+    
+    // Validate chunk parameter early
+    if (chunk !== undefined && (chunk < 0 || chunk >= totalChunks)) {
+      return NextResponse.json(
+        { error: `Invalid chunk: ${chunk}. Must be between 0 and ${totalChunks - 1}` },
+        { status: 400 }
+      )
     }
 
-    // Apply limit if specified (for testing)
-    if (limit && limit > 0) {
-      items = items.slice(0, limit)
-      console.log(`[Market History] Limited to ${items.length} items`)
-    }
-
-    // Apply chunk filter if specified (for distributed cron jobs)
-    // Uses modulo-based assignment: each typeId deterministically maps to exactly one chunk
-    // This guarantees no duplicates and no misses regardless of source file order
-    if (chunk !== undefined) {
-      if (chunk < 0 || chunk >= totalChunks) {
-        return NextResponse.json(
-          { error: `Invalid chunk: ${chunk}. Must be between 0 and ${totalChunks - 1}` },
-          { status: 400 }
-        )
-      }
-      const beforeCount = items.length
-      items = items.filter(item => item.typeId % totalChunks === chunk)
-      console.log(`[Market History] Chunk ${chunk}/${totalChunks}: filtered to ${items.length} items (from ${beforeCount})`)
-    }
-
-    // Step 2: Calculate date filter based on mode
-    let fromDateStr: string
-    let toDateStr: string | undefined
+    // Build mode description for response
     let modeDescription: string
-
     switch (mode) {
       case 'initial':
-        // Fetch last N days (default 365)
-        fromDateStr = getDateStringDaysAgo(days)
-        toDateStr = undefined
         modeDescription = `initial (last ${days} days)`
         break
-      
       case 'backfill':
-        // Like initial but designed for manual chunked backfill
-        fromDateStr = getDateStringDaysAgo(days)
-        toDateStr = undefined
         modeDescription = `backfill (last ${days} days${chunk !== undefined ? `, chunk ${chunk}/${totalChunks}` : ''})`
         break
-      
       case 'daily':
-        // Fetch only yesterday's data
-        const yesterday = getYesterdayDateString()
-        fromDateStr = yesterday
-        toDateStr = yesterday
-        modeDescription = `daily (${yesterday} only${chunk !== undefined ? `, chunk ${chunk}/${totalChunks}` : ''})`
+        modeDescription = `daily (yesterday only${chunk !== undefined ? `, chunk ${chunk}/${totalChunks}` : ''})`
         break
-      
       case 'legacy':
       default:
-        // Original behavior: last 7 days
-        fromDateStr = getDateStringDaysAgo(DEFAULT_LEGACY_DAYS)
-        toDateStr = undefined
         modeDescription = `legacy (last ${DEFAULT_LEGACY_DAYS} days)`
         break
     }
 
-    console.log(`[Market History] Mode: ${modeDescription}, from: ${fromDateStr}${toDateStr ? `, to: ${toDateStr}` : ''}`)
-    if (saveCache) {
-      console.log(`[Market History] Cache saving enabled`)
+    // Build params for background processing
+    const backgroundParams: MarketHistoryParams = {
+      mode,
+      days,
+      regionId,
+      limit,
+      chunk,
+      totalChunks,
+      categoryFilter,
+      saveCache,
+      saveReport,
+      skipDb
     }
 
-    // Step 3: Fetch market history from ESI in batches
-    console.log(`[Market History] Fetching from ESI (${CONCURRENT_REQUESTS} concurrent)...`)
-    const { rows, results } = await processBatches(items, regionId, fromDateStr, toDateStr, saveCache)
+    // Schedule background processing using after()
+    // This runs AFTER the response is sent, allowing cron-job.org to close connection
+    after(async () => {
+      await processMarketHistoryBackground(backgroundParams)
+    })
 
-    const esiFetchTime = Date.now() - startTime
-    console.log(`[Market History] ESI fetch complete in ${esiFetchTime}ms`)
+    console.log(`[Market History] Background job scheduled - mode: ${mode}, region: ${regionId}, chunk: ${chunk ?? 'all'}/${totalChunks}`)
 
-    // Step 4: Save import report if requested
-    let report: ImportReport | null = null
-    if (saveReport) {
-      report = saveImportReport(results, mode, rows.length)
-    }
-
-    // Step 5: Upsert to Supabase unless skip_db is set
-    let inserted = 0
-    let supabaseErrors: string[] = []
-    let supabaseTime = 0
-
-    if (!skipDb && rows.length > 0) {
-      console.log(`[Market History] Upserting ${rows.length} rows to Supabase...`)
-      const supabaseStartTime = Date.now()
-      const upsertResult = await upsertToSupabase(rows)
-      inserted = upsertResult.inserted
-      supabaseErrors = upsertResult.errors
-      supabaseTime = Date.now() - supabaseStartTime
-    } else if (skipDb) {
-      console.log(`[Market History] Skipping database (skip_db=true)`)
-    }
-
-    // Step 6: Calculate stats
-    const successfulFetches = results.filter(r => r.success).length
-    const failedFetches = results.filter(r => !r.success)
-    const itemsWithData = results.filter(r => r.success && r.entries > 0).length
-    const totalTime = Date.now() - startTime
-
-    console.log(`[Market History] Complete! ${inserted} rows in ${totalTime}ms`)
-
+    // Return immediately with job info
+    // cron-job.org will receive this within seconds, avoiding the 30s timeout
     return NextResponse.json({
-      success: true,
-      mode: mode,
-      mode_description: modeDescription,
-      summary: {
-        total_items: items.length,
-        successful_fetches: successfulFetches,
-        failed_fetches: failedFetches.length,
-        items_with_market_data: itemsWithData,
-        total_rows: rows.length,
-        rows_inserted: inserted,
-        skip_db: skipDb
-      },
-      timing: {
-        esi_fetch_ms: esiFetchTime,
-        supabase_upsert_ms: supabaseTime,
-        total_ms: totalTime
-      },
-      config: {
+      status: 'started',
+      message: 'Processing in background. Check Vercel logs for progress.',
+      job: {
+        mode: mode,
+        mode_description: modeDescription,
         region_id: regionId,
-        concurrent_requests: CONCURRENT_REQUESTS,
-        date_from: fromDateStr,
-        date_to: toDateStr || 'today',
-        chunk: chunk !== undefined ? chunk : null,
-        total_chunks: chunk !== undefined ? totalChunks : null,
-        category_filter: categoryFilter ? Array.from(categoryFilter) : null
+        chunk: chunk ?? null,
+        total_chunks: totalChunks,
+        category_filter: categoryFilter ? Array.from(categoryFilter) : null,
+        days: mode === 'initial' || mode === 'backfill' ? days : undefined,
+        skip_db: skipDb,
+        save_cache: saveCache,
+        save_report: saveReport
       },
-      files: {
-        cache_saved: saveCache ? CACHE_FILE_PATH : null,
-        report_saved: saveReport ? REPORT_FILE_PATH : null
-      },
-      errors: {
-        esi_failures: failedFetches.slice(0, 10), // Show first 10 failures
-        supabase_errors: supabaseErrors
-      },
-      report_summary: report ? {
-        by_error: report.by_error,
-        items_with_data: report.items_with_data
-      } : null
+      note: 'Results will be logged. Check Vercel Function logs for "[Market History BG]" entries.'
     })
 
   } catch (error) {

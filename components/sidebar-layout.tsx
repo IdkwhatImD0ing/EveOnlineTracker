@@ -1,51 +1,22 @@
 "use client"
 
 import { Sidebar } from "@/components/sidebar"
+import { useSession } from "@/components/auth-gate"
 import { useState, useEffect, useCallback } from "react"
 import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
-
-interface CharacterInfo {
-  id: string
-  character_id: number
-  character_name: string
-  is_main: boolean
-}
-
-interface SessionData {
-  authenticated: boolean
-  user?: {
-    id: string
-    main_character_id: number
-    main_character_name: string
-    allowed: boolean
-  }
-  characters?: CharacterInfo[]
-}
 
 interface SidebarLayoutProps {
   children: React.ReactNode
 }
 
 export function SidebarLayout({ children }: SidebarLayoutProps) {
-  const [session, setSession] = useState<SessionData | null>(null)
+  const { session, refreshSession } = useSession()
   const [hydrated, setHydrated] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const fetchSession = useCallback(async () => {
-    try {
-      const response = await fetch("/api/auth/session")
-      const data: SessionData = await response.json()
-      setSession(data)
-    } catch (error) {
-      console.error("Failed to fetch session:", error)
-      setSession({ authenticated: false })
-    }
-  }, [])
-
   const handleLogout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST" })
-    setSession({ authenticated: false })
     window.location.href = "/"
   }, [])
 
@@ -56,8 +27,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   // Hydrate on client
   useEffect(() => {
     setHydrated(true)
-    fetchSession()
-  }, [fetchSession])
+  }, [])
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -72,7 +42,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   }, [mobileMenuOpen])
 
   // Show placeholder during SSR/hydration
-  if (!hydrated) {
+  if (!hydrated || !session?.user) {
     return (
       <div className="flex min-h-screen bg-background">
         <div className="hidden md:block w-64 border-r border-border/40 bg-card/50" />
@@ -81,7 +51,8 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
     )
   }
 
-  const mainCharacter = session?.characters?.find(c => c.is_main) || session?.characters?.[0]
+  const mainCharacter = session.characters?.find(c => c.is_main) || session.characters?.[0]
+  const role = session.user.role
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -112,9 +83,10 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
       <Sidebar
         mainCharacter={mainCharacter || null}
-        allCharacters={session?.characters || []}
-        onLogout={session?.authenticated ? handleLogout : undefined}
-        onCharacterChange={fetchSession}
+        allCharacters={session.characters || []}
+        role={role}
+        onLogout={handleLogout}
+        onCharacterChange={refreshSession}
         isMobileOpen={mobileMenuOpen}
         onMobileClose={handleMobileClose}
       />

@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, createContext, useContext } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, ExternalLink, Clock, ShieldCheck } from "lucide-react"
+import type { UserRole } from "@/types/auth"
 
 interface SessionData {
   authenticated: boolean
@@ -11,7 +12,7 @@ interface SessionData {
     id: string
     main_character_id: number
     main_character_name: string
-    allowed: boolean
+    role: UserRole
   }
   characters?: {
     id: string
@@ -21,13 +22,25 @@ interface SessionData {
   }[]
 }
 
+// Context to share session data with child components
+interface SessionContextValue {
+  session: SessionData | null
+  refreshSession: () => Promise<void>
+}
+
+const SessionContext = createContext<SessionContextValue | null>(null)
+
+export function useSession() {
+  const context = useContext(SessionContext)
+  if (!context) {
+    throw new Error('useSession must be used within an AuthGate')
+  }
+  return context
+}
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<SessionData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    checkSession()
-  }, [])
 
   const checkSession = async () => {
     try {
@@ -41,6 +54,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    checkSession()
+  }, [])
 
   // Show loading spinner while checking session
   if (isLoading) {
@@ -56,13 +73,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return <LoginScreen />
   }
 
-  // Authenticated but not allowed - show pending approval screen
-  if (!session.user.allowed) {
+  const { role } = session.user
+
+  // Public role - show pending approval screen (they need admin approval)
+  if (role === 'public') {
     return <PendingApprovalScreen characterName={session.user.main_character_name} />
   }
 
-  // Authenticated and allowed - show the app
-  return <>{children}</>
+  // All other roles (slyce, user, pro, admin) - allow through with session context
+  return (
+    <SessionContext.Provider value={{ session, refreshSession: checkSession }}>
+      {children}
+    </SessionContext.Provider>
+  )
 }
 
 function LoginScreen() {

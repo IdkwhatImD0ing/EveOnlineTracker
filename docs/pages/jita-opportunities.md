@@ -23,6 +23,26 @@ The Jita Opportunities page combines the two Jita-focused trading tools into a s
 - Runs a streaming analysis (SSE) over tradeable items.
 - Ranks opportunities by multi-signal score and weekly ISK potential.
 
+#### AI-Powered Analysis
+
+Select one or more items and click **"Analyze with AI"** to get a plain-English explanation of why the item is a good buy.
+
+**Features:**
+- Uses OpenAI GPT-5-mini with web search to find recent EVE Online news/patches
+- Explains market signals in simple terms (no finance jargon)
+- Streaming response - see the analysis appear in real-time
+- Session caching - analyses are cached so they won't regenerate if you click again
+
+**What the AI analyzes:**
+- **Cycle Signal**: Is the price at a predictable low point?
+- **Trend Signal**: Is the price recovering or still falling?
+- **Support Signal**: Has this price level held before?
+- **Volume Signal**: Are other traders buying at these prices?
+- **Recent News**: Any EVE patches or changes affecting the item?
+
+**Requirements:**
+- Set `OPENAI_API_KEY` environment variable with your OpenAI API key
+
 ## Deep Links
 
 The page supports selecting a tab via query string:

@@ -6,7 +6,10 @@ import { connection, type NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { refreshAccessToken } from '@/lib/eve-sso'
-import type { User, Character, Session, CharacterToken, EveJWTPayload } from '@/types/auth'
+import { config } from '@/lib/config'
+import type { User, Character, Session, CharacterToken, EveJWTPayload, UserRole } from '@/types/auth'
+
+const ESI_BASE = 'https://esi.evetech.net/latest'
 
 const SESSION_COOKIE_NAME = 'eve_session'
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30 // 30 days
@@ -256,6 +259,77 @@ export async function getAllCharacterTokens(userId: string): Promise<CharacterTo
 }
 
 /**
+ * Get alliance ID for a character from ESI
+ * Returns null if character has no alliance or on error
+ */
+async function getCharacterAllianceId(characterId: number): Promise<number | null> {
+  try {
+    // First get the character's corporation
+    const charResponse = await fetch(
+      `${ESI_BASE}/characters/${characterId}/`,
+      {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'EveIndustryTracker/1.0',
+        },
+      }
+    )
+
+    if (!charResponse.ok) {
+      console.error(`[Auth] Failed to fetch character info: ${charResponse.status}`)
+      return null
+    }
+
+    const charInfo = await charResponse.json()
+    const corporationId = charInfo.corporation_id
+
+    // Then get the corporation's alliance
+    const corpResponse = await fetch(
+      `${ESI_BASE}/corporations/${corporationId}/`,
+      {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'EveIndustryTracker/1.0',
+        },
+      }
+    )
+
+    if (!corpResponse.ok) {
+      console.error(`[Auth] Failed to fetch corporation info: ${corpResponse.status}`)
+      return null
+    }
+
+    const corpInfo = await corpResponse.json()
+    return corpInfo.alliance_id || null
+  } catch (error) {
+    console.error('[Auth] Error fetching alliance info:', error)
+    return null
+  }
+}
+
+/**
+ * Determine the role for a new user based on alliance membership
+ */
+async function determineNewUserRole(characterId: number): Promise<UserRole> {
+  const slyceAllianceId = config.slyceAllianceId
+
+  // If Slyce alliance ID is not configured, default to public
+  if (!slyceAllianceId) {
+    console.warn('[Auth] SLYCE_ALLIANCE_ID not configured, defaulting to public role')
+    return 'public'
+  }
+
+  const allianceId = await getCharacterAllianceId(characterId)
+
+  if (allianceId === slyceAllianceId) {
+    console.log(`[Auth] Character ${characterId} is in Slyce alliance, auto-approving`)
+    return 'slyce'
+  }
+
+  return 'public'
+}
+
+/**
  * Find or create a user based on character login
  * Returns the user and whether they are new
  */
@@ -294,13 +368,16 @@ export async function findOrCreateUser(
     }
   }
 
+  // Determine role for new user based on alliance membership
+  const role = await determineNewUserRole(characterId)
+
   // Create new user with this character as main
   const { data: newUser, error: userError } = await supabase
     .from('users')
     .insert({
       main_character_id: characterId,
       main_character_name: characterName,
-      allowed: false, // New users start as not allowed
+      role: role,
     })
     .select()
     .single()
@@ -479,7 +556,7 @@ export interface SessionWithCharacters {
 
 /**
  * Get session with all characters - convenience method for API routes
- * Returns null if not authenticated or not allowed
+ * Returns null if not authenticated
  * 
  * @param request - Optional NextRequest to check Authorization header for server-to-server auth
  */
@@ -525,5 +602,17 @@ export async function getValidAccessToken(characterId?: number, request?: NextRe
     console.error('[Auth] Failed to get valid access token:', error)
     return null
   }
+}
+
+/**
+ * Check if a user has access to protected routes
+ * Currently all routes are admin-only
+ * 
+ * @param user - User object from session
+ * @returns true if user has access
+ */
+export function hasRouteAccess(user: User): boolean {
+  // Currently all routes are admin-only
+  return user.role === 'admin'
 }
 

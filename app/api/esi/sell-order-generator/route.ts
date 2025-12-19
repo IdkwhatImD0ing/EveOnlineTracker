@@ -4,6 +4,7 @@ import { calculateUndercutPrice, formatPriceForEve, formatISK } from '@/lib/mark
 import { getNoCompetitionMarkup } from '@/lib/market-seeder'
 import { REGION_IDS, DEFAULT_HUB_FACTOR, DEFAULT_VOLUME_REGION_ID, VOLUME_REGIONS, type RegionId } from '@/types/market-seeder'
 import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 import type { CharacterToken } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net/latest'
@@ -270,11 +271,17 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!session.user.allowed) {
+  if (session.user.role !== 'admin') {
     return NextResponse.json(
       { error: 'Account pending approval' },
       { status: 403 }
     )
+  }
+
+  // Rate limiting
+  const rateLimitResult = await checkRateLimit(session.user_id)
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult)
   }
 
   const searchParams = request.nextUrl.searchParams

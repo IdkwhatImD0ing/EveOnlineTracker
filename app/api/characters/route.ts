@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthenticatedUser, removeCharacter } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * GET /api/characters
@@ -17,11 +18,17 @@ export async function GET() {
             )
         }
 
-        if (!session.user.allowed) {
+        if (session.user.role === 'public') {
             return NextResponse.json(
                 { error: 'Account pending approval' },
                 { status: 403 }
             )
+        }
+
+        // Rate limiting
+        const rateLimitResult = await checkRateLimit(session.user_id)
+        if (!rateLimitResult.success) {
+            return createRateLimitResponse(rateLimitResult)
         }
 
         return NextResponse.json({
@@ -59,11 +66,17 @@ export async function DELETE(request: Request) {
             )
         }
 
-        if (!session.user.allowed) {
+        if (session.user.role === 'public') {
             return NextResponse.json(
                 { error: 'Account pending approval' },
                 { status: 403 }
             )
+        }
+
+        // Rate limiting
+        const rateLimitResult = await checkRateLimit(session.user_id)
+        if (!rateLimitResult.success) {
+            return createRateLimitResponse(rateLimitResult)
         }
 
         const body = await request.json()

@@ -466,7 +466,7 @@ A utility for obtaining OAuth refresh tokens to use in external scripts or cron 
 
 1. **Register an EVE Developer Application** at [developers.eveonline.com](https://developers.eveonline.com/applications)
    - For development: Set the callback URL to `http://localhost:3000/callback`
-   - For production: Set the callback URL to `https://eve.art3m1s.me/callback`
+   - For production: Set the callback URL to `https://www.eveonlinetracker.com/callback`
    - Note your Client ID and Secret
 
 2. **Configure environment variables** in `.env.local`:
@@ -475,7 +475,7 @@ A utility for obtaining OAuth refresh tokens to use in external scripts or cron 
    EVE_CLIENT_SECRET=your_client_secret
    ```
    
-   > Note: The callback URL is auto-detected. Locally it uses `localhost:3000`, on Vercel production it uses `eve.art3m1s.me`.
+   > Note: The callback URL is auto-detected. Locally it uses `localhost:3000`, on Vercel production it uses `www.eveonlinetracker.com`.
 
 3. **Get your tokens:**
    - Click "Login with EVE SSO" on the login page

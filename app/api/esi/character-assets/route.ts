@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as fs from 'fs'
 import * as path from 'path'
 import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 import type { CharacterToken } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net/latest'
@@ -135,11 +136,17 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!session.user.allowed) {
+  if (!['user', 'pro', 'admin'].includes(session.user.role)) {
     return NextResponse.json(
       { error: 'Account pending approval' },
       { status: 403 }
     )
+  }
+
+  // Rate limiting
+  const rateLimitResult = await checkRateLimit(session.user_id)
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult)
   }
 
   const searchParams = request.nextUrl.searchParams
