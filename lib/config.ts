@@ -15,7 +15,7 @@ const isProd = isVercel && vercelEnv === 'production'
 const isDev = !isVercel
 
 // Production URL for the app
-const PROD_URL = 'https://eve.art3m1s.me'
+const PROD_URL = 'https://www.eveonlinetracker.com'
 const DEV_URL = 'http://localhost:3000'
 
 // Slyce alliance ID for auto-approval
