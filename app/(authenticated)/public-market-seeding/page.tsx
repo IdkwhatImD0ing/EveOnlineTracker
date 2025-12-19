@@ -25,7 +25,13 @@ import {
   XCircle,
   Search,
   Filter,
-  ArrowUpDown
+  ArrowUpDown,
+  ShoppingCart,
+  Copy,
+  Check,
+  X,
+  CheckSquare,
+  Square
 } from "lucide-react"
 
 interface LimitingItem {
@@ -44,6 +50,7 @@ interface FitAvailability {
   available_count: number
   status: 'green' | 'orange' | 'red'
   limiting_items: LimitingItem[]
+  all_items: LimitingItem[]
   total_items: number
   items_in_stock: number
 }
@@ -58,6 +65,7 @@ interface FitsAvailabilityResponse {
 
 type StatusFilter = 'all' | 'green' | 'orange' | 'red'
 type SortOption = 'availability-asc' | 'availability-desc' | 'ship-asc' | 'ship-desc' | 'fit-asc' | 'stock-pct'
+type TargetCount = 5 | 20
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'availability-asc', label: 'Availability (Low → High)' },
@@ -79,6 +87,12 @@ export default function PublicMarketSeedingPage() {
   const [shipTypeFilter, setShipTypeFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('availability-asc')
+
+  // Selection state for material calculator
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [selectedFits, setSelectedFits] = useState<Set<string>>(new Set())
+  const [targetCount, setTargetCount] = useState<TargetCount>(5)
+  const [copiedToClipboard, setCopiedToClipboard] = useState(false)
 
   const fetchAvailability = useCallback(async () => {
     setIsLoading(true)
@@ -230,6 +244,99 @@ export default function PublicMarketSeedingPage() {
 
   const hasActiveFilters = statusFilter !== 'all' || shipTypeFilter !== 'all' || searchQuery.trim() !== ''
 
+  // Selection handlers
+  const toggleFitSelection = (fitId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation()
+    }
+    setSelectedFits(prev => {
+      const next = new Set(prev)
+      if (next.has(fitId)) {
+        next.delete(fitId)
+      } else {
+        next.add(fitId)
+      }
+      return next
+    })
+  }
+
+  const selectAllVisible = () => {
+    setSelectedFits(new Set(filteredAndSortedFits.map(f => f.id)))
+  }
+
+  const deselectAll = () => {
+    setSelectedFits(new Set())
+  }
+
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false)
+    setSelectedFits(new Set())
+  }
+
+  // Calculate missing materials for selected fits
+  const missingMaterials = useMemo(() => {
+    if (!data || selectedFits.size === 0) return []
+
+    // Aggregate all items from selected fits
+    const aggregated: Record<number, { name: string; required: number; available: number }> = {}
+
+    for (const fitId of selectedFits) {
+      const fit = data.fits.find(f => f.id === fitId)
+      if (!fit) continue
+
+      for (const item of fit.all_items) {
+        if (!aggregated[item.type_id]) {
+          aggregated[item.type_id] = {
+            name: item.name,
+            required: 0,
+            available: item.available // Available is same across fits (market stock)
+          }
+        }
+        // Add required quantity for this fit
+        aggregated[item.type_id].required += item.required
+      }
+    }
+
+    // Calculate missing for target count
+    const missing: { type_id: number; name: string; quantity: number }[] = []
+
+    for (const [typeIdStr, data] of Object.entries(aggregated)) {
+      const typeId = parseInt(typeIdStr)
+      const totalNeeded = data.required * targetCount
+      const shortage = Math.max(0, totalNeeded - data.available)
+      
+      if (shortage > 0) {
+        missing.push({
+          type_id: typeId,
+          name: data.name,
+          quantity: shortage
+        })
+      }
+    }
+
+    // Sort by quantity descending
+    missing.sort((a, b) => b.quantity - a.quantity)
+
+    return missing
+  }, [data, selectedFits, targetCount])
+
+  // Generate multibuy format string
+  const multibuyText = useMemo(() => {
+    return missingMaterials
+      .map(item => `${item.name} ${item.quantity}`)
+      .join('\n')
+  }, [missingMaterials])
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(multibuyText)
+      setCopiedToClipboard(true)
+      setTimeout(() => setCopiedToClipboard(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -246,15 +353,36 @@ export default function PublicMarketSeedingPage() {
             Alliance fit stock levels at 3T7-M8 Keepstar • Minimum 5 fits required
           </p>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={fetchAvailability}
-          disabled={isLoading}
-          className="shrink-0"
-        >
-          <RefreshCw className={`size-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          {!isSelectionMode ? (
+            <Button 
+              variant="outline" 
+              onClick={() => setIsSelectionMode(true)}
+              disabled={isLoading || !data || data.fits.length === 0}
+              className="border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-400"
+            >
+              <ShoppingCart className="size-4 mr-2" />
+              Buy Materials
+            </Button>
+          ) : (
+            <Button 
+              variant="outline" 
+              onClick={exitSelectionMode}
+              className="border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+            >
+              <X className="size-4 mr-2" />
+              Cancel
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            onClick={fetchAvailability}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`size-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -463,20 +591,66 @@ export default function PublicMarketSeedingPage() {
                 Showing {filteredAndSortedFits.length} of {data.fits.length} fits
               </div>
 
+              {/* Selection mode controls */}
+              {isSelectionMode && (
+                <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="size-4 text-cyan-400" />
+                    <span className="text-sm font-medium text-cyan-400">Select fits to buy materials for</span>
+                  </div>
+                  <div className="flex gap-2 ml-auto">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={selectAllVisible}
+                      className="text-xs"
+                    >
+                      <CheckSquare className="size-3 mr-1.5" />
+                      Select All ({filteredAndSortedFits.length})
+                    </Button>
+                    {selectedFits.size > 0 && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={deselectAll}
+                        className="text-xs"
+                      >
+                        <Square className="size-3 mr-1.5" />
+                        Deselect All
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Grid of compact cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {filteredAndSortedFits.map(fit => {
                   const isExpanded = expandedFits.has(fit.id)
+                  const isSelected = selectedFits.has(fit.id)
                   return (
                     <button
                       key={fit.id}
-                      onClick={() => toggleExpanded(fit.id)}
+                      onClick={() => isSelectionMode ? toggleFitSelection(fit.id) : toggleExpanded(fit.id)}
                       className={`relative flex flex-col items-center p-3 rounded-lg border-2 ${
-                        fit.status === 'green' ? 'border-emerald-500/40 hover:border-emerald-500/60' :
-                        fit.status === 'orange' ? 'border-amber-500/40 hover:border-amber-500/60' :
-                        'border-red-500/40 hover:border-red-500/60'
+                        isSelectionMode && isSelected 
+                          ? 'border-cyan-500 bg-cyan-500/20 hover:bg-cyan-500/30' 
+                          : fit.status === 'green' ? 'border-emerald-500/40 hover:border-emerald-500/60' :
+                            fit.status === 'orange' ? 'border-amber-500/40 hover:border-amber-500/60' :
+                            'border-red-500/40 hover:border-red-500/60'
                       } bg-zinc-800/50 hover:bg-zinc-800/80 transition-all text-center group`}
                     >
+                      {/* Selection checkbox */}
+                      {isSelectionMode && (
+                        <div className={`absolute top-1.5 left-1.5 p-0.5 rounded ${isSelected ? 'text-cyan-400' : 'text-muted-foreground'}`}>
+                          {isSelected ? (
+                            <CheckSquare className="size-5" />
+                          ) : (
+                            <Square className="size-5" />
+                          )}
+                        </div>
+                      )}
+                      
                       <img
                         src={`https://images.evetech.net/types/${fit.ship_type_id}/icon?size=64`}
                         alt={fit.ship_name}
@@ -486,14 +660,16 @@ export default function PublicMarketSeedingPage() {
                       <div className="text-xs text-cyan-400 truncate w-full mb-2">{fit.fit_name}</div>
                       {getStatusBadge(fit.status, fit.available_count)}
                       
-                      {/* Expand indicator */}
-                      <div className={`absolute top-1.5 right-1.5 p-0.5 rounded transition-colors ${isExpanded ? 'bg-zinc-600' : 'opacity-0 group-hover:opacity-100'}`}>
-                        {isExpanded ? (
-                          <ChevronUp className="size-3 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="size-3 text-muted-foreground" />
-                        )}
-                      </div>
+                      {/* Expand indicator - hide in selection mode */}
+                      {!isSelectionMode && (
+                        <div className={`absolute top-1.5 right-1.5 p-0.5 rounded transition-colors ${isExpanded ? 'bg-zinc-600' : 'opacity-0 group-hover:opacity-100'}`}>
+                          {isExpanded ? (
+                            <ChevronUp className="size-3 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="size-3 text-muted-foreground" />
+                          )}
+                        </div>
+                      )}
                     </button>
                   )
                 })}
@@ -602,6 +778,108 @@ export default function PublicMarketSeedingPage() {
                   </div>
                 )
               })}
+
+              {/* Materials Summary Panel - shown when fits are selected */}
+              {isSelectionMode && selectedFits.size > 0 && (
+                <Card className="border-cyan-500/50 bg-gradient-to-br from-cyan-500/10 to-blue-500/10">
+                  <CardHeader className="pb-3">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-cyan-500/20 border border-cyan-500/30">
+                          <ShoppingCart className="size-5 text-cyan-400" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Missing Materials</CardTitle>
+                          <CardDescription>
+                            {selectedFits.size} fit{selectedFits.size > 1 ? 's' : ''} selected • Target: {targetCount} of each
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {/* Target selector */}
+                        <div className="flex items-center gap-2 bg-zinc-800/50 rounded-lg p-1">
+                          <Button
+                            variant={targetCount === 5 ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => setTargetCount(5)}
+                            className={targetCount === 5 ? "bg-cyan-500 hover:bg-cyan-600" : ""}
+                          >
+                            5 Fits
+                          </Button>
+                          <Button
+                            variant={targetCount === 20 ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => setTargetCount(20)}
+                            className={targetCount === 20 ? "bg-cyan-500 hover:bg-cyan-600" : ""}
+                          >
+                            20 Fits
+                          </Button>
+                        </div>
+                        {/* Copy button */}
+                        <Button
+                          onClick={copyToClipboard}
+                          disabled={missingMaterials.length === 0}
+                          className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+                        >
+                          {copiedToClipboard ? (
+                            <>
+                              <Check className="size-4 mr-2" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="size-4 mr-2" />
+                              Copy for Multibuy
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {missingMaterials.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CheckCircle2 className="size-12 mx-auto mb-3 text-emerald-400" />
+                        <p className="font-medium text-emerald-400">All materials in stock!</p>
+                        <p className="text-sm mt-1">
+                          You have enough materials for {targetCount} of each selected fit
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            {missingMaterials.length} item{missingMaterials.length > 1 ? 's' : ''} needed
+                          </span>
+                          <span className="text-muted-foreground">
+                            Total units: {missingMaterials.reduce((sum, m) => sum + m.quantity, 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto pr-2">
+                          {missingMaterials.map((item, idx) => (
+                            <div
+                              key={`${item.type_id}-${idx}`}
+                              className="flex items-center gap-3 py-2 px-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50"
+                            >
+                              <img
+                                src={`https://images.evetech.net/types/${item.type_id}/icon?size=32`}
+                                alt={item.name}
+                                className="size-8 rounded shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium truncate">{item.name}</div>
+                                <div className="text-xs text-red-400">
+                                  Need: {item.quantity.toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </CardContent>
