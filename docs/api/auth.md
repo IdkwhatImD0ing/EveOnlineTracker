@@ -392,6 +392,7 @@ Available roles: `public`, `slyce`, `user`, `pro`, `admin`
 
 - `lib/auth.ts` - Auth utilities and session management
 - `lib/eve-sso.ts` - SSO helper functions
+- `lib/esi-scopes.ts` - ESI scope definitions (MINIMAL_ESI_SCOPES, FULL_ESI_SCOPES)
 - `types/auth.ts` - TypeScript types
 - `app/api/auth/eve/login/route.ts` - Login route (minimal scopes)
 - `app/api/auth/eve/add-alt/route.ts` - Add alt route (minimal scopes)

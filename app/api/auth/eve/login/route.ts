@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { generateState, getAuthorizationUrl } from '@/lib/eve-sso'
 import { config } from '@/lib/config'
+import { MINIMAL_ESI_SCOPES } from '@/lib/esi-scopes'
 
 export async function GET() {
   const clientId = process.env.EVE_CLIENT_ID
@@ -29,13 +30,7 @@ export async function GET() {
 
   // Build authorization URL with minimal scopes for initial login
   // Users can request full access later via /api/auth/eve/request-full-access
-  const scopes: string[] = [
-    'publicData',
-    'esi-search.search_structures.v1',
-    'esi-universe.read_structures.v1',
-    'esi-markets.structure_markets.v1',
-  ]
-  const authUrl = getAuthorizationUrl(clientId, callbackUrl, state, scopes)
+  const authUrl = getAuthorizationUrl(clientId, callbackUrl, state, MINIMAL_ESI_SCOPES)
 
   // Redirect to EVE SSO
   return NextResponse.redirect(authUrl)

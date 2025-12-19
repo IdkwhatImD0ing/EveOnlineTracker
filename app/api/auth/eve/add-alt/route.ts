@@ -4,6 +4,7 @@ import { generateState, getAuthorizationUrl } from '@/lib/eve-sso'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 import { config } from '@/lib/config'
+import { MINIMAL_ESI_SCOPES } from '@/lib/esi-scopes'
 
 /**
  * GET /api/auth/eve/add-alt
@@ -59,14 +60,7 @@ export async function GET() {
 
     // Build authorization URL with minimal scopes
     // Alt characters can request full access separately via /api/auth/eve/request-full-access
-    const scopes: string[] = [
-        'publicData',
-        'esi-search.search_structures.v1',
-        'esi-universe.read_structures.v1',
-        'esi-markets.structure_markets.v1',
-    ]
-
-    const authUrl = getAuthorizationUrl(clientId, callbackUrl, state, scopes)
+    const authUrl = getAuthorizationUrl(clientId, callbackUrl, state, MINIMAL_ESI_SCOPES)
 
     // Redirect to EVE SSO
     return NextResponse.redirect(authUrl)
