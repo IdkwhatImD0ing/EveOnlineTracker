@@ -19,6 +19,7 @@ import {
   Trash2,
   Users,
   Shield,
+  KeySquare,
 } from "lucide-react"
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
@@ -167,6 +168,10 @@ export function Sidebar({
     window.location.href = "/api/auth/eve/add-alt"
   }
 
+  const handleRequestFullAccess = () => {
+    window.location.href = "/api/auth/eve/request-full-access"
+  }
+
   const handleSetMain = async (characterId: number) => {
     try {
       const response = await fetch(`/api/characters/${characterId}/main`, {
@@ -295,6 +300,10 @@ export function Sidebar({
             <DropdownMenuItem onClick={handleAddAlt} className="gap-2">
               <UserPlus className="size-4" />
               Add Alt Character
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleRequestFullAccess} className="gap-2">
+              <KeySquare className="size-4" />
+              Request Full Access
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

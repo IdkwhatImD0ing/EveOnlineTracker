@@ -8,6 +8,7 @@ import {
   setSessionCookie,
   getSessionUserId,
 } from '@/lib/auth'
+import { createClient } from '@/utils/supabase/server'
 
 export async function POST(request: NextRequest) {
   const clientId = process.env.EVE_CLIENT_ID
@@ -63,8 +64,58 @@ export async function POST(request: NextRequest) {
 
     const { characterId, characterName } = characterInfo
     const isAddAlt = mode === 'add_alt'
+    const isFullAccess = mode === 'full_access'
 
-    if (isAddAlt) {
+    if (isFullAccess) {
+      // Upgrading to full access - update existing character's tokens
+      const currentUserId = await getSessionUserId()
+      if (!currentUserId) {
+        return NextResponse.json(
+          { error: 'Must be logged in to request full access' },
+          { status: 401 }
+        )
+      }
+
+      try {
+        const supabase = await createClient()
+        const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
+
+        // Update the character's tokens
+        const { data: character, error } = await supabase
+          .from('characters')
+          .update({
+            refresh_token: tokens.refresh_token,
+            access_token: tokens.access_token,
+            token_expires_at: expiresAt.toISOString(),
+            character_name: characterName, // Update in case name changed
+          })
+          .eq('character_id', characterId)
+          .eq('user_id', currentUserId)
+          .select()
+          .single()
+
+        if (error || !character) {
+          return NextResponse.json(
+            { error: 'Character not found or does not belong to this user' },
+            { status: 400 }
+          )
+        }
+
+        return NextResponse.json({
+          success: true,
+          mode: 'full_access',
+          character: {
+            character_id: character.character_id,
+            character_name: character.character_name,
+          },
+        })
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Failed to upgrade access' },
+          { status: 400 }
+        )
+      }
+    } else if (isAddAlt) {
       // Adding an alt to existing user
       const currentUserId = await getSessionUserId()
       if (!currentUserId) {

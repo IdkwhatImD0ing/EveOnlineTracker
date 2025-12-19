@@ -12,6 +12,39 @@ Access is controlled via a `role` field in the database. New users are automatic
 
 Administrators can promote users to `user`, `pro`, or `admin` roles via the Admin Dashboard.
 
+## Two-Tier ESI Scope System
+
+The application uses a two-tier scope system to minimize the permissions requested during initial login:
+
+### Minimal Scopes (Initial Login)
+
+When users first log in, only these 4 scopes are requested:
+
+| Scope | Purpose |
+|-------|---------|
+| `publicData` | Basic public character data |
+| `esi-search.search_structures.v1` | Search for structures by name |
+| `esi-universe.read_structures.v1` | Get structure details |
+| `esi-markets.structure_markets.v1` | Access structure market orders |
+
+This allows users to:
+- View structure market orders
+- Search for structures
+- Access public market data
+
+### Full Access Scopes
+
+Users who need advanced features can request full access via the sidebar menu. This grants 60+ additional scopes including:
+
+- Character market orders (undercut checking)
+- Wallet balance
+- Assets viewing
+- Industry jobs
+- In-game UI window opening
+- And many more...
+
+**How to upgrade:** Click your character portrait in the sidebar → "Request Full Access"
+
 ## User Roles
 
 | Role | Description | Auto-assigned | App Access |
@@ -99,7 +132,27 @@ Initiates the EVE SSO authentication flow to add an alt character.
 **Flow:**
 1. Verifies user is authenticated
 2. Generates state with `add_alt` marker
-3. Redirects to EVE SSO
+3. Redirects to EVE SSO with minimal scopes
+
+**Note:** Alt characters are added with minimal scopes. Use "Request Full Access" from the sidebar to upgrade permissions.
+
+---
+
+### GET /api/auth/eve/request-full-access
+
+Initiates the EVE SSO authentication flow to upgrade a character's permissions to full ESI scopes.
+
+**Authentication:** Requires active session (user must be logged in)
+
+**Response:** 302 Redirect to EVE SSO authorization page
+
+**Flow:**
+1. Verifies user is authenticated
+2. Generates state with `full_access` marker
+3. Redirects to EVE SSO with all 60+ scopes
+4. On callback, updates the existing character's tokens
+
+**Use Case:** Users who initially logged in with minimal scopes can upgrade to access advanced features like character orders, wallet, assets, etc.
 
 ---
 
@@ -141,9 +194,22 @@ Exchanges the authorization code for tokens and creates/updates user.
 }
 ```
 
+**Success Response (Full Access):**
+```json
+{
+  "success": true,
+  "mode": "full_access",
+  "character": {
+    "character_id": 12345678,
+    "character_name": "Character Name"
+  }
+}
+```
+
 **Behavior:**
 - For login: Creates user if new, updates tokens if existing
 - For add_alt: Links character to current user's account
+- For full_access: Updates existing character's tokens with new scopes
 - Sets session cookie on successful login
 
 ---
@@ -327,10 +393,12 @@ Available roles: `public`, `slyce`, `user`, `pro`, `admin`
 - `lib/auth.ts` - Auth utilities and session management
 - `lib/eve-sso.ts` - SSO helper functions
 - `types/auth.ts` - TypeScript types
-- `app/api/auth/eve/login/route.ts` - Login route
-- `app/api/auth/eve/add-alt/route.ts` - Add alt route
-- `app/api/auth/eve/callback/route.ts` - Callback route
+- `app/api/auth/eve/login/route.ts` - Login route (minimal scopes)
+- `app/api/auth/eve/add-alt/route.ts` - Add alt route (minimal scopes)
+- `app/api/auth/eve/request-full-access/route.ts` - Upgrade to full scopes
+- `app/api/auth/eve/callback/route.ts` - Callback route (handles login, add_alt, full_access modes)
 - `app/api/auth/session/route.ts` - Session route
 - `app/api/auth/logout/route.ts` - Logout route
 - `app/api/characters/route.ts` - Character management
 - `components/auth-gate.tsx` - Auth gate component
+- `components/sidebar.tsx` - Sidebar with "Request Full Access" menu item
