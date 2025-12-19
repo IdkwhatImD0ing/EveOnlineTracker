@@ -117,7 +117,7 @@ When a new user registers:
 ```env
 # Slyce alliance ID for auto-approval
 # Find via ESI or zkillboard
-SLYCE_ALLIANCE_ID=99001090
+SLYCE_ALLIANCE_ID=1042504553
 ```
 
 ## Related Files
