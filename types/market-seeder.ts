@@ -99,6 +99,13 @@ export interface DepletionPrediction {
   
   // Priority score for ranking
   priorityScore: number             // Higher = more urgent to restock
+  
+  // User ownership - used for "Hide Owned Items" filter
+  userHasInInventory?: boolean      // True if any linked character has this item in their hangar
+  userHasSellOrder?: boolean        // True if any linked character has an active sell order for this item
+  
+  // Competition - true if other sellers have orders for this item
+  hasCompetition?: boolean          // True if total structure stock > user's sell order volume
 }
 
 /**

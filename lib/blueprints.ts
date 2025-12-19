@@ -150,11 +150,13 @@ export function canBeBuilt(typeId: number): boolean {
 
 /**
  * Calculate adjusted material quantity with ME bonus
- * Formula: max(runs, ceil(round(baseQuantity * runs * (1 - totalMe), 2)))
+ * Formula: max(runs, ceil(round(baseQuantity × runs × combinedFactor, 2)))
  * 
- * EVE Online applies ME to the TOTAL materials needed, not per-run.
- * This means batch production is more efficient than individual jobs.
+ * EVE Online uses MULTIPLICATIVE ME stacking (not additive) and applies
+ * ME to the TOTAL materials needed, then rounds per-job (not per-run).
  * The minimum is the number of runs (at least 1 of each material per run).
+ * 
+ * EVE uses 2 decimal precision before ceiling to avoid floating-point edge cases.
  */
 export function calculateMaterialQuantity(
   baseQuantity: number,
@@ -164,15 +166,16 @@ export function calculateMaterialQuantity(
   rigMeBonus: number,
   securityMultiplier: number = 1.0
 ): number {
-  // Total ME reduction (blueprint ME + structure + rig * security)
-  const totalMeReduction = (blueprintMe / 100) + structureMeBonus + (rigMeBonus * securityMultiplier)
+  // Multiplicative ME stacking (how EVE Online calculates)
+  const blueprintFactor = 1 - (blueprintMe / 100)
+  const structureFactor = 1 - structureMeBonus
+  const rigFactor = 1 - (rigMeBonus * securityMultiplier)
+  const combinedFactor = blueprintFactor * structureFactor * rigFactor
   
-  // EVE Online calculates ME per-run first, then multiplies by runs
-  // Formula: max(1, ceil(baseQuantity * (1 - totalME))) * runs
-  const perRunRaw = baseQuantity * (1 - totalMeReduction)
-  const perRunAdjusted = Math.max(1, Math.ceil(perRunRaw))
-  
-  return perRunAdjusted * runs
+  // Per-job rounding with 2 decimal precision (matches EVE behavior)
+  const totalRaw = baseQuantity * runs * combinedFactor
+  const rounded = Math.round(totalRaw * 100) / 100
+  return Math.max(runs, Math.ceil(rounded))
 }
 
 /**
@@ -248,6 +251,10 @@ export function getSecurityMultiplier(securityType: keyof typeof structures.secu
  * 
  * settings.quantity = number of BPCs
  * settings.runs = runs per BPC
+ * 
+ * Note: We calculate for ONE BPC first, then multiply component needs by
+ * numberOfBpcs to get total component runs, then calculate materials for
+ * that total. This ensures proper batch efficiency in ME calculations.
  */
 export function calculateRecursiveBuild(
   blueprintTypeId: number,
@@ -396,59 +403,16 @@ export function calculateRecursiveBuild(
     })
   }
   
-  // Start recursive calculation for ONE BPC
+  // Calculate for all runs at once (quantity × runs per BPC)
+  // This ensures proper batch efficiency in ME calculations for ALL materials
+  const totalRuns = runsPerBpc * numberOfBpcs
   processBlueprintRecursive(
     blueprint, 
-    runsPerBpc, 
+    totalRuns, 
     true, 
     settings.blueprintMe, 
     settings.blueprintTe
   )
-  
-  // Multiply all raw materials by number of BPCs
-  if (numberOfBpcs > 1) {
-    for (const mat of rawMaterials.values()) {
-      mat.baseQuantity *= numberOfBpcs
-      mat.adjustedQuantity *= numberOfBpcs
-      mat.volume *= numberOfBpcs
-    }
-    
-    // Multiply excess materials by number of BPCs
-    for (const [typeId, qty] of excessTracker.entries()) {
-      excessTracker.set(typeId, qty * numberOfBpcs)
-    }
-    
-    // Multiply build step quantities for top-level step
-    const topLevelStep = buildSteps.find(s => s.blueprintTypeId === blueprint.blueprintTypeId)
-    if (topLevelStep) {
-      topLevelStep.runs *= numberOfBpcs
-      topLevelStep.producedQuantity *= numberOfBpcs
-      topLevelStep.excessQuantity *= numberOfBpcs
-      topLevelStep.time *= numberOfBpcs
-      topLevelStep.jobCost *= numberOfBpcs
-      for (const mat of topLevelStep.materials) {
-        mat.baseQuantity *= numberOfBpcs
-        mat.adjustedQuantity *= numberOfBpcs
-        mat.volume *= numberOfBpcs
-      }
-    }
-    
-    // Multiply component build steps by number of BPCs
-    for (const step of buildSteps) {
-      if (step.blueprintTypeId !== blueprint.blueprintTypeId) {
-        step.runs *= numberOfBpcs
-        step.producedQuantity *= numberOfBpcs
-        step.excessQuantity *= numberOfBpcs
-        step.time *= numberOfBpcs
-        step.jobCost *= numberOfBpcs
-        for (const mat of step.materials) {
-          mat.baseQuantity *= numberOfBpcs
-          mat.adjustedQuantity *= numberOfBpcs
-          mat.volume *= numberOfBpcs
-        }
-      }
-    }
-  }
   
   // Convert excess tracker to array
   const excessMaterials = Array.from(excessTracker.entries())

@@ -491,7 +491,7 @@ export default function Dashboard() {
             <h2 className="text-lg md:text-xl font-semibold">Features</h2>
             <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {features.map((feature) => (
-                <Link key={feature.href} href={feature.href}>
+                <Link key={feature.title} href={feature.href}>
                   <Card className="h-full transition-all hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30 cursor-pointer group active:scale-[0.98]">
                     <CardContent className="flex items-start gap-3 md:gap-4 p-4 md:p-6">
                       <div

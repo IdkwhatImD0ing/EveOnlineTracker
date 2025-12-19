@@ -1,10 +1,10 @@
 /**
  * Setup script to create cron jobs on cron-job.org
  * 
- * This script provisions 48 cron jobs for market history updates:
+ * This script provisions 52 cron jobs for market history updates:
  * - 20 jobs for The Forge (Jita) - region 10000002
  * - 20 jobs for Vale of the Silent - region 10000003
- * - 8 jobs for Deklein - region 10000035
+ * - 12 jobs for Deklein - region 10000035
  * 
  * Run with: npx tsx scripts/setup-cron-jobs.ts
  * 
@@ -115,12 +115,12 @@ function generateJobDefinitions(): JobDefinition[] {
     })
   }
 
-  // Deklein - 8 jobs, chunks 0-7, minute :40, every 3 hours
-  const dekleinHours = [0, 3, 6, 9, 12, 15, 18, 21]
-  for (let i = 0; i < 8; i++) {
+  // Deklein - 12 jobs, chunks 0-11, minute :40, every 2 hours
+  const dekleinHours = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]
+  for (let i = 0; i < 12; i++) {
     jobs.push({
-      title: `Market History - Deklein - Chunk ${i}/8`,
-      path: `/api/esi/market-history?mode=daily&region_id=10000035&chunk=${i}&total_chunks=8`,
+      title: `Market History - Deklein - Chunk ${i}/12`,
+      path: `/api/esi/market-history?mode=daily&region_id=10000035&chunk=${i}&total_chunks=12`,
       hour: dekleinHours[i],
       minute: 40,
     })

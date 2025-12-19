@@ -24,6 +24,7 @@ import {
 } from "@/types/market-seeder"
 import { type ProfitAnalysis } from "@/components/market-seeder/results-table"
 import { type FilterState, DEFAULT_FILTERS } from "@/components/market-seeder/filter-sidebar"
+import { type DepletionFilterState, DEFAULT_DEPLETION_FILTERS } from "@/components/market-seeder/depletion-filter-sidebar"
 import { type TradeableItem } from "@/components/market/item-search"
 import {
   DEFAULT_STRUCTURE_ID,
@@ -123,6 +124,12 @@ export default function MarketSeederPage() {
   const [depletionRestockTopN, setDepletionRestockTopN] = useState<number | null>(null)
   const [depletionIncludeCritical, setDepletionIncludeCritical] = useState(true)
   const [depletionIncludeWarning, setDepletionIncludeWarning] = useState(true)
+  const [depletionFilters, setDepletionFilters] = useState<DepletionFilterState>({
+    selectedUrgency: new Set(DEFAULT_DEPLETION_FILTERS.selectedUrgency),
+    selectedCategories: new Set(DEFAULT_DEPLETION_FILTERS.selectedCategories),
+    hideOwnedItems: DEFAULT_DEPLETION_FILTERS.hideOwnedItems,
+    competitionFilter: DEFAULT_DEPLETION_FILTERS.competitionFilter,
+  })
 
   // ============================================================================
   // Capital Efficiency State
@@ -594,9 +601,22 @@ export default function MarketSeederPage() {
   }, [structureId, volumeRegionId, hubFactor])
 
   const copyDepletionBuyText = useCallback(async () => {
+    // Apply all filters: category, competition, and hide owned items
+    const filteredPredictions = depletionPredictions.filter(p => {
+      // Category filter
+      if (p.categoryName && !depletionFilters.selectedCategories.has(p.categoryName)) return false
+      // Competition filter
+      if (depletionFilters.competitionFilter === 'no_competition' && p.hasCompetition) return false
+      if (depletionFilters.competitionFilter === 'with_competition' && !p.hasCompetition) return false
+      // Hide owned items filter
+      if (depletionFilters.hideOwnedItems && (p.userHasInInventory || p.userHasSellOrder)) return false
+      return true
+    })
+    
+    // Critical: 0 stock, Warning: <3 days
     const itemsByUrgency = {
-      critical: depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout < 3),
-      warning: depletionPredictions.filter(p => p.daysUntilStockout !== null && p.daysUntilStockout >= 3 && p.daysUntilStockout < 7),
+      critical: filteredPredictions.filter(p => p.currentStock === 0),
+      warning: filteredPredictions.filter(p => p.currentStock > 0 && p.daysUntilStockout !== null && p.daysUntilStockout < 3),
     }
     const itemsToRestock = [
       ...(depletionIncludeCritical ? itemsByUrgency.critical : []),
@@ -618,7 +638,7 @@ export default function MarketSeederPage() {
     } catch (err) {
       console.error('Failed to copy:', err)
     }
-  }, [depletionPredictions, depletionIncludeCritical, depletionIncludeWarning, depletionRestockTopN, depletionRestockDays])
+  }, [depletionPredictions, depletionFilters.selectedCategories, depletionIncludeCritical, depletionIncludeWarning, depletionRestockTopN, depletionRestockDays])
 
   // ============================================================================
   // Capital Efficiency Functions
@@ -1036,6 +1056,8 @@ export default function MarketSeederPage() {
               progress={depletionProgress}
               structureId={structureId}
               onAnalyze={analyzeDepletion}
+              filters={depletionFilters}
+              onFiltersChange={setDepletionFilters}
               restockDays={depletionRestockDays}
               setRestockDays={setDepletionRestockDays}
               restockTopN={depletionRestockTopN}

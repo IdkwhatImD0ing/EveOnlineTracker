@@ -85,6 +85,41 @@ Click a fit to reveal limiting factors:
   - Current market stock (formatted with locale)
   - Maximum fits possible from that item (color-coded badge)
 
+### Materials Calculator
+
+The "Buy Materials" button enables selection mode to calculate missing materials for restocking fits.
+
+**How to use:**
+
+1. Click **"Buy Materials"** in the header to enter selection mode
+2. Click on fits to select them (checkboxes appear on each card)
+3. Use **"Select All"** to select all visible fits, or **"Deselect All"** to clear selection
+4. Choose target quantity: **5 fits** or **20 fits**
+5. View the Missing Materials panel showing items needed
+6. Click **"Copy for Multibuy"** to copy the list in EVE Multibuy format
+
+**Materials Calculation:**
+
+For each selected fit, the system calculates what materials are needed to reach the target quantity:
+
+```
+missingQuantity = MAX(0, (targetCount × requiredPerFit) - currentStock)
+```
+
+Materials are aggregated across all selected fits by item type. If the same item appears in multiple fits, the total required quantity is summed.
+
+**Multibuy Format:**
+
+The copy button generates EVE-compatible multibuy format:
+
+```
+Heat Sink II 20
+Mega Pulse Laser II 16
+Redeemer 5
+```
+
+This can be pasted directly into EVE's multibuy window.
+
 ## Calculation Logic
 
 For each fit, the system calculates:
@@ -141,6 +176,22 @@ Returns all alliance fits with their market availability.
           "max_fits": 8
         }
       ],
+      "all_items": [
+        {
+          "type_id": 17736,
+          "name": "Redeemer",
+          "required": 1,
+          "available": 8,
+          "max_fits": 8
+        },
+        {
+          "type_id": 2281,
+          "name": "Heat Sink II",
+          "required": 4,
+          "available": 100,
+          "max_fits": 25
+        }
+      ],
       "total_items": 25,
       "items_in_stock": 22
     }
@@ -173,6 +224,7 @@ Returns all alliance fits with their market availability.
 | available_count | How many complete fits can be bought |
 | status | green/orange/red based on availability |
 | limiting_items | Top 5 items limiting fit availability |
+| all_items | All items with availability data (for materials calculator) |
 | total_items | Total unique items in fit (including hull) |
 | items_in_stock | How many items have > 0 stock |
 

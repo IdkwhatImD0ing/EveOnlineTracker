@@ -17,7 +17,7 @@ import { EveItemIcon } from "@/components/eve-item-icon"
 import type { RawMaterial, Component } from "@/types/database"
 
 type Item = RawMaterial | Component
-type SortField = "name" | "type" | "quantity" | "progress" | "total" | "savings"
+type SortField = "name" | "type" | "quantity" | "progress" | "remaining" | "total" | "savings"
 type SortDirection = "asc" | "desc"
 
 // Type guard to check if item is a Component (has quantity_made)
@@ -70,6 +70,13 @@ function getProgressPercent(item: Item): number {
 function getDisplayQuantityMade(item: Component): number {
   // If collected, show max quantity regardless of stored value
   return item.collected ? item.quantity : item.quantity_made
+}
+
+function getRemaining(item: Item): number {
+  if (!isComponent(item)) return item.collected ? 0 : item.quantity
+  // If collected, remaining is 0
+  if (item.collected) return 0
+  return item.quantity - item.quantity_made
 }
 
 interface SortHeaderProps {
@@ -164,6 +171,9 @@ export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUp
           break
         case "progress":
           comparison = getProgressPercent(a) - getProgressPercent(b)
+          break
+        case "remaining":
+          comparison = getRemaining(a) - getRemaining(b)
           break
         case "total":
           comparison = getItemTotal(a) - getItemTotal(b)
@@ -491,16 +501,28 @@ export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUp
             />
           </div>
           {isComponentType ? (
-            <div className="text-right shrink-0 w-32">
-              <SortHeader
-                label="Progress"
-                field="progress"
-                currentField={sortField}
-                direction={sortDirection}
-                onSort={handleSort}
-                className="justify-end"
-              />
-            </div>
+            <>
+              <div className="text-right shrink-0 w-32">
+                <SortHeader
+                  label="Progress"
+                  field="progress"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                  className="justify-end"
+                />
+              </div>
+              <div className="text-right shrink-0 w-24">
+                <SortHeader
+                  label="Remaining"
+                  field="remaining"
+                  currentField={sortField}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                  className="justify-end"
+                />
+              </div>
+            </>
           ) : (
             <div className="text-right shrink-0 w-24">
               <SortHeader
@@ -579,50 +601,57 @@ export function ItemList({ title, items, type, projectId, onItemUpdate, onBulkUp
                   </p>
                 </div>
                 {isComponentType && itemIsComponent ? (
-                  <div className="shrink-0 w-32">
-                    <div className="flex items-center gap-2">
-                      {editingQuantity === item.id ? (
-                        <Input
-                          type="number"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => finishEditing(item)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") finishEditing(item)
-                            if (e.key === "Escape") {
-                              setEditingQuantity(null)
-                              setEditValue("")
-                            }
-                          }}
-                          className="h-7 w-20 text-sm font-mono text-right"
-                          min={0}
-                          max={item.quantity}
-                          autoFocus
-                        />
-                      ) : (
-                        <button
-                          onClick={() => startEditing(item)}
-                          className="flex items-center gap-1 text-sm font-mono hover:bg-muted px-2 py-1 rounded transition-colors"
-                          title="Click to edit"
-                        >
-                          <span className={progressPercent >= 100 ? "text-green-500" : ""}>
-                            {formatNumber(getDisplayQuantityMade(item as Component))}
-                          </span>
-                          <span className="text-muted-foreground">/</span>
-                          <span>{formatNumber(item.quantity)}</span>
-                        </button>
-                      )}
-                      {/* Progress bar */}
-                      <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all ${
-                            progressPercent >= 100 ? "bg-green-500" : "bg-primary"
-                          }`}
-                          style={{ width: `${Math.min(progressPercent, 100)}%` }}
-                        />
+                  <>
+                    <div className="shrink-0 w-32">
+                      <div className="flex items-center gap-2">
+                        {editingQuantity === item.id ? (
+                          <Input
+                            type="number"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={() => finishEditing(item)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") finishEditing(item)
+                              if (e.key === "Escape") {
+                                setEditingQuantity(null)
+                                setEditValue("")
+                              }
+                            }}
+                            className="h-7 w-20 text-sm font-mono text-right"
+                            min={0}
+                            max={item.quantity}
+                            autoFocus
+                          />
+                        ) : (
+                          <button
+                            onClick={() => startEditing(item)}
+                            className="flex items-center gap-1 text-sm font-mono hover:bg-muted px-2 py-1 rounded transition-colors"
+                            title="Click to edit"
+                          >
+                            <span className={progressPercent >= 100 ? "text-green-500" : ""}>
+                              {formatNumber(getDisplayQuantityMade(item as Component))}
+                            </span>
+                            <span className="text-muted-foreground">/</span>
+                            <span>{formatNumber(item.quantity)}</span>
+                          </button>
+                        )}
+                        {/* Progress bar */}
+                        <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all ${
+                              progressPercent >= 100 ? "bg-green-500" : "bg-primary"
+                            }`}
+                            style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                    <div className="text-right shrink-0 w-24">
+                      <p className={`text-sm font-mono ${getRemaining(item) === 0 ? "text-green-500" : ""}`}>
+                        {formatNumber(getRemaining(item))}
+                      </p>
+                    </div>
+                  </>
                 ) : (
                   <div className="text-right shrink-0 w-24">
                     <p className="text-sm font-mono">{formatNumber(item.quantity)}</p>

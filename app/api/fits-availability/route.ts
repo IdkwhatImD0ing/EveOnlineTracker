@@ -21,6 +21,14 @@ interface MarketOrder {
   volume_total: number
 }
 
+interface FitItemAvailability {
+  type_id: number
+  name: string
+  required: number
+  available: number
+  max_fits: number
+}
+
 interface FitAvailability {
   id: string
   ship_type_id: number
@@ -28,13 +36,8 @@ interface FitAvailability {
   fit_name: string
   available_count: number
   status: 'green' | 'orange' | 'red'
-  limiting_items: {
-    type_id: number
-    name: string
-    required: number
-    available: number
-    max_fits: number
-  }[]
+  limiting_items: FitItemAvailability[]
+  all_items: FitItemAvailability[]
   total_items: number
   items_in_stock: number
 }
@@ -222,7 +225,7 @@ export async function GET(request: NextRequest) {
 
       // Calculate how many complete fits can be made
       let minFits = Infinity
-      const limitingItems: FitAvailability['limiting_items'] = []
+      const allItems: FitItemAvailability[] = []
       let itemsInStock = 0
       const totalItems = Object.keys(itemRequirements).length
 
@@ -236,7 +239,7 @@ export async function GET(request: NextRequest) {
         }
         
         // Track this item's contribution to limiting
-        limitingItems.push({
+        allItems.push({
           type_id: typeId,
           name: req.name,
           required: req.quantity,
@@ -249,8 +252,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Sort limiting items by max_fits (lowest first = most limiting)
-      limitingItems.sort((a, b) => a.max_fits - b.max_fits)
+      // Sort all items by max_fits (lowest first = most limiting)
+      allItems.sort((a, b) => a.max_fits - b.max_fits)
 
       // Handle case where there are no items
       if (minFits === Infinity) {
@@ -264,7 +267,8 @@ export async function GET(request: NextRequest) {
         fit_name: fit.fit_name,
         available_count: minFits,
         status: getStatus(minFits),
-        limiting_items: limitingItems.slice(0, 5), // Top 5 limiting items
+        limiting_items: allItems.slice(0, 5), // Top 5 limiting items for display
+        all_items: allItems, // All items for material calculation
         total_items: totalItems,
         items_in_stock: itemsInStock
       })

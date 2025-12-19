@@ -107,7 +107,8 @@ export async function POST(request: NextRequest) {
           buy_price: item.sellPrice, // Use sell price as buy reference
           sell_price: item.sellPrice,
           split_price: null,
-          volume: item.volume,
+          // item.volume from calculation is total volume; store per-unit volume instead
+          volume: item.quantity > 0 ? item.volume / item.quantity : 0,
           item_type: item.groupName || null,
         }))
 
@@ -133,7 +134,8 @@ export async function POST(request: NextRequest) {
           buy_price: item.sellPrice,
           sell_price: item.sellPrice,
           split_price: null,
-          volume: item.volume,
+          // item.volume from calculation is total volume; store per-unit volume instead
+          volume: item.quantity > 0 ? item.volume / item.quantity : 0,
           item_type: item.groupName || null,
         }))
 

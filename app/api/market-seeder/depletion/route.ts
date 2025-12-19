@@ -23,7 +23,7 @@ import {
   DEFAULT_VOLUME_REGION_ID,
   VOLUME_REGIONS,
 } from '@/types/market-seeder'
-import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
+import { getValidAccessToken, getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -45,6 +45,91 @@ interface DepletionPrediction {
   profitPerUnit: number
   dailyProfitPotential: number
   priorityScore: number
+  userHasInInventory: boolean
+  userHasSellOrder: boolean
+  hasCompetition: boolean
+}
+
+// Valid hangar location flags for assets
+const HANGAR_FLAGS = new Set([
+  'Hangar', 'HangarAll',
+  'CorpSAG1', 'CorpSAG2', 'CorpSAG3', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6', 'CorpSAG7',
+  'Deliveries',
+])
+
+interface ESIAsset {
+  is_blueprint_copy?: boolean
+  is_singleton: boolean
+  item_id: number
+  location_flag: string
+  location_id: number
+  location_type: string
+  quantity: number
+  type_id: number
+}
+
+interface ESICharacterOrder {
+  is_buy_order: boolean
+  location_id: number
+  type_id: number
+  volume_remain: number
+}
+
+/**
+ * Fetch all assets for a character (handles pagination)
+ */
+async function fetchCharacterAssets(
+  characterId: number,
+  accessToken: string
+): Promise<ESIAsset[]> {
+  const allAssets: ESIAsset[] = []
+  let page = 1
+  let totalPages = 1
+
+  do {
+    const response = await fetch(
+      `${ESI_BASE}/latest/characters/${characterId}/assets/?page=${page}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      }
+    )
+
+    if (!response.ok) break
+
+    const assets: ESIAsset[] = await response.json()
+    allAssets.push(...assets)
+
+    const pagesHeader = response.headers.get('x-pages')
+    totalPages = pagesHeader ? parseInt(pagesHeader) : 1
+    page++
+  } while (page <= totalPages)
+
+  return allAssets
+}
+
+/**
+ * Fetch character's market orders
+ */
+async function fetchCharacterOrders(
+  characterId: number,
+  accessToken: string
+): Promise<ESICharacterOrder[]> {
+  const response = await fetch(
+    `${ESI_BASE}/latest/characters/${characterId}/orders/`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
+      },
+    }
+  )
+
+  if (!response.ok) return []
+
+  return response.json()
 }
 
 interface DepletionResponse {
@@ -341,7 +426,45 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Step 4: Calculate predictions
+        // Step 4: Fetch user's assets and sell orders in the structure
+        sendSSEEvent(controller, encoder, 'progress', {
+          stage: 'user_data',
+          message: 'Checking your inventory and orders...',
+          percent: 68
+        })
+
+        const characterTokens = await getAllCharacterTokens(session.user_id)
+        const userInventoryTypes = new Set<number>()
+        const userSellOrderTypes = new Set<number>()
+        const userSellOrderVolumes = new Map<number, number>()  // typeId -> total volume
+        const locationId = parseInt(structureId)
+
+        for (const token of characterTokens) {
+          try {
+            // Fetch assets
+            const assets = await fetchCharacterAssets(token.character_id, token.access_token)
+            for (const asset of assets) {
+              if (asset.location_id === locationId && HANGAR_FLAGS.has(asset.location_flag) && !asset.is_blueprint_copy) {
+                userInventoryTypes.add(asset.type_id)
+              }
+            }
+
+            // Fetch orders and track volumes
+            const orders = await fetchCharacterOrders(token.character_id, token.access_token)
+            for (const order of orders) {
+              if (!order.is_buy_order && order.location_id === locationId) {
+                userSellOrderTypes.add(order.type_id)
+                // Accumulate user's sell order volume for this type
+                const existing = userSellOrderVolumes.get(order.type_id) || 0
+                userSellOrderVolumes.set(order.type_id, existing + order.volume_remain)
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to fetch data for character ${token.character_name}:`, err)
+          }
+        }
+
+        // Step 5: Calculate predictions
         sendSSEEvent(controller, encoder, 'progress', {
           stage: 'analyzing',
           message: 'Calculating depletion predictions...',
@@ -372,6 +495,10 @@ export async function GET(request: NextRequest) {
             priorityScore *= (30 - daysUntilStockout) / 10
           }
 
+          // Determine if there's competition: total structure stock > user's sell order volume
+          const userVolume = userSellOrderVolumes.get(typeId) || 0
+          const hasCompetition = orderData.total_volume > userVolume
+
           predictions.push({
             typeId,
             name: item?.name || `Unknown (${typeId})`,
@@ -385,11 +512,14 @@ export async function GET(request: NextRequest) {
             jitaBuyPrice,
             profitPerUnit,
             dailyProfitPotential,
-            priorityScore
+            priorityScore,
+            userHasInInventory: userInventoryTypes.has(typeId),
+            userHasSellOrder: userSellOrderTypes.has(typeId),
+            hasCompetition,
           })
         }
 
-        // Step 5: Sort by days until stockout (ascending, nulls at end)
+        // Step 6: Sort by days until stockout (ascending, nulls at end)
         sendSSEEvent(controller, encoder, 'progress', {
           stage: 'sorting',
           message: 'Sorting by urgency...',
@@ -405,7 +535,7 @@ export async function GET(request: NextRequest) {
           return a.daysUntilStockout - b.daysUntilStockout
         })
 
-        // Step 6: Calculate summary
+        // Step 7: Calculate summary
         sendSSEEvent(controller, encoder, 'progress', {
           stage: 'summary',
           message: 'Generating summary...',
@@ -423,11 +553,14 @@ export async function GET(request: NextRequest) {
           
           if (p.daysUntilStockout === null) {
             noDataCount++
-          } else if (p.daysUntilStockout < 3) {
+          } else if (p.currentStock === 0) {
+            // Critical: completely out of stock
             criticalCount++
-          } else if (p.daysUntilStockout < 7) {
+          } else if (p.daysUntilStockout < 3) {
+            // Warning: less than 3 days of stock remaining
             warningCount++
           } else {
+            // OK: 3+ days of stock
             okCount++
           }
         }

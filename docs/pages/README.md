@@ -8,37 +8,46 @@ The application uses Next.js App Router with the following page structure:
 
 ```
 app/
-├── page.tsx                 # Home page (/)
-├── callback/
-│   └── page.tsx            # EVE SSO callback (/callback)
-├── industry/
-│   └── page.tsx            # Industry calculator (/industry)
-├── jita-opportunities/
-│   └── page.tsx            # Jita opportunities (/jita-opportunities)
-├── market-seeder/
-│   └── page.tsx            # Market seeder (/market-seeder)
-├── market/
-│   └── opportunities/
-│       └── page.tsx        # Redirects to /jita-opportunities?tab=market
-├── sell-opportunities/
-│   └── page.tsx            # Redirects to /jita-opportunities?tab=sell
-├── admin/
-│   ├── page.tsx            # Admin dashboard (/admin)
-│   └── fits/
-│       └── page.tsx        # Alliance fits management (/admin/fits)
-└── projects/
-    ├── new/
-    │   └── page.tsx        # New project form (/projects/new)
-    └── [id]/
-        └── page.tsx        # Project detail (/projects/[id])
+├── (authenticated)/           # Protected routes (require auth + allowed)
+│   ├── layout.tsx            # AuthGate + SidebarLayout wrapper
+│   ├── page.tsx              # Dashboard (/)
+│   ├── api-explorer/
+│   │   └── page.tsx          # ESI API testing (/api-explorer)
+│   ├── industry/
+│   │   └── page.tsx          # Industry calculator (/industry)
+│   ├── jita-opportunities/
+│   │   └── page.tsx          # Jita opportunities (/jita-opportunities)
+│   ├── market-seeder/
+│   │   └── page.tsx          # Market seeder (/market-seeder)
+│   ├── market/
+│   │   └── page.tsx          # Redirects to /jita-opportunities?tab=market
+│   ├── sell-opportunities/
+│   │   └── page.tsx          # Redirects to /jita-opportunities?tab=sell
+│   ├── admin/
+│   │   ├── page.tsx          # Admin dashboard (/admin)
+│   │   └── fits/
+│   │       └── page.tsx      # Alliance fits management (/admin/fits)
+│   ├── public-market-seeding/
+│   │   └── page.tsx          # Public market seeding (/public-market-seeding)
+│   └── projects/
+│       ├── page.tsx          # Project list (/projects)
+│       ├── new/
+│       │   └── page.tsx      # New project form (/projects/new)
+│       └── [id]/
+│           └── page.tsx      # Project detail (/projects/[id])
+└── (public)/                  # Public routes (no auth required)
+    ├── layout.tsx            # Minimal layout
+    └── callback/
+        └── page.tsx          # EVE SSO callback (/callback)
 ```
 
 ## Page Index
 
 | Page | Route | Description |
 |------|-------|-------------|
-| [Home](./home.md) | `/` | Project list and navigation hub |
-| [EVE SSO Callback](./callback.md) | `/callback` | Token display and ESI API tester |
+| [Dashboard](./dashboard.md) | `/` | Account overview and quick links |
+| [API Explorer](./api-explorer.md) | `/api-explorer` | Interactive ESI endpoint testing |
+| [EVE SSO Callback](./callback.md) | `/callback` | OAuth callback handler |
 | [Industry Calculator](./industry-calculator.md) | `/industry` | Blueprint material calculations |
 | [Jita Opportunities](./jita-opportunities.md) | `/jita-opportunities` | Combined sell timing + market opportunities (tabbed) |
 | [Market Seeder](./market-seeder.md) | `/market-seeder` | Import profit analyzer (tabbed) |
@@ -49,23 +58,35 @@ app/
 ## Navigation Flow
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                        Home Page (/)                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │  Industry   │  │   EVE SSO   │  │ New Project │          │
-│  │ Calculator  │  │    Login    │  │             │          │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │
-│         │                │                │                  │
-│         │         ┌──────┴──────┐  ┌──────┴──────┐          │
-│         │         │  /callback  │  │/projects/new│          │
-│         │         │  (tokens)   │  │   (form)    │          │
-│         │         └─────────────┘  └──────┬──────┘          │
-│         │                                 │                  │
-│  ┌──────┴──────┐                  ┌──────┴──────┐          │
-│  │  /industry  │                  │/projects/[id]│◄─────────┤
-│  │(calculator) │────────────────►│  (detail)   │ Project   │
-│  └─────────────┘  Create Project  └─────────────┘ Cards     │
-└──────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│  Sidebar Navigation                      Main Content Area          │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────────┐                ┌─────────────────────────┐   │
+│  │ Dashboard       │───────────────►│ Account overview, stats │   │
+│  └─────────────────┘                └─────────────────────────┘   │
+│  ┌─────────────────┐                ┌─────────────────────────┐   │
+│  │ Market Seeder   │───────────────►│ Import profit analysis  │   │
+│  └─────────────────┘                └─────────────────────────┘   │
+│  ┌─────────────────┐                ┌─────────────────────────┐   │
+│  │ Jita Opps       │───────────────►│ Sell + market opps      │   │
+│  └─────────────────┘                └─────────────────────────┘   │
+│  ┌─────────────────┐                ┌─────────────────────────┐   │
+│  │ Projects        │───────────────►│ Project list → detail   │   │
+│  └─────────────────┘                └─────────────────────────┘   │
+│  ┌─────────────────┐                ┌─────────────────────────┐   │
+│  │ Industry        │───────────────►│ Blueprint calculator    │   │
+│  └─────────────────┘                └─────────────────────────┘   │
+│  ┌─────────────────┐                ┌─────────────────────────┐   │
+│  │ API Explorer    │───────────────►│ ESI endpoint testing    │   │
+│  └─────────────────┘                └─────────────────────────┘   │
+│                                                                     │
+└────────────────────────────────────────────────────────────────────┘
+
+EVE SSO Login Flow:
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│  Login Btn  │─────►│  EVE SSO    │─────►│  /callback  │────► Dashboard
+└─────────────┘      └─────────────┘      └─────────────┘
 ```
 
 ## Common Components

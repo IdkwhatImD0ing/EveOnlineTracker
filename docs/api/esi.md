@@ -116,7 +116,7 @@ curl -X GET "http://localhost:3000/api/esi/character-affiliation?character_id=12
 
 ### GET /api/esi/keepstar-3t7
 
-Searches for structures and returns the 3T7-M8 Keepstar structure details.
+Searches for structures and returns the Keepstar in the specified system.
 
 **Required Scopes:**
 - `esi-search.search_structures.v1`
@@ -126,19 +126,19 @@ Searches for structures and returns the 3T7-M8 Keepstar structure details.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| character_id | integer | Yes | - | Your character ID for the search |
 | search | string | No | "3T7" | Search term (minimum 3 characters) |
-
-**Headers:**
-
-| Header | Required | Description |
-|--------|----------|-------------|
-| Authorization | Yes | Bearer token from EVE SSO |
+| system_name | string | No | "3T7-M8" | System name to search in (e.g., "3T7-M8", "Jita", "1DQ1-A") |
 
 **Example Request:**
 ```bash
-curl -X GET "http://localhost:3000/api/esi/keepstar-3t7?character_id=123456789&search=3T7-M8" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+# Search for Keepstar in 3T7-M8 (default)
+curl -X GET "http://localhost:3000/api/esi/keepstar-3t7?search=3T7-M8"
+
+# Search for Keepstar in Jita
+curl -X GET "http://localhost:3000/api/esi/keepstar-3t7?search=Jita&system_name=Jita"
+
+# Search for Keepstar in 1DQ1-A
+curl -X GET "http://localhost:3000/api/esi/keepstar-3t7?search=1DQ&system_name=1DQ1-A"
 ```
 
 **Success Response (200) - Keepstar Found:**
@@ -158,9 +158,11 @@ curl -X GET "http://localhost:3000/api/esi/keepstar-3t7?character_id=123456789&s
 ```json
 {
   "error": "No Keepstar found in 3T7-M8",
-  "character_id_used": "123456789",
+  "character_id_used": 123456789,
   "search_term": "3T7",
-  "hint": "Showing all structures found matching \"3T7\". Looking for type_id=35834 and solar_system_id=30002938. HTTP 401 means no docking access.",
+  "target_system": "3T7-M8",
+  "target_system_id": 30002938,
+  "hint": "Showing all structures found matching \"3T7\". Looking for type_id=35834 in solar_system_id=30002938. HTTP 401 means no docking access.",
   "expected": {
     "type_id": 35834,
     "solar_system_id": 30002938
@@ -178,24 +180,27 @@ curl -X GET "http://localhost:3000/api/esi/keepstar-3t7?character_id=123456789&s
 
 **Error Responses:**
 
-*Missing character_id (400):*
+*Invalid system name (400):*
 ```json
 {
-  "error": "character_id is required"
+  "error": "System \"InvalidName\" not found",
+  "hint": "Make sure the system name is spelled correctly (e.g., \"Jita\", \"3T7-M8\", \"1DQ1-A\")"
 }
 ```
 
-*Missing authorization (401):*
+*Not authenticated (401):*
 ```json
 {
-  "error": "Authorization header required. Login with EVE SSO first (requires esi-search.search_structures.v1 scope)."
+  "error": "Not authenticated. Login with EVE SSO first."
 }
 ```
 
 **Implementation Notes:**
 - Searches for structures matching the search term
-- Filters results for Keepstars (type_id: 35834) in 3T7-M8 (solar_system_id: 30002938)
+- Looks up `solar_system_id` from system name using local SDE data (`public/solar-systems.json`)
+- Filters results for Keepstars (type_id: 35834) in the specified system
 - Returns all found structures if no Keepstar matches criteria
+- Requires docking access to see structures in ESI search results
 
 ---
 
@@ -555,6 +560,9 @@ For standard cron modes (daily, initial, backfill, legacy), the endpoint returns
     "mode": "daily",
     "mode_description": "daily (yesterday only, chunk 5/24)",
     "region_id": 10000002,
+    "concurrent_requests": 20,
+    "date_from": "2025-12-09",
+    "date_to": "2025-12-09",
     "chunk": 5,
     "total_chunks": 24,
     "category_filter": null,
@@ -594,7 +602,7 @@ Since results are logged (not returned in the response), check Vercel logs:
 **Implementation Notes:**
 - Uses `after()` from `next/server` for background processing
 - Reads items from `data/tradeable-items.jsonl` (ships, modules, ammo, boosters)
-- Fetches ESI market history with 10 concurrent requests
+- Fetches ESI market history with 20 concurrent requests
 - `initial` mode: Fetches last 365 days for full historical data
 - `daily` mode: Fetches only yesterday (single day append - efficient)
 - `backfill` mode: Like initial but designed for chunked manual backfill
@@ -606,14 +614,14 @@ Since results are logged (not returned in the response), check Vercel logs:
 
 Since Vercel's free tier only allows 2 cron jobs, we use [cron-job.org](https://cron-job.org) as an external cron service. Jobs are provisioned via API using the setup script.
 
-Items are distributed across 48 cron jobs with 3 regions running at different minute offsets:
+Items are distributed across 52 cron jobs with 3 regions running at different minute offsets:
 
 | Region | ID | Schedule | Chunks | Items/Chunk |
 |--------|-----|----------|--------|-------------|
-| The Forge (Jita) | 10000002 | :00 hourly (hours 0-19) | 20 | ~292 |
-| Vale of the Silent | 10000003 | :20 hourly (hours 0-19) | 20 | ~292 |
-| Deklein | 10000035 | :40 every 3h | 8 | ~730 |
-| **Total** | | | **48** | |
+| The Forge (Jita) | 10000002 | :00 hourly (hours 0-19) | 20 | ~350 |
+| Vale of the Silent | 10000003 | :20 hourly (hours 0-19) | 20 | ~350 |
+| Deklein | 10000035 | :40 every 2h | 12 | ~583 |
+| **Total** | | | **52** | |
 
 **Setup Script:**
 
@@ -623,7 +631,7 @@ Items are distributed across 48 cron jobs with 3 regions running at different mi
 # CRON_SECRET=your-cron-secret
 # VERCEL_URL=your-app.vercel.app
 
-# Create all 48 cron jobs
+# Create all 52 cron jobs
 npx tsx scripts/setup-cron-jobs.ts
 
 # List existing jobs
@@ -637,9 +645,9 @@ The script creates jobs that call the market history endpoint with the `Authoriz
 
 **Setup Workflow:**
 1. Run `?mode=backfill&chunk=N&total_chunks=100` iteratively to populate 365 days of history (Jita & Vale only)
-2. Run `npx tsx scripts/setup-cron-jobs.ts` to create all 48 cron jobs on cron-job.org
+2. Run `npx tsx scripts/setup-cron-jobs.ts` to create all 52 cron jobs on cron-job.org
 3. Cron jobs run `?mode=daily&chunk=N` hourly to append yesterday's data
-4. All 48 chunks complete daily = full item coverage for all 3 regions
+4. All 52 chunks complete daily = full item coverage for all 3 regions
 5. Historical data grows over time (no data is deleted)
 
 ---

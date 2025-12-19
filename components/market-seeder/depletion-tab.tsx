@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -7,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   Loader2,
@@ -19,11 +21,13 @@ import {
   Minus,
   BarChart3,
   Timer,
+  Settings2,
 } from "lucide-react"
 import { type DepletionPrediction, type ProgressState } from "@/types/market-seeder"
 import { EveItemIcon } from "@/components/eve-item-icon"
 import { ProgressBar } from "./progress-bar"
 import { formatIskShort } from "./utils"
+import { DepletionFilterSidebar, DepletionFilterState } from "./depletion-filter-sidebar"
 
 interface DepletionSummary {
   totalItems: number
@@ -47,6 +51,10 @@ interface DepletionTabProps {
   // Actions
   onAnalyze: () => void
 
+  // Filter state
+  filters: DepletionFilterState
+  onFiltersChange: (filters: DepletionFilterState) => void
+
   // Restock copy state
   restockDays: number
   setRestockDays: (days: number) => void
@@ -63,6 +71,14 @@ interface DepletionTabProps {
   hubFactorPercent?: string  // e.g. "5%" - for display in labels
 }
 
+// Helper to determine urgency level for a prediction
+function getUrgencyLevel(prediction: DepletionPrediction): 'critical' | 'warning' | 'ok' | 'none' {
+  if (prediction.currentStock === 0) return 'critical'
+  if (prediction.daysUntilStockout === null) return 'none'
+  if (prediction.daysUntilStockout < 3) return 'warning'
+  return 'ok'
+}
+
 export function DepletionTab({
   predictions,
   summary,
@@ -72,6 +88,8 @@ export function DepletionTab({
   progress,
   structureId,
   onAnalyze,
+  filters,
+  onFiltersChange,
   restockDays,
   setRestockDays,
   restockTopN,
@@ -84,17 +102,39 @@ export function DepletionTab({
   onCopyRestock,
   hubFactorPercent = "5%",
 }: DepletionTabProps) {
-  // Group items by urgency
-  const itemsByUrgency = {
-    critical: predictions.filter(p =>
-      p.daysUntilStockout !== null && p.daysUntilStockout < 3
-    ),
-    warning: predictions.filter(p =>
+  // Filter predictions based on selected urgency, categories, ownership, and competition
+  const filteredPredictions = useMemo(() => {
+    return predictions.filter(p => {
+      const urgency = getUrgencyLevel(p)
+      // Map 'ok' urgency to 'ok' in filter, 'safe' is used in display
+      const urgencyKey = urgency === 'ok' ? 'ok' : urgency
+      
+      // Check urgency filter
+      if (!filters.selectedUrgency.has(urgencyKey)) return false
+      
+      // Check category filter
+      if (p.categoryName && !filters.selectedCategories.has(p.categoryName)) return false
+      
+      // Check hide owned items filter
+      if (filters.hideOwnedItems && (p.userHasInInventory || p.userHasSellOrder)) return false
+      
+      // Check competition filter
+      if (filters.competitionFilter === 'no_competition' && p.hasCompetition) return false
+      if (filters.competitionFilter === 'with_competition' && !p.hasCompetition) return false
+      
+      return true
+    })
+  }, [predictions, filters])
+
+  // Group items by urgency (from filtered predictions for restock)
+  const itemsByUrgency = useMemo(() => ({
+    critical: filteredPredictions.filter(p => p.currentStock === 0),
+    warning: filteredPredictions.filter(p =>
+      p.currentStock > 0 &&
       p.daysUntilStockout !== null &&
-      p.daysUntilStockout >= 3 &&
-      p.daysUntilStockout < 7
+      p.daysUntilStockout < 3
     ),
-  }
+  }), [filteredPredictions])
 
   // Items to restock based on filters
   const itemsToRestock = [
@@ -305,7 +345,7 @@ export function DepletionTab({
               <p className="text-2xl font-bold text-destructive">
                 {summary.criticalCount}
               </p>
-              <p className="text-sm text-muted-foreground">Critical (&lt;3 days)</p>
+              <p className="text-sm text-muted-foreground">Critical (0 stock)</p>
             </CardContent>
           </Card>
           <Card className="border-amber-500/50">
@@ -313,7 +353,7 @@ export function DepletionTab({
               <p className="text-2xl font-bold text-amber-500">
                 {summary.warningCount}
               </p>
-              <p className="text-sm text-muted-foreground">Warning (3-7 days)</p>
+              <p className="text-sm text-muted-foreground">Warning (&lt;3 days)</p>
             </CardContent>
           </Card>
           <Card>
@@ -342,102 +382,142 @@ export function DepletionTab({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {/* Already sorted by days until stockout (critical first) from API */}
-          {predictions.map((prediction) => {
-            const urgencyLevel = prediction.daysUntilStockout === null
-              ? 'none'
-              : prediction.daysUntilStockout < 3
-                ? 'critical'
-                : prediction.daysUntilStockout < 7
-                  ? 'warning'
-                  : 'safe'
+        <>
+          {/* Sidebar + List Layout */}
+          <div className="flex gap-6">
+            {/* Main Content - Predictions List */}
+            <div className="flex-1 min-w-0 space-y-3">
+              {filteredPredictions.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Timer className="size-12 mx-auto text-muted-foreground/50 mb-4" />
+                    <p className="text-muted-foreground">
+                      No items match your current filters
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredPredictions.map((prediction) => {
+                  const urgencyLevel = getUrgencyLevel(prediction)
 
-            return (
-              <Card
-                key={prediction.typeId}
-                className={
-                  urgencyLevel === 'critical'
-                    ? "border-destructive/50 bg-destructive/5"
-                    : urgencyLevel === 'warning'
-                      ? "border-amber-500/50 bg-amber-500/5"
-                      : urgencyLevel === 'safe'
-                        ? "border-emerald-500/30 bg-emerald-500/5"
-                        : ""
-                }
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-4">
-                    <EveItemIcon typeId={prediction.typeId} size={64} className="size-10 shrink-0 rounded" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{prediction.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {prediction.categoryName} • {prediction.groupName}
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
-                        <div>
-                          <p className="text-muted-foreground text-xs">Current Stock</p>
-                          <p className="font-medium">{prediction.currentStock.toLocaleString()} units</p>
+                  return (
+                    <Card
+                      key={prediction.typeId}
+                      className={
+                        urgencyLevel === 'critical'
+                          ? "border-destructive/50 bg-destructive/5"
+                          : urgencyLevel === 'warning'
+                            ? "border-amber-500/50 bg-amber-500/5"
+                            : urgencyLevel === 'ok'
+                              ? "border-emerald-500/30 bg-emerald-500/5"
+                              : ""
+                      }
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          <EveItemIcon typeId={prediction.typeId} size={64} className="size-10 shrink-0 rounded" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{prediction.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {prediction.categoryName} • {prediction.groupName}
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
+                              <div>
+                                <p className="text-muted-foreground text-xs">Current Stock</p>
+                                <p className="font-medium">{prediction.currentStock.toLocaleString()} units</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
+                                <p className="font-medium">{prediction.estimatedDailySales.toFixed(1)} units/day</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Days Until Stockout</p>
+                                <p className={`font-bold ${urgencyLevel === 'critical' ? 'text-destructive' :
+                                  urgencyLevel === 'warning' ? 'text-amber-500' :
+                                    urgencyLevel === 'ok' ? 'text-emerald-500' :
+                                      'text-muted-foreground'
+                                  }`}>
+                                  {prediction.daysUntilStockout !== null
+                                    ? `${prediction.daysUntilStockout.toFixed(1)} days`
+                                    : 'No sales data'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Daily Profit</p>
+                                <p className="font-medium text-primary">{formatIskShort(prediction.dailyProfitPotential)} ISK</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            {urgencyLevel === 'critical' && (
+                              <Badge variant="destructive" className="gap-1">
+                                <AlertTriangle className="size-3" />
+                                Critical
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'warning' && (
+                              <Badge className="gap-1 bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
+                                <Clock className="size-3" />
+                                Low Stock
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'ok' && (
+                              <Badge variant="secondary" className="gap-1 bg-emerald-500/20 text-emerald-600">
+                                <Check className="size-3" />
+                                OK
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'none' && (
+                              <Badge variant="secondary" className="gap-1">
+                                <Minus className="size-3" />
+                                No Data
+                              </Badge>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Priority: {prediction.priorityScore.toFixed(0)}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
-                          <p className="font-medium">{prediction.estimatedDailySales.toFixed(1)} units/day</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-xs">Days Until Stockout</p>
-                          <p className={`font-bold ${urgencyLevel === 'critical' ? 'text-destructive' :
-                            urgencyLevel === 'warning' ? 'text-amber-500' :
-                              urgencyLevel === 'safe' ? 'text-emerald-500' :
-                                'text-muted-foreground'
-                            }`}>
-                            {prediction.daysUntilStockout !== null
-                              ? `${prediction.daysUntilStockout.toFixed(1)} days`
-                              : 'No sales data'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-xs">Daily Profit</p>
-                          <p className="font-medium text-primary">{formatIskShort(prediction.dailyProfitPotential)} ISK</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      {urgencyLevel === 'critical' && (
-                        <Badge variant="destructive" className="gap-1">
-                          <AlertTriangle className="size-3" />
-                          Critical
-                        </Badge>
-                      )}
-                      {urgencyLevel === 'warning' && (
-                        <Badge className="gap-1 bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
-                          <Clock className="size-3" />
-                          Low Stock
-                        </Badge>
-                      )}
-                      {urgencyLevel === 'safe' && (
-                        <Badge variant="secondary" className="gap-1 bg-emerald-500/20 text-emerald-600">
-                          <Check className="size-3" />
-                          OK
-                        </Badge>
-                      )}
-                      {urgencyLevel === 'none' && (
-                        <Badge variant="secondary" className="gap-1">
-                          <Minus className="size-3" />
-                          No Data
-                        </Badge>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Priority: {prediction.priorityScore.toFixed(0)}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Sidebar - Filters (Desktop) */}
+            <div className="w-64 shrink-0 hidden lg:block">
+              <DepletionFilterSidebar
+                filters={filters}
+                onFiltersChange={onFiltersChange}
+                totalItems={predictions.length}
+                filteredCount={filteredPredictions.length}
+              />
+            </div>
+          </div>
+
+          {/* Mobile Filters (collapsible) */}
+          <div className="lg:hidden">
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full gap-2">
+                  <Settings2 className="size-4" />
+                  Filters ({filteredPredictions.length} of {predictions.length})
+                  <ChevronDown className="size-4" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <DepletionFilterSidebar
+                  filters={filters}
+                  onFiltersChange={onFiltersChange}
+                  totalItems={predictions.length}
+                  filteredCount={filteredPredictions.length}
+                />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </>
       )}
     </div>
   )
 }
-
