@@ -127,26 +127,26 @@ Based on the signals above, explain why this is a good buying opportunity.`,
         try {
           for await (const event of stream) {
             // Stream reasoning chunks
-            if (event.type === 'response.reasoning.delta') {
+            if ((event.type as string) === 'response.reasoning.delta') {
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ 
                   type: 'reasoning', 
-                  delta: event.delta 
+                  delta: (event as unknown as { delta: string }).delta 
                 })}\n\n`)
               );
             }
             // Notify when web search tool is called
-            if (event.type === 'response.tool_call.created') {
+            if ((event.type as string) === 'response.tool_call.created') {
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ 
                   type: 'tool_call', 
-                  tool: event.tool_call?.type || 'web_search',
+                  tool: (event as unknown as { tool_call?: { type?: string } }).tool_call?.type || 'web_search',
                   status: 'started'
                 })}\n\n`)
               );
             }
             // Notify when tool call completes
-            if (event.type === 'response.tool_call.done') {
+            if ((event.type as string) === 'response.tool_call.done') {
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ 
                   type: 'tool_call', 
@@ -156,11 +156,11 @@ Based on the signals above, explain why this is a good buying opportunity.`,
               );
             }
             // Stream output text
-            if (event.type === 'response.output_text.delta') {
+            if ((event.type as string) === 'response.output_text.delta') {
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ 
                   type: 'output', 
-                  delta: event.delta 
+                  delta: (event as unknown as { delta: string }).delta 
                 })}\n\n`)
               );
             }
