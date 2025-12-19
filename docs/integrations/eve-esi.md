@@ -338,7 +338,7 @@ This ensures response formats remain consistent.
 ```env
 # Callback URL is auto-detected:
 # - Local: http://localhost:3000/callback
-# - Vercel production: https://eve.art3m1s.me/callback
+# - Vercel production: https://www.eveonlinetracker.com/callback
 EVE_CLIENT_ID=your_client_id
 EVE_CLIENT_SECRET=your_client_secret
 ```
