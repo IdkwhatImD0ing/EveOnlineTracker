@@ -45,6 +45,10 @@ Users who need advanced features can request full access via the sidebar menu. T
 
 **How to upgrade:** Click your character portrait in the sidebar → "Request Full Access"
 
+A confirmation modal will appear instructing you to contact **darkislife zhang** in-game first. You have two options:
+- **"I will contact"** - Closes the modal so you can contact them in-game
+- **"He said yes"** - Proceeds with the OAuth flow to upgrade your access
+
 ## User Roles
 
 | Role | Description | Auto-assigned | App Access |

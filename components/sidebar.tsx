@@ -31,6 +31,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import type { UserRole } from "@/types/auth"
 import { canAccessNav } from "@/lib/permissions"
 
@@ -127,6 +135,7 @@ export function Sidebar({
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [fullAccessModalOpen, setFullAccessModalOpen] = useState(false)
 
   // Filter nav items based on user role
   const navItems = useMemo(() => {
@@ -175,6 +184,10 @@ export function Sidebar({
   }
 
   const handleRequestFullAccess = () => {
+    setFullAccessModalOpen(true)
+  }
+
+  const handleProceedFullAccess = () => {
     window.location.href = "/api/auth/eve/request-full-access"
   }
 
@@ -229,7 +242,7 @@ export function Sidebar({
                 isCollapsed && "justify-center"
               )}
             >
-              <div className="relative">
+              <div className="relative shrink-0">
                 <img
                   src={`https://images.evetech.net/characters/${mainCharacter.character_id}/portrait?size=64`}
                   alt={mainCharacter.character_name}
@@ -307,10 +320,12 @@ export function Sidebar({
               <UserPlus className="size-4" />
               Add Alt Character
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleRequestFullAccess} className="gap-2">
-              <KeySquare className="size-4" />
-              Request Full Access
-            </DropdownMenuItem>
+            {role === 'slyce' && (
+              <DropdownMenuItem onClick={handleRequestFullAccess} className="gap-2">
+                <KeySquare className="size-4" />
+                Request Full Access
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -498,6 +513,29 @@ export function Sidebar({
     <>
       {desktopSidebar}
       {mobileSidebar}
+
+      {/* Full Access Request Modal */}
+      <Dialog open={fullAccessModalOpen} onOpenChange={setFullAccessModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Full Access</DialogTitle>
+            <DialogDescription>
+              Contact <span className="font-semibold text-foreground">darkislife zhang</span> in-game to request access.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="destructive"
+              onClick={() => setFullAccessModalOpen(false)}
+            >
+              Fine, I&apos;ll message him...
+            </Button>
+            <Button onClick={handleProceedFullAccess}>
+              He already loves me
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

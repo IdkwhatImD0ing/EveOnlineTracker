@@ -1,6 +1,14 @@
 import OpenAI from 'openai';
 
-const client = new OpenAI();
+// Lazy initialization to avoid build-time errors when OPENAI_API_KEY is not set
+let client: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI {
+  if (!client) {
+    client = new OpenAI();
+  }
+  return client;
+}
 
 const SYSTEM_INSTRUCTIONS = `You are a friendly EVE Online market advisor. Explain things in **simple, easy-to-understand language** - avoid technical jargon. The user is a regular player, not a financial analyst.
 
@@ -91,7 +99,7 @@ export async function POST(request: Request) {
     });
 
     // Use streaming for real-time response with low reasoning effort
-    const stream = await client.responses.create({
+    const stream = await getOpenAIClient().responses.create({
       model: "gpt-5-mini",
       reasoning: { effort: "low" },
       instructions: SYSTEM_INSTRUCTIONS,
