@@ -18,6 +18,12 @@ const isDev = !isVercel
 const PROD_URL = 'https://eve.art3m1s.me'
 const DEV_URL = 'http://localhost:3000'
 
+// Slyce alliance ID for auto-approval
+// Can be found via ESI or zkillboard - set in environment variable
+const SLYCE_ALLIANCE_ID = process.env.SLYCE_ALLIANCE_ID 
+  ? parseInt(process.env.SLYCE_ALLIANCE_ID) 
+  : null
+
 export const config = {
   /** True if running on Vercel */
   isVercel,
@@ -40,5 +46,8 @@ export const config = {
     : isDev 
       ? `${DEV_URL}/callback`
       : `${PROD_URL}/callback`,
+  
+  /** Slyce alliance ID for auto-approval of alliance members */
+  slyceAllianceId: SLYCE_ALLIANCE_ID,
 } as const
 

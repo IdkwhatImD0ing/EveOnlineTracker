@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -17,11 +18,17 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!session.user.allowed) {
+  if (session.user.role !== 'admin') {
     return NextResponse.json(
       { error: 'Account pending approval' },
       { status: 403 }
     )
+  }
+
+  // Rate limiting
+  const rateLimitResult = await checkRateLimit(session.user.id)
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult)
   }
   
   const characterId = session.mainCharacter.character_id

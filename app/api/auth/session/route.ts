@@ -24,7 +24,7 @@ export async function GET() {
                 id: session.user.id,
                 main_character_id: session.user.main_character_id,
                 main_character_name: session.user.main_character_name,
-                allowed: session.user.allowed,
+                role: session.user.role,
             },
             characters: session.characters.map(c => ({
                 id: c.id,

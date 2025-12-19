@@ -18,8 +18,9 @@ import {
   Star,
   Trash2,
   Users,
+  Shield,
 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -29,6 +30,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import type { UserRole } from "@/types/auth"
+import { canAccessNav } from "@/lib/permissions"
 
 interface NavItem {
   title: string
@@ -37,12 +40,18 @@ interface NavItem {
   description?: string
 }
 
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   {
     title: "Dashboard",
     href: "/",
     icon: Home,
     description: "Overview and account info",
+  },
+  {
+    title: "Fit Availability",
+    href: "/public-market-seeding",
+    icon: Package,
+    description: "Check fit stock at 3T7",
   },
   {
     title: "Market Seeder",
@@ -74,6 +83,12 @@ const navItems: NavItem[] = [
     icon: KeyRound,
     description: "Debug ESI endpoints",
   },
+  {
+    title: "Admin",
+    href: "/admin",
+    icon: Shield,
+    description: "User management",
+  },
 ]
 
 interface CharacterInfo {
@@ -86,6 +101,7 @@ interface CharacterInfo {
 interface SidebarProps {
   mainCharacter: CharacterInfo | null
   allCharacters: CharacterInfo[]
+  role: UserRole
   onLogout?: () => void
   onCharacterChange?: () => void
   isMobileOpen?: boolean
@@ -95,6 +111,7 @@ interface SidebarProps {
 export function Sidebar({ 
   mainCharacter, 
   allCharacters,
+  role,
   onLogout,
   onCharacterChange,
   isMobileOpen = false,
@@ -103,6 +120,11 @@ export function Sidebar({
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mounted, setMounted] = useState(false)
+
+  // Filter nav items based on user role
+  const navItems = useMemo(() => {
+    return allNavItems.filter(item => canAccessNav(role, item.href))
+  }, [role])
 
   // Load collapsed state from localStorage (desktop only)
   useEffect(() => {

@@ -6,6 +6,33 @@ Proxy endpoints for EVE ESI (EVE Swagger Interface) that require authentication.
 
 These endpoints wrap EVE's official ESI API, handling authentication and providing processed responses. All endpoints require a valid EVE SSO access token.
 
+## Background Processing Pattern
+
+Some endpoints (like `/api/esi/market-history`) use Next.js `after()` for background processing. This pattern:
+
+1. Returns an immediate HTTP response (within seconds)
+2. Schedules heavy processing to run **after** the response is sent
+3. Keeps the Vercel function alive to complete the work
+
+This is essential for external cron services like cron-job.org that have strict timeouts (30 seconds). The actual processing happens in the background and results are logged to Vercel Function logs.
+
+```typescript
+import { after } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  // Fast validation
+  if (!authorized) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Schedule background work
+  after(async () => {
+    await processHeavyWork()  // Runs AFTER response is sent
+  })
+
+  // Return immediately
+  return NextResponse.json({ status: 'started' })
+}
+```
+
 ## Authentication
 
 All ESI proxy endpoints require the `Authorization` header:
@@ -19,6 +46,73 @@ Obtain access tokens via the [Authentication API](./auth.md).
 ---
 
 ## Endpoints
+
+### GET /api/esi/character-affiliation
+
+Fetches public affiliation info (corporation, alliance) for a character using public ESI endpoints.
+
+**Authentication:** None required (uses public ESI data)
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| character_id | integer | Yes | EVE character ID to look up |
+
+**Example Request:**
+```bash
+curl -X GET "http://localhost:3000/api/esi/character-affiliation?character_id=123456789"
+```
+
+**Success Response (200):**
+```json
+{
+  "character_id": 123456789,
+  "character_name": "Capsuleer Name",
+  "corporation_id": 98000001,
+  "corporation_name": "Test Corporation",
+  "corporation_ticker": "TEST",
+  "alliance_id": 99000001,
+  "alliance_name": "Test Alliance",
+  "alliance_ticker": "ALLY"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| character_id | number | The queried character ID |
+| character_name | string | Character name from ESI |
+| corporation_id | number | Character's corporation ID |
+| corporation_name | string | Corporation name |
+| corporation_ticker | string | Corporation ticker (e.g., "CORP") |
+| alliance_id | number \| null | Alliance ID (null if not in alliance) |
+| alliance_name | string \| null | Alliance name (null if not in alliance) |
+| alliance_ticker | string \| null | Alliance ticker (null if not in alliance) |
+
+**Error Responses:**
+
+*Missing character_id (400):*
+```json
+{
+  "error": "character_id is required"
+}
+```
+
+*Character not found (404):*
+```json
+{
+  "error": "Character not found"
+}
+```
+
+**Implementation Notes:**
+- Uses public ESI endpoints (no authentication required)
+- Results are cached for 1 hour to reduce ESI calls
+- Fetches character info, then corporation info, then alliance info (if applicable)
+
+---
 
 ### GET /api/esi/keepstar-3t7
 
@@ -361,7 +455,7 @@ The API formats ISK values using these suffixes:
 
 ### GET /api/esi/market-history
 
-Fetches historical market statistics for all tradeable items (ships, modules, ammo, boosters) from ESI and stores in Supabase. Supports multiple modes for initial data population and daily updates. Uses chunked processing to stay within Vercel's function timeout limits.
+Fetches historical market statistics for all tradeable items (ships, modules, ammo, boosters) from ESI and stores in Supabase. Supports multiple modes for initial data population and daily updates. Uses chunked processing and **background processing** to handle long-running operations.
 
 **Authentication:** Requires `CRON_SECRET` Bearer token (Vercel cron authentication)
 
@@ -378,16 +472,47 @@ Fetches historical market statistics for all tradeable items (ships, modules, am
 
 **Modes:**
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| `initial` | Fetch last N days (default 365) | One-time data population |
-| `daily` | Fetch only yesterday's data | Hourly cron jobs (chunked) |
-| `backfill` | Like initial but with chunking | Manual historical data loading |
-| `legacy` | Fetch last 7 days | Original behavior (backward compatibility) |
+| Mode | Description | Use Case | Background? |
+|------|-------------|----------|-------------|
+| `initial` | Fetch last N days (default 365) | One-time data population | Yes |
+| `daily` | Fetch only yesterday's data | Hourly cron jobs (chunked) | Yes |
+| `backfill` | Like initial but with chunking | Manual historical data loading | Yes |
+| `legacy` | Fetch last 7 days | Original behavior | Yes |
+| `verify` | Check if type_ids exist in DB | Debugging (requires `type_ids` param) | No |
+| `test_assets` | Fetch specific type_ids only | Testing (requires `type_ids` param) | No |
+
+Note: `verify` and `test_assets` modes are synchronous and return full results in the response.
+
+**Background Processing Pattern:**
+
+This endpoint uses Next.js `after()` to process market history in the background after returning an immediate response. This solves the cron-job.org 30-second timeout limitation:
+
+```mermaid
+sequenceDiagram
+    participant Cron as cron-job.org
+    participant API as Vercel API Route
+    participant ESI as EVE ESI
+    participant DB as Supabase
+
+    Cron->>API: GET /api/esi/market-history
+    Note right of API: Validate auth (fast)
+    Note right of API: Schedule after() callback
+    API-->>Cron: 200 OK {"status": "started"}
+    Note left of Cron: Connection closed (< 5s)
+    Note right of API: after() callback begins
+    API->>ESI: Fetch market history...
+    API->>DB: Upsert rows...
+    Note right of API: Function completes
+```
+
+Key benefits:
+- Returns within seconds, avoiding external cron timeouts
+- Vercel keeps the function alive to complete background work
+- Results logged to Vercel Function logs (search for `[Market History BG]`)
 
 **Chunking (Distributed Cron Jobs):**
 
-To stay within Vercel's 60-second function timeout, items are split into 24 chunks using deterministic modulo assignment:
+Items are split into chunks using deterministic modulo assignment:
 
 ```typescript
 // Each type_id is assigned to exactly one chunk (no duplicates, no misses)
@@ -413,44 +538,31 @@ curl -X GET "http://localhost:3000/api/esi/market-history?mode=daily&region_id=1
 curl -X GET "http://localhost:3000/api/esi/market-history?mode=backfill&chunk=0&total_chunks=100" \
   -H "Authorization: Bearer $CRON_SECRET"
 
-# Legacy mode (last 7 days, all items - may timeout)
+# Legacy mode (last 7 days, all items)
 curl -X GET "http://localhost:3000/api/esi/market-history?mode=legacy" \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-**Success Response (200):**
+**Success Response (200) - Job Started:**
+
+For standard cron modes (daily, initial, backfill, legacy), the endpoint returns immediately with job info:
+
 ```json
 {
-  "success": true,
-  "mode": "daily",
-  "mode_description": "daily (2025-12-09 only, chunk 5/24)",
-  "summary": {
-    "total_items": 244,
-    "successful_fetches": 189,
-    "failed_fetches": 55,
-    "items_with_market_data": 157,
-    "total_rows": 157,
-    "rows_inserted": 157
-  },
-  "timing": {
-    "esi_fetch_ms": 8500,
-    "supabase_upsert_ms": 120,
-    "total_ms": 8620
-  },
-  "config": {
+  "status": "started",
+  "message": "Processing in background. Check Vercel logs for progress.",
+  "job": {
+    "mode": "daily",
+    "mode_description": "daily (yesterday only, chunk 5/24)",
     "region_id": 10000002,
-    "concurrent_requests": 10,
-    "date_from": "2025-12-09",
-    "date_to": "2025-12-09",
     "chunk": 5,
-    "total_chunks": 24
+    "total_chunks": 24,
+    "category_filter": null,
+    "skip_db": false,
+    "save_cache": false,
+    "save_report": false
   },
-  "errors": {
-    "esi_failures": [
-      {"typeId": 22921, "success": false, "entries": 0, "error": "HTTP 400"}
-    ],
-    "supabase_errors": []
-  }
+  "note": "Results will be logged. Check Vercel Function logs for \"[Market History BG]\" entries."
 }
 ```
 
@@ -458,27 +570,29 @@ curl -X GET "http://localhost:3000/api/esi/market-history?mode=legacy" \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| mode | string | The mode used for this fetch |
-| mode_description | string | Human-readable mode description |
-| summary.total_items | number | Total tradeable items processed (in this chunk) |
-| summary.successful_fetches | number | Items successfully fetched from ESI |
-| summary.failed_fetches | number | Items that failed (usually no market data) |
-| summary.items_with_market_data | number | Items with data in the date range |
-| summary.total_rows | number | Total market history rows generated |
-| summary.rows_inserted | number | Rows upserted to Supabase |
-| timing.esi_fetch_ms | number | Time spent fetching from ESI |
-| timing.supabase_upsert_ms | number | Time spent upserting to database |
-| timing.total_ms | number | Total processing time |
-| config.region_id | number | Region ID used |
-| config.concurrent_requests | number | Parallel request count |
-| config.date_from | string | Start date of fetch range |
-| config.date_to | string | End date (or "today" for range modes) |
-| config.chunk | number | Chunk number processed (null if not chunked) |
-| config.total_chunks | number | Total chunks (null if not chunked) |
-| errors.esi_failures | array | First 10 ESI failures (for debugging) |
-| errors.supabase_errors | array | Database errors if any |
+| status | string | Always "started" for background jobs |
+| message | string | Instructions for checking results |
+| job.mode | string | The mode used for this fetch |
+| job.mode_description | string | Human-readable mode description |
+| job.region_id | number | Region ID being processed |
+| job.chunk | number | Chunk number (null if not chunked) |
+| job.total_chunks | number | Total chunks |
+| job.category_filter | array | Category IDs being filtered (null if none) |
+
+**Monitoring Background Jobs:**
+
+Since results are logged (not returned in the response), check Vercel logs:
+
+1. Go to Vercel Dashboard → Your Project → Functions
+2. Filter logs for `[Market History BG]`
+3. Look for completion messages like:
+   ```
+   [Market History BG] Complete! mode=daily, region=10000002, chunk=5/24
+   [Market History BG] Stats: 189 success, 55 failed, 157 with data, 157 rows inserted, 8620ms total
+   ```
 
 **Implementation Notes:**
+- Uses `after()` from `next/server` for background processing
 - Reads items from `data/tradeable-items.jsonl` (ships, modules, ammo, boosters)
 - Fetches ESI market history with 10 concurrent requests
 - `initial` mode: Fetches last 365 days for full historical data
@@ -486,6 +600,7 @@ curl -X GET "http://localhost:3000/api/esi/market-history?mode=legacy" \
 - `backfill` mode: Like initial but designed for chunked manual backfill
 - Upserts to Supabase `market_history` table (ON CONFLICT replace)
 - Failed fetches are normal - many items have no regional market data
+- Background work must complete within Vercel function limits (60s Hobby, 300s Pro)
 
 **Cron Jobs (via cron-job.org):**
 
@@ -1289,6 +1404,7 @@ curl -X POST "http://localhost:3000/api/esi/ui/open-market-window?type_id=2048&c
 
 ## Related Files
 
+- `app/api/esi/character-affiliation/route.ts` - Character corporation/alliance lookup
 - `app/api/esi/keepstar-3t7/route.ts` - Keepstar search implementation
 - `app/api/esi/structure-orders/route.ts` - Structure orders implementation
 - `app/api/esi/character-assets/route.ts` - Character assets implementation

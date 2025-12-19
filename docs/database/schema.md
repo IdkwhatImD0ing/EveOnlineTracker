@@ -17,7 +17,7 @@ The application uses Supabase (PostgreSQL) for data storage. The schema includes
 │ id: uuid (PK)                                                   │
 │ main_character_id: bigint                                       │
 │ main_character_name: text                                       │
-│ allowed: boolean                                                │
+│ role: user_role (public|slyce|user|pro|admin)                   │
 │ created_at: timestamptz                                         │
 │ updated_at: timestamptz                                         │
 └─────────────────────────────────────────────────────────────────┘
@@ -101,16 +101,19 @@ The application uses Supabase (PostgreSQL) for data storage. The schema includes
 Application users, identified by their main EVE character.
 
 ```sql
+CREATE TYPE user_role AS ENUM ('public', 'slyce', 'user', 'pro', 'admin');
+
 CREATE TABLE users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   main_character_id bigint NOT NULL,
   main_character_name text NOT NULL,
-  allowed boolean DEFAULT false,
+  role user_role NOT NULL DEFAULT 'public',
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
 
 CREATE INDEX idx_users_main_character_id ON users(main_character_id);
+CREATE INDEX idx_users_role ON users(role);
 ```
 
 | Column              | Type        | Constraints        | Description                     |
@@ -118,11 +121,24 @@ CREATE INDEX idx_users_main_character_id ON users(main_character_id);
 | id                  | uuid        | PK, auto-generated | Unique identifier               |
 | main_character_id   | bigint      | NOT NULL           | EVE character ID of main        |
 | main_character_name | text        | NOT NULL           | Name of main character          |
-| allowed             | boolean     | DEFAULT false      | Whether user can access the app |
+| role                | user_role   | NOT NULL, DEFAULT 'public' | User role for access control |
 | created_at          | timestamptz | DEFAULT now()      | Creation timestamp              |
 | updated_at          | timestamptz | DEFAULT now()      | Last update timestamp           |
 
-**Access Control:** New users are created with `allowed = false`. An administrator must set `allowed = true` in the Supabase dashboard to grant access.
+**User Roles:**
+
+| Role | Description | Auto-assigned |
+|------|-------------|---------------|
+| `public` | Logged in, not in Slyce alliance, pending approval | Yes |
+| `slyce` | Logged in, member of Slyce alliance, auto-approved | Yes |
+| `user` | Manually granted access by admin | No |
+| `pro` | Premium features granted by admin | No |
+| `admin` | Full admin access | No |
+
+**Access Control:** 
+- New users are automatically assigned `public` or `slyce` role based on alliance membership
+- Slyce alliance members are auto-approved on first login
+- Administrators can change user roles via the Admin Dashboard (`/admin`)
 
 ---
 
@@ -395,6 +411,54 @@ CREATE INDEX idx_watchlist_items_type_id ON watchlist_items(type_id);
 
 ---
 
+### alliance_fits
+
+Stores alliance ship fittings parsed from EFT format.
+
+```sql
+CREATE TABLE alliance_fits (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ship_type_id bigint NOT NULL,
+  ship_name text NOT NULL,
+  fit_name text NOT NULL,
+  raw_eft text NOT NULL,
+  items jsonb NOT NULL,
+  created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_alliance_fits_ship_type_id ON alliance_fits(ship_type_id);
+CREATE INDEX idx_alliance_fits_created_by ON alliance_fits(created_by);
+```
+
+| Column        | Type        | Constraints                      | Description                              |
+| ------------- | ----------- | -------------------------------- | ---------------------------------------- |
+| id            | uuid        | PK, auto-generated               | Unique identifier                        |
+| ship_type_id  | bigint      | NOT NULL                         | EVE ship type ID                         |
+| ship_name     | text        | NOT NULL                         | Ship name (e.g., "Redeemer")             |
+| fit_name      | text        | NOT NULL                         | Fitting name                             |
+| raw_eft       | text        | NOT NULL                         | Original EFT-formatted text              |
+| items         | jsonb       | NOT NULL                         | Parsed items array                       |
+| created_by    | uuid        | FK → users.id, SET NULL          | User who created the fit                 |
+| created_at    | timestamptz | DEFAULT now()                    | Creation timestamp                       |
+| updated_at    | timestamptz | DEFAULT now()                    | Last update timestamp                    |
+
+**Items JSONB Format:**
+
+```json
+[
+  {"type_id": 2281, "name": "Heat Sink II", "quantity": 1, "slot": "low"},
+  {"type_id": 2185, "name": "Warrior II", "quantity": 10, "slot": "drone"}
+]
+```
+
+**Slot Types:** `high`, `mid`, `low`, `rig`, `subsystem`, `drone`, `cargo`
+
+**Purpose:** Allows administrators to store and manage alliance ship fittings for sharing with members.
+
+---
+
 ## Triggers
 
 ### update_updated_at_column
@@ -425,8 +489,10 @@ CREATE TRIGGER update_projects_updated_at
 | projects | raw_materials    | 1:N          | CASCADE   |
 | projects | components       | 1:N          | CASCADE   |
 | projects | additional_costs | 1:N          | CASCADE   |
+| users    | alliance_fits    | 1:N          | SET NULL  |
 
 Deleting a project automatically deletes all related records.
+Deleting a user sets `created_by` to NULL on their alliance fits.
 
 ---
 
@@ -435,11 +501,13 @@ Deleting a project automatically deletes all related records.
 ```typescript
 // types/auth.ts
 
+export type UserRole = 'public' | 'slyce' | 'user' | 'pro' | 'admin'
+
 export interface User {
   id: string
   main_character_id: number
   main_character_name: string
-  allowed: boolean
+  role: UserRole
   created_at: string
   updated_at: string
 }
@@ -555,6 +623,29 @@ export interface WatchlistItemWithStock extends WatchlistItem {
   stock: number
   lowest_price: number | null
   needs_restock: boolean
+}
+
+// types/fits.ts
+
+export type FitSlotType = 'high' | 'mid' | 'low' | 'rig' | 'subsystem' | 'drone' | 'cargo'
+
+export interface FitItem {
+  type_id: number | null
+  name: string
+  quantity: number
+  slot: FitSlotType
+}
+
+export interface AllianceFit {
+  id: string
+  ship_type_id: number
+  ship_name: string
+  fit_name: string
+  raw_eft: string
+  items: FitItem[]
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }
 ```
 
@@ -813,7 +904,7 @@ CREATE TABLE users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   main_character_id bigint NOT NULL,
   main_character_name text NOT NULL,
-  allowed boolean DEFAULT false,
+  role user_role NOT NULL DEFAULT 'public',
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -836,6 +927,7 @@ CREATE TABLE characters (
 CREATE INDEX idx_characters_user_id ON characters(user_id);
 CREATE INDEX idx_characters_character_id ON characters(character_id);
 CREATE INDEX idx_users_main_character_id ON users(main_character_id);
+CREATE INDEX idx_users_role ON users(role);
 
 -- Triggers for updated_at
 CREATE TRIGGER update_users_updated_at
@@ -845,6 +937,62 @@ CREATE TRIGGER update_users_updated_at
 
 CREATE TRIGGER update_characters_updated_at
   BEFORE UPDATE ON characters
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
+### Migration 011: User Roles
+
+```sql
+-- migrations/011_user_roles.sql
+-- Add role-based access control to users table
+
+-- Create enum type for user roles
+CREATE TYPE user_role AS ENUM ('public', 'slyce', 'user', 'pro', 'admin');
+
+-- Add role column with default 'public'
+ALTER TABLE users
+ADD COLUMN role user_role DEFAULT 'public';
+
+-- Migrate existing users based on 'allowed' status
+UPDATE users SET role = 'user' WHERE allowed = true;
+UPDATE users SET role = 'public' WHERE allowed = false;
+
+-- Make role NOT NULL after migration
+ALTER TABLE users
+ALTER COLUMN role SET NOT NULL;
+
+-- Drop the allowed column (no longer needed)
+ALTER TABLE users
+DROP COLUMN allowed;
+
+-- Add index for role lookups
+CREATE INDEX idx_users_role ON users(role);
+```
+
+### Migration 012: Alliance Fits
+
+```sql
+-- migrations/012_alliance_fits.sql
+-- Alliance Fits table for storing parsed ship fittings
+
+CREATE TABLE alliance_fits (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ship_type_id bigint NOT NULL,
+  ship_name text NOT NULL,
+  fit_name text NOT NULL,
+  raw_eft text NOT NULL,
+  items jsonb NOT NULL,
+  created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_alliance_fits_ship_type_id ON alliance_fits(ship_type_id);
+CREATE INDEX idx_alliance_fits_created_by ON alliance_fits(created_by);
+
+CREATE TRIGGER update_alliance_fits_updated_at
+  BEFORE UPDATE ON alliance_fits
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 ```

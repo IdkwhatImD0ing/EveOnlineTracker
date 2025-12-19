@@ -18,6 +18,13 @@ import {
   Check,
   X,
   CheckSquare,
+  Sparkles,
+  Loader2,
+  Brain,
+  Globe,
+  HelpCircle,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
 import type { MarketOpportunity } from "@/lib/market-analysis"
 
@@ -88,6 +95,18 @@ export function MarketOpportunitiesTab() {
   const [buyBudget, setBuyBudget] = useState("100") // 100M ISK default (in millions)
   const [copySuccess, setCopySuccess] = useState(false)
 
+  // AI Analysis state - session cache to prevent regeneration
+  const [analysisCache, setAnalysisCache] = useState<Map<string, { analysis: string; reasoning: string }>>(new Map())
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [currentAnalysis, setCurrentAnalysis] = useState<string>("")
+  const [currentReasoning, setCurrentReasoning] = useState<string>("")
+  const [isSearchingWeb, setIsSearchingWeb] = useState(false)
+  const [showReasoning, setShowReasoning] = useState(false)
+  const [showSignalHelp, setShowSignalHelp] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [analyzedItemNames, setAnalyzedItemNames] = useState<string[]>([])
+  const analyzeAbortRef = useRef<AbortController | null>(null)
+
   // Selection helper functions
   const toggleItemSelection = useCallback((typeId: number) => {
     setSelectedItems((prev) => {
@@ -142,6 +161,136 @@ export function MarketOpportunitiesTab() {
       console.error("Failed to copy:", err)
     }
   }, [getSelectedItemsData, buyBudget])
+
+  // Generate cache key for selected items
+  const getAnalysisCacheKey = useCallback((items: MarketOpportunity[]): string => {
+    return items.map(i => i.typeId).sort().join('-')
+  }, [])
+
+  // Analyze selected items with AI
+  const analyzeWithAI = useCallback(async () => {
+    const items = getSelectedItemsData()
+    if (items.length === 0) return
+
+    // Check cache first
+    const cacheKey = getAnalysisCacheKey(items)
+    const cached = analysisCache.get(cacheKey)
+    if (cached) {
+      setCurrentAnalysis(cached.analysis)
+      setCurrentReasoning(cached.reasoning)
+      setAnalyzedItemNames(items.map(i => i.itemName))
+      return
+    }
+
+    // Abort any existing analysis
+    if (analyzeAbortRef.current) {
+      analyzeAbortRef.current.abort()
+    }
+    analyzeAbortRef.current = new AbortController()
+
+    setIsAnalyzing(true)
+    setCurrentAnalysis("")
+    setCurrentReasoning("")
+    setIsSearchingWeb(false)
+    setAnalysisError(null)
+    setAnalyzedItemNames(items.map(i => i.itemName))
+
+    try {
+      // For multiple items, we'll analyze them one by one and combine
+      let fullAnalysis = ""
+      let fullReasoning = ""
+      
+      for (const item of items) {
+        if (items.length > 1) {
+          fullAnalysis += `\n\n## ${item.itemName}\n\n`
+        }
+
+        const response = await fetch('/api/market/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            itemName: item.itemName,
+            typeId: item.typeId,
+            signals: item.signals,
+            currentPrice: item.currentPrice,
+            avgPrice: item.avgPrice,
+            weeklyIskPotential: item.weeklyIskPotential,
+          }),
+          signal: analyzeAbortRef.current?.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to analyze opportunity')
+        }
+
+        const reader = response.body?.getReader()
+        if (!reader) throw new Error('No response body')
+
+        const decoder = new TextDecoder()
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6)
+              if (data === '[DONE]') continue
+              
+              try {
+                const parsed = JSON.parse(data)
+                
+                // Handle reasoning chunks
+                if (parsed.type === 'reasoning' && parsed.delta) {
+                  fullReasoning += parsed.delta
+                  setCurrentReasoning(fullReasoning)
+                }
+                
+                // Handle tool call status
+                if (parsed.type === 'tool_call') {
+                  setIsSearchingWeb(parsed.status === 'started')
+                }
+                
+                // Handle output text
+                if (parsed.type === 'output' && parsed.delta) {
+                  fullAnalysis += parsed.delta
+                  setCurrentAnalysis(fullAnalysis)
+                }
+                
+                // Legacy format support
+                if (parsed.delta && !parsed.type) {
+                  fullAnalysis += parsed.delta
+                  setCurrentAnalysis(fullAnalysis)
+                }
+                
+                if (parsed.error) {
+                  throw new Error(parsed.error)
+                }
+              } catch {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      }
+
+      // Cache the result
+      setAnalysisCache(prev => new Map(prev).set(cacheKey, { analysis: fullAnalysis, reasoning: fullReasoning }))
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        // Aborted, ignore
+        return
+      }
+      console.error('AI Analysis error:', err)
+      setAnalysisError(err instanceof Error ? err.message : 'Failed to analyze')
+    } finally {
+      setIsAnalyzing(false)
+      setIsSearchingWeb(false)
+    }
+  }, [getSelectedItemsData, getAnalysisCacheKey, analysisCache])
 
   // Cleanup EventSource on unmount
   useEffect(() => {
@@ -529,8 +678,214 @@ export function MarketOpportunitiesTab() {
                     </>
                   )}
                 </Button>
+                <Button 
+                  size="sm" 
+                  onClick={analyzeWithAI} 
+                  className="gap-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
+                  disabled={isAnalyzing}
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="size-4" />
+                      Analyze with AI
+                    </>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowSignalHelp(!showSignalHelp)}
+                  className="h-8 w-8 p-0"
+                  title="What do the signals mean?"
+                >
+                  <HelpCircle className="size-4" />
+                </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Signal Help Dialog */}
+      {showSignalHelp && (
+        <Card className="border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-cyan-500/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <HelpCircle className="size-5 text-blue-400" />
+                Understanding the Signals
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSignalHelp(false)}
+                className="h-8 w-8 p-0"
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="p-3 rounded-lg bg-muted/50">
+                <h4 className="font-medium text-sm flex items-center gap-2 mb-1">
+                  🔄 Cycle Signal
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Does the price follow a predictable up/down pattern? A positive score means the price is currently low in its usual cycle and likely to bounce back.
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <h4 className="font-medium text-sm flex items-center gap-2 mb-1">
+                  📈 Trend Signal
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Is the price going up or down recently? A positive score means the price has been recovering or climbing, not falling.
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <h4 className="font-medium text-sm flex items-center gap-2 mb-1">
+                  🛡️ Support Signal
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Has this price level held before? Like a floor - if the price has bounced back from this level multiple times, it&apos;s safer to buy.
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <h4 className="font-medium text-sm flex items-center gap-2 mb-1">
+                  📊 Volume Signal
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Are other traders buying while it&apos;s cheap? High volume at low prices often means experienced traders are accumulating.
+                </p>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground border-t pt-3">
+              <strong>Score Guide:</strong> 70+ = Great opportunity, 40-69 = Good, 20-39 = Risky, below 20 = Skip
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Analysis Display */}
+      {(currentAnalysis || currentReasoning || isAnalyzing || analysisError) && (
+        <Card className="border-violet-500/30 bg-gradient-to-br from-violet-500/5 to-purple-500/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Sparkles className="size-5 text-violet-400" />
+                AI Market Analysis
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setCurrentAnalysis("")
+                  setCurrentReasoning("")
+                  setAnalysisError(null)
+                  setAnalyzedItemNames([])
+                }}
+                className="h-8 w-8 p-0"
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+            {analyzedItemNames.length > 0 && (
+              <CardDescription>
+                {analyzedItemNames.length === 1 
+                  ? `Analyzing: ${analyzedItemNames[0]}`
+                  : `Analyzing ${analyzedItemNames.length} items: ${analyzedItemNames.slice(0, 3).join(', ')}${analyzedItemNames.length > 3 ? '...' : ''}`
+                }
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Status indicators */}
+            {isAnalyzing && (
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                {currentReasoning && !currentAnalysis && (
+                  <span className="flex items-center gap-1.5 text-violet-400">
+                    <Brain className="size-4 animate-pulse" />
+                    Thinking...
+                  </span>
+                )}
+                {isSearchingWeb && (
+                  <span className="flex items-center gap-1.5 text-blue-400">
+                    <Globe className="size-4 animate-spin" />
+                    Searching for EVE news...
+                  </span>
+                )}
+                {currentAnalysis && (
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <Loader2 className="size-4 animate-spin" />
+                    Writing analysis...
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Reasoning section (collapsible) */}
+            {currentReasoning && (
+              <div className="border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setShowReasoning(!showReasoning)}
+                  className="w-full flex items-center gap-2 p-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
+                >
+                  {showReasoning ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                  <Brain className="size-4" />
+                  AI Reasoning
+                  {isAnalyzing && !currentAnalysis && (
+                    <span className="ml-auto text-xs animate-pulse">thinking...</span>
+                  )}
+                </button>
+                {showReasoning && (
+                  <div className="p-3 bg-muted/30 text-xs text-muted-foreground whitespace-pre-wrap border-t">
+                    {currentReasoning}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Error display */}
+            {analysisError ? (
+              <div className="text-destructive">
+                <p className="font-medium">Error: {analysisError}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Make sure you have set the OPENAI_API_KEY environment variable.
+                </p>
+              </div>
+            ) : currentAnalysis ? (
+              /* Markdown rendered output */
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <div 
+                  className="text-sm leading-relaxed"
+                  dangerouslySetInnerHTML={{ 
+                    __html: currentAnalysis
+                      // Headers
+                      .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-4 mb-2">$1</h3>')
+                      .replace(/^## (.+)$/gm, '<h2 class="text-lg font-semibold mt-4 mb-2">$1</h2>')
+                      .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>')
+                      // Bold
+                      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                      // Italic
+                      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                      // Bullet points
+                      .replace(/^- (.+)$/gm, '<li class="ml-4">$1</li>')
+                      // Line breaks
+                      .replace(/\n\n/g, '</p><p class="mb-2">')
+                      .replace(/\n/g, '<br />')
+                  }}
+                />
+                {isAnalyzing && (
+                  <span className="inline-block w-2 h-4 bg-violet-400 animate-pulse ml-0.5" />
+                )}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       )}

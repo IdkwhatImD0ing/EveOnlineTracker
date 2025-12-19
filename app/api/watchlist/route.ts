@@ -8,6 +8,7 @@ import {
   type RegionId 
 } from '@/types/market-seeder'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -70,8 +71,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  if (!session.user.allowed) {
+  if (session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  }
+
+  // Rate limiting
+  const rateLimitResult = await checkRateLimit(session.user.id)
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult)
   }
 
   const searchParams = request.nextUrl.searchParams
@@ -361,8 +368,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!session.user.allowed) {
+    if (session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
+    // Rate limiting
+    const rateLimitResult = await checkRateLimit(session.user.id)
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult)
     }
 
     const body = await request.json()

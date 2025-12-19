@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         user: {
           id: user.id,
           main_character_name: user.main_character_name,
-          allowed: user.allowed,
+          role: user.role,
         },
         is_new: isNew,
       })

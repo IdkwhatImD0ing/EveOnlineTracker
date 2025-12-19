@@ -13,6 +13,7 @@ import {
 import { getSystemCostIndex, getJobBaseCosts } from '@/lib/esi'
 import { createAppraisal } from '@/lib/janice'
 import { getAuthenticatedUser } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 
 export interface CalculateRequest {
   blueprintTypeId: number
@@ -113,8 +114,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!session.user.allowed) {
+    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
+    // Rate limiting
+    const rateLimitResult = await checkRateLimit(session.user_id)
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult)
     }
 
     const body: CalculateRequest = await request.json()

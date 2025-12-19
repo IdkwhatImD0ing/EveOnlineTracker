@@ -32,8 +32,13 @@ The sidebar:
 
 When logged in via EVE SSO:
 - Character portrait (128px from EVE image server)
+- Alliance logo (64px, displayed on desktop if character is in an alliance)
 - Character name
+- Corporation info with ticker (e.g., `[CORP] Corporation Name`)
+- Alliance info with ticker (e.g., `<ALLY> Alliance Name`) - if in an alliance
 - Character ID
+- Wallet balance (from ESI)
+- Sell order count (from ESI)
 - Link to manage tokens
 
 When not logged in:
@@ -66,6 +71,7 @@ Features:
 - **Project Stats**: Fetched from `/api/projects` endpoint
 - **Wallet Balance**: Fetched from `/api/esi/wallet` endpoint
 - **Market Orders**: Fetched from `/api/esi/character-orders` endpoint
+- **Corporation/Alliance**: Fetched from `/api/esi/character-affiliation` endpoint (uses public ESI data)
 
 ## Authentication & Token Refresh
 

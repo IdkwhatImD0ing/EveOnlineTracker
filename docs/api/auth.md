@@ -6,7 +6,23 @@ EVE SSO (Single Sign-On) authentication endpoints with multi-account (alt) suppo
 
 The application uses EVE Online's OAuth 2.0 Authorization Code flow for authentication. Users authenticate with their EVE character, which becomes their main. They can link additional alt characters to their account.
 
-Access is controlled via an `allowed` flag in the database - new users start with `allowed = false` and must be approved by an administrator.
+Access is controlled via a `role` field in the database. New users are automatically assigned:
+- `slyce` role if they are in the Slyce alliance (auto-approved)
+- `public` role otherwise (pending approval)
+
+Administrators can promote users to `user`, `pro`, or `admin` roles via the Admin Dashboard.
+
+## User Roles
+
+| Role | Description | Auto-assigned | App Access |
+|------|-------------|---------------|------------|
+| `public` | Pending approval | Yes (non-Slyce) | None |
+| `slyce` | Slyce alliance member | Yes | Restricted* |
+| `user` | Approved by admin | No | Restricted* |
+| `pro` | Premium features | No | Restricted* |
+| `admin` | Full access | No | Full |
+
+*Currently all pages are admin-only. Access will be expanded in future updates.
 
 ## Authentication Flow
 
@@ -26,14 +42,19 @@ Access is controlled via an `allowed` flag in the database - new users start wit
                                        │            │
                                        ▼            ▼
                             ┌──────────────┐  ┌──────────────┐
-                            │ Show Login   │  │ User allowed?│
+                            │ Show Login   │  │ Check Role   │
                             └──────────────┘  └──────────────┘
-                                   │               │     │
-                                   │              No    Yes
-                                   │               │     │
-                                   ▼               ▼     ▼
-                            EVE SSO OAuth   Pending   Show App
-                                   │        Approval
+                                   │               │
+                                   ▼               ▼
+                            EVE SSO OAuth   ┌──────────────┐
+                                   │        │ Role=admin?  │
+                                   │        └──────────────┘
+                                   │            │       │
+                                   │           No      Yes
+                                   │            │       │
+                                   │            ▼       ▼
+                                   │      Restricted  Show App
+                                   │      Access Screen
                                    ▼
                             ┌──────────────────┐
                             │ Character exists │
@@ -43,8 +64,13 @@ Access is controlled via an `allowed` flag in the database - new users start wit
                               Yes           No
                                │            │
                                ▼            ▼
-                         Login user    Create new user
-                         (set cookie)  (allowed=false)
+                         Login user    Check Alliance
+                         (set cookie)  via ESI
+                                            │
+                                ┌───────────┴───────────┐
+                                ▼                       ▼
+                          In Slyce?               Not in Slyce
+                          role=slyce              role=public
 ```
 
 ## Endpoints
@@ -97,7 +123,7 @@ Exchanges the authorization code for tokens and creates/updates user.
   "user": {
     "id": "uuid",
     "main_character_name": "Character Name",
-    "allowed": true
+    "role": "slyce"
   },
   "is_new": false
 }
@@ -134,7 +160,7 @@ Returns the current user's session information.
     "id": "uuid",
     "main_character_id": 12345678,
     "main_character_name": "Main Character",
-    "allowed": true
+    "role": "admin"
   },
   "characters": [
     {
@@ -270,12 +296,20 @@ Tokens are stored in the database:
 
 ## Access Control
 
-New users are created with `allowed = false`. To grant access:
+New users are automatically assigned a role based on alliance membership:
+- **Slyce alliance members** → `slyce` role (auto-approved)
+- **Non-Slyce members** → `public` role (pending approval)
 
-1. Login to Supabase dashboard
-2. Navigate to the `users` table
-3. Find the user by `main_character_name`
-4. Set `allowed = true`
+To change a user's role:
+
+1. Login as an admin user
+2. Navigate to the Admin Dashboard (`/admin`)
+3. Find the user in the table
+4. Select the new role from the dropdown
+
+Available roles: `public`, `slyce`, `user`, `pro`, `admin`
+
+**Note:** Currently all pages require `admin` role for access.
 
 ---
 

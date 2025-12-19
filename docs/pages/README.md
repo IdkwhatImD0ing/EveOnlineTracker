@@ -22,6 +22,10 @@ app/
 │       └── page.tsx        # Redirects to /jita-opportunities?tab=market
 ├── sell-opportunities/
 │   └── page.tsx            # Redirects to /jita-opportunities?tab=sell
+├── admin/
+│   ├── page.tsx            # Admin dashboard (/admin)
+│   └── fits/
+│       └── page.tsx        # Alliance fits management (/admin/fits)
 └── projects/
     ├── new/
     │   └── page.tsx        # New project form (/projects/new)
@@ -39,6 +43,8 @@ app/
 | [Jita Opportunities](./jita-opportunities.md) | `/jita-opportunities` | Combined sell timing + market opportunities (tabbed) |
 | [Market Seeder](./market-seeder.md) | `/market-seeder` | Import profit analyzer (tabbed) |
 | [Projects](./projects.md) | `/projects/*` | Project creation and detail views |
+| [Admin Dashboard](./admin.md) | `/admin` | User management (admin-only) |
+| [Alliance Fits](./alliance-fits.md) | `/admin/fits` | Ship fitting management (admin-only) |
 
 ## Navigation Flow
 
@@ -94,14 +100,22 @@ The application uses EVE SSO (Single Sign-On) for authentication. The `AuthGate`
 
 1. Checks for a valid session cookie
 2. Shows a login screen if not authenticated
-3. Shows a "Pending Approval" screen if `allowed = false`
-4. Renders the app if authenticated and allowed
+3. Shows a "Pending Approval" screen if role is `public`
+4. Shows a "Restricted Access" screen if role is not `admin`
+5. Renders the app if user has `admin` role
 
 **Multi-Account Support:** Users can link multiple EVE characters (alts) to their account. Data is automatically aggregated across all linked characters.
 
-**Access Control:** New users are created with `allowed = false`. An administrator must set `allowed = true` in the Supabase dashboard to grant access.
+**User Roles:**
+- `public` - New user, not in Slyce alliance, pending approval
+- `slyce` - Slyce alliance member, auto-approved on registration
+- `user` - Manually approved by admin
+- `pro` - Premium access granted by admin
+- `admin` - Full access including admin dashboard
 
-See [Authentication API](../api/auth.md) for details.
+**Access Control:** New users are automatically assigned `slyce` role if they're in the Slyce alliance, or `public` role otherwise. Administrators can change user roles via the Admin Dashboard (`/admin`).
+
+See [Authentication API](../api/auth.md) and [Admin Dashboard](admin.md) for details.
 
 ## Error Handling
 

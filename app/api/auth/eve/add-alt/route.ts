@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { generateState, getAuthorizationUrl } from '@/lib/eve-sso'
 import { getAuthenticatedUser } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 import { config } from '@/lib/config'
 
 /**
@@ -20,11 +21,17 @@ export async function GET() {
         )
     }
 
-    if (!session.user.allowed) {
+    if (session.user.role === 'public') {
         return NextResponse.json(
-            { error: 'Account pending approval' },
+            { error: 'Admin access required' },
             { status: 403 }
         )
+    }
+
+    // Rate limiting
+    const rateLimitResult = await checkRateLimit(session.user_id)
+    if (!rateLimitResult.success) {
+        return createRateLimitResponse(rateLimitResult)
     }
 
     const clientId = process.env.EVE_CLIENT_ID

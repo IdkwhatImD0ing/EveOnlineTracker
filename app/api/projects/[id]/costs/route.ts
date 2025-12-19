@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { getAuthenticatedUser } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 import type { CreateAdditionalCostRequest } from '@/types/database'
 
 // POST /api/projects/[id]/costs - Add an additional cost
@@ -15,8 +16,14 @@ export async function POST(
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!session.user.allowed) {
+    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
+    // Rate limiting
+    const rateLimitResult = await checkRateLimit(session.user_id)
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult)
     }
 
     const { id: projectId } = await params
@@ -92,8 +99,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!session.user.allowed) {
+    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
+    // Rate limiting
+    const rateLimitResult = await checkRateLimit(session.user_id)
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult)
     }
 
     const { id: projectId } = await params

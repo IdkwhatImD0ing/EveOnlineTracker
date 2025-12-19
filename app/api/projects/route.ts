@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createAppraisal } from '@/lib/janice'
 import { getGroupNamesBatch } from '@/lib/sde'
 import { getAuthenticatedUser } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse, applyRateLimitHeaders } from '@/lib/rate-limit'
 import type { CreateProjectRequest, Project } from '@/types/database'
 
 // GET /api/projects - List all projects
@@ -14,8 +15,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!session.user.allowed) {
+    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
+    // Rate limiting
+    const rateLimitResult = await checkRateLimit(session.user_id)
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult)
     }
 
     const supabase = createClient()
@@ -29,7 +36,8 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(projects as Project[])
+    const response = NextResponse.json(projects as Project[])
+    return applyRateLimitHeaders(response, rateLimitResult)
   } catch (err) {
     console.error('Error fetching projects:', err)
     return NextResponse.json(
@@ -48,8 +56,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!session.user.allowed) {
+    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+
+    // Rate limiting
+    const rateLimitResult = await checkRateLimit(session.user_id)
+    if (!rateLimitResult.success) {
+      return createRateLimitResponse(rateLimitResult)
     }
 
     const body: CreateProjectRequest = await request.json()
