@@ -17,6 +17,8 @@ app/
 │   │   └── page.tsx          # Industry calculator (/industry)
 │   ├── jita-opportunities/
 │   │   └── page.tsx          # Jita opportunities (/jita-opportunities)
+│   ├── jita-purchase/
+│   │   └── page.tsx          # Jita purchase calculator (/jita-purchase)
 │   ├── market-seeder/
 │   │   └── page.tsx          # Market seeder (/market-seeder)
 │   ├── market/
@@ -50,6 +52,7 @@ app/
 | [EVE SSO Callback](./callback.md) | `/callback` | OAuth callback handler |
 | [Industry Calculator](./industry-calculator.md) | `/industry` | Blueprint material calculations |
 | [Jita Opportunities](./jita-opportunities.md) | `/jita-opportunities` | Combined sell timing + market opportunities (tabbed) |
+| [Jita Purchase](./jita-purchase.md) | `/jita-purchase` | Calculate Jita buy costs |
 | [Market Seeder](./market-seeder.md) | `/market-seeder` | Import profit analyzer (tabbed) |
 | [Projects](./projects.md) | `/projects/*` | Project creation and detail views |
 | [Admin Dashboard](./admin.md) | `/admin` | User management (admin-only) |

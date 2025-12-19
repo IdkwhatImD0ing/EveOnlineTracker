@@ -13,6 +13,7 @@ export const NAV_PERMISSIONS: Record<string, UserRole[]> = {
   '/industry': ['user', 'pro', 'admin'],
   '/projects': ['user', 'pro', 'admin'],
   '/public-market-seeding': ['slyce', 'user', 'pro', 'admin'],
+  '/jita-purchase': ['slyce', 'user', 'pro', 'admin'],
   '/market-seeder': ['admin'],
   '/jita-opportunities': ['admin'],
   '/callback': ['admin'],
@@ -30,6 +31,9 @@ export const API_PERMISSIONS: Record<string, UserRole[]> = {
   
   // Public Market Seeding - slyce and above
   '/api/fits-availability': ['slyce', 'user', 'pro', 'admin'],
+  
+  // Jita Purchase - slyce and above
+  '/api/jita-purchase': ['slyce', 'user', 'pro', 'admin'],
   
   // Market features - admin only
   '/api/market': ['admin'],

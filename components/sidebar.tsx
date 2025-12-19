@@ -55,9 +55,15 @@ const allNavItems: NavItem[] = [
     description: "Check fit stock at 3T7",
   },
   {
+    title: "Jita Purchase",
+    href: "/jita-purchase",
+    icon: ShoppingCart,
+    description: "Calculate Jita buy costs",
+  },
+  {
     title: "Market Seeder",
     href: "/market-seeder",
-    icon: ShoppingCart,
+    icon: TrendingUp,
     description: "Find profitable imports",
   },
   {
