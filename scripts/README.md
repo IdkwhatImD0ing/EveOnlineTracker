@@ -34,7 +34,7 @@ Creates cron jobs on [cron-job.org](https://cron-job.org) for automated market h
 
 **Usage:**
 ```bash
-# Create all 48 cron jobs
+# Create all 52 cron jobs
 npx tsx scripts/setup-cron-jobs.ts
 
 # List existing jobs
@@ -54,7 +54,7 @@ npx tsx scripts/setup-cron-jobs.ts --delete
 |--------|------|----------|
 | The Forge (Jita) | 20 | :00 hourly (hours 0-19) |
 | Vale of the Silent | 20 | :20 hourly (hours 0-19) |
-| Deklein | 8 | :40 every 3h |
+| Deklein | 12 | :40 every 2h |
 
 ### `extract-item-types.ts`
 
@@ -187,7 +187,7 @@ GET /api/esi/market-history-test?type_id=587
 ```
 
 **Cron Schedule (via cron-job.org):**
-- 48 jobs run daily across 3 regions
+- 52 jobs run daily across 3 regions
 - Configured via `scripts/setup-cron-jobs.ts`
 - See `docs/api/esi.md` for full schedule details
 

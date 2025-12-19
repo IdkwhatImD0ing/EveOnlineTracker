@@ -8,8 +8,8 @@ const ESI_BASE = 'https://esi.evetech.net'
 const REGION_THE_FORGE = 10000002 // Jita's region
 
 // Batch configuration
-const CONCURRENT_REQUESTS = 10 // Number of parallel ESI requests (reduced to avoid rate limits)
-const BATCH_DELAY_MS = 500 // Delay between batches to respect rate limits
+const CONCURRENT_REQUESTS = 20 // Number of parallel ESI requests
+const BATCH_DELAY_MS = 100 // Delay between batches to respect rate limits
 const SUPABASE_BATCH_SIZE = 1000 // Max rows per Supabase upsert
 
 // Fetch modes
@@ -232,7 +232,8 @@ async function fetchMarketHistory(
   retryCount = 0
 ): Promise<{ entries: ESIMarketHistoryEntry[]; error?: string }> {
   const MAX_RETRIES = 5 // For server errors only
-  const BASE_RATE_LIMIT_DELAY = 15000 // 15 seconds base wait on rate limit
+  const MAX_RATE_LIMIT_RETRIES = 3 // Cap rate limit retries to avoid timeout
+  const BASE_RATE_LIMIT_DELAY = 5000 // 5 seconds base wait on rate limit (reduced from 15s)
   
   try {
     const response = await fetch(
@@ -252,11 +253,14 @@ async function fetchMarketHistory(
         return { entries: [] }
       }
       
-      // 420 means rate limited - ALWAYS wait and retry (infinite retries)
+      // 420 means rate limited - wait and retry with cap
       if (response.status === 420) {
-        // Exponential backoff: 15s, 30s, 60s, 120s, then cap at 120s
-        const waitTime = Math.min(BASE_RATE_LIMIT_DELAY * Math.pow(2, retryCount), 120000)
-        console.log(`[Market History] RATE LIMITED on type ${typeId} - waiting ${waitTime / 1000}s (attempt ${retryCount + 1})`)
+        if (retryCount >= MAX_RATE_LIMIT_RETRIES) {
+          return { entries: [], error: 'Rate limited (max retries)' }
+        }
+        // Exponential backoff: 5s, 10s, 20s (capped at 3 retries)
+        const waitTime = Math.min(BASE_RATE_LIMIT_DELAY * Math.pow(2, retryCount), 20000)
+        console.log(`[Market History] RATE LIMITED on type ${typeId} - waiting ${waitTime / 1000}s (attempt ${retryCount + 1}/${MAX_RATE_LIMIT_RETRIES})`)
         await new Promise(resolve => setTimeout(resolve, waitTime))
         return fetchMarketHistory(typeId, regionId, retryCount + 1)
       }

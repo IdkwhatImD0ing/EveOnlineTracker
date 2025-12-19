@@ -70,7 +70,7 @@ const navItems: NavItem[] = [
   },
   {
     title: "API Explorer",
-    href: "/callback",
+    href: "/api-explorer",
     icon: KeyRound,
     description: "Debug ESI endpoints",
   },

@@ -1,11 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
+import { promises as fs } from 'fs'
+import path from 'path'
 
 const ESI_BASE = 'https://esi.evetech.net'
+
+interface SolarSystem {
+  id: number
+  name: string
+  security: number
+}
+
+// Cache for solar systems data
+let solarSystemsCache: SolarSystem[] | null = null
+
+async function loadSolarSystems(): Promise<SolarSystem[]> {
+  if (solarSystemsCache) return solarSystemsCache
+  
+  const filePath = path.join(process.cwd(), 'public', 'solar-systems.json')
+  const data = await fs.readFile(filePath, 'utf-8')
+  solarSystemsCache = JSON.parse(data) as SolarSystem[]
+  return solarSystemsCache
+}
+
+function findSystemByName(systems: SolarSystem[], name: string): SolarSystem | undefined {
+  const lowerName = name.toLowerCase()
+  return systems.find(s => s.name.toLowerCase() === lowerName)
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const searchTerm = searchParams.get('search') || '3T7'
+  const systemName = searchParams.get('system_name') || '3T7-M8'
   
   // Get session with main character
   const session = await getSessionWithCharacters()
@@ -31,6 +57,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: 'Failed to get access token' },
       { status: 401 }
+    )
+  }
+
+  // Look up the solar system by name
+  let targetSystemId: number
+  let targetSystemName: string
+  
+  try {
+    const solarSystems = await loadSolarSystems()
+    const system = findSystemByName(solarSystems, systemName)
+    
+    if (!system) {
+      return NextResponse.json({
+        error: `System "${systemName}" not found`,
+        hint: 'Make sure the system name is spelled correctly (e.g., "Jita", "3T7-M8", "1DQ1-A")',
+      }, { status: 400 })
+    }
+    
+    targetSystemId = system.id
+    targetSystemName = system.name
+  } catch (error) {
+    console.error('Failed to load solar systems:', error)
+    return NextResponse.json(
+      { error: 'Failed to load solar systems data' },
+      { status: 500 }
     )
   }
 
@@ -66,16 +117,16 @@ export async function GET(request: NextRequest) {
 
     if (structureIds.length === 0) {
       return NextResponse.json({
-        error: `No structures found matching "${searchTerm}". Make sure you have docking access to the Keepstar.`,
+        error: `No structures found matching "${searchTerm}". Make sure you have docking access.`,
         character_id_used: characterId,
         search_term: searchTerm,
+        target_system: targetSystemName,
         structure_id: null,
       })
     }
 
     // Get details for each structure to find the Keepstar (type_id: 35834)
     const KEEPSTAR_TYPE_ID = 35834
-    const SYSTEM_3T7_M8 = 30002938
     
     const structureDetails: Array<{
       structure_id: number
@@ -110,15 +161,15 @@ export async function GET(request: NextRequest) {
             solar_system_id: structureData.solar_system_id,
           })
           
-          // Check if it's a Keepstar in 3T7-M8
-          if (structureData.type_id === KEEPSTAR_TYPE_ID && structureData.solar_system_id === SYSTEM_3T7_M8) {
+          // Check if it's a Keepstar in the target system
+          if (structureData.type_id === KEEPSTAR_TYPE_ID && structureData.solar_system_id === targetSystemId) {
             keepstar = {
               structure_id: structureId,
               name: structureData.name,
               type_id: structureData.type_id,
               type_name: 'Keepstar',
               solar_system_id: structureData.solar_system_id,
-              solar_system_name: '3T7-M8',
+              solar_system_name: targetSystemName,
               owner_id: structureData.owner_id,
             }
           }
@@ -142,13 +193,15 @@ export async function GET(request: NextRequest) {
 
     // If no Keepstar found, return all structure details for debugging
     return NextResponse.json({
-      error: 'No Keepstar found in 3T7-M8',
+      error: `No Keepstar found in ${targetSystemName}`,
       character_id_used: characterId,
       search_term: searchTerm,
-      hint: `Showing all structures found matching "${searchTerm}". Looking for type_id=35834 and solar_system_id=30002938. HTTP 401 means no docking access.`,
+      target_system: targetSystemName,
+      target_system_id: targetSystemId,
+      hint: `Showing all structures found matching "${searchTerm}". Looking for type_id=${KEEPSTAR_TYPE_ID} in solar_system_id=${targetSystemId}. HTTP 401 means no docking access.`,
       expected: {
         type_id: KEEPSTAR_TYPE_ID,
-        solar_system_id: SYSTEM_3T7_M8,
+        solar_system_id: targetSystemId,
       },
       structures_found: structureDetails,
     })
@@ -161,4 +214,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

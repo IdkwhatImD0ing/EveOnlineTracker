@@ -4,14 +4,16 @@ How Material Efficiency bonuses reduce the materials required for manufacturing.
 
 ## Overview
 
-Material Efficiency (ME) is a percentage reduction applied to the base material requirements of a blueprint. EVE Online calculates ME **per-run first**, then multiplies by the number of runs. This means each material requires at least 1 unit per run.
+Material Efficiency (ME) is a percentage reduction applied to the base material requirements of a blueprint. EVE Online uses **multiplicative stacking** of ME bonuses and calculates the **total materials per job**, then rounds up. The minimum is 1 material per run (enforced via `max(runs, ...)`).
 
 ## The Formula
 
 ```
-perRunQuantity = max(1, ceil(baseQuantity × (1 - totalME)))
-adjustedQuantity = perRunQuantity × runs
+combinedFactor = (1 - blueprintME) × (1 - structureME) × (1 - rigME)
+adjustedQuantity = max(runs, ceil(round(baseQuantity × runs × combinedFactor, 2)))
 ```
+
+Note: EVE uses 2 decimal precision before ceiling to avoid floating-point edge cases.
 
 ### Components
 
@@ -19,14 +21,16 @@ adjustedQuantity = perRunQuantity × runs
 |------|-------------|
 | `baseQuantity` | Materials required per run (from blueprint) |
 | `runs` | Number of manufacturing runs |
-| `totalME` | Combined ME bonus as decimal (e.g., 0.10 for 10%) |
-| `perRunQuantity` | Materials needed per single run (after ME, minimum 1) |
-| `adjustedQuantity` | Final material quantity needed |
+| `combinedFactor` | Multiplicative combination of all ME bonuses |
+| `adjustedQuantity` | Final material quantity needed (minimum = runs) |
 
-### Total ME Calculation
+### ME Factor Calculation (Multiplicative Stacking)
 
 ```
-totalME = (blueprintME / 100) + structureME + (rigME × securityMultiplier)
+blueprintFactor = 1 - (blueprintME / 100)
+structureFactor = 1 - structureME
+rigFactor = 1 - (rigME × securityMultiplier)
+combinedFactor = blueprintFactor × structureFactor × rigFactor
 ```
 
 | Source | Value | Description |
@@ -85,21 +89,17 @@ Rig bonuses are multiplied by system security:
 
 - Base Tritanium: 22,500 per run
 - Runs: 1
-- Blueprint ME: 10%
-- Structure ME: 1%
-- Rig ME: 2.4% × 2.1 = 5.04%
-- **Total ME: 16.04%**
+- Blueprint ME: 10% → factor = 0.90
+- Structure ME: 1% → factor = 0.99
+- Rig ME: 2.4% × 2.1 = 5.04% → factor = 0.9496
+- **Combined factor: 0.90 × 0.99 × 0.9496 = 0.8459**
 
 ```
-perRunRaw = 22,500 × (1 - 0.1604)
-          = 22,500 × 0.8396
-          = 18,891
-
-perRunAdjusted = max(1, ceil(18,891)) = 18,891
-total = 18,891 × 1 = 18,891
+totalRaw = 22,500 × 1 × 0.8459 = 19,033.25
+total = max(1, ceil(19,033.25)) = 19,034
 ```
 
-**Result: 18,891 Tritanium** (vs 22,500 base = 16.04% savings)
+**Result: 19,034 Tritanium** (vs 22,500 base = 15.4% savings)
 
 ### Example 2: Batch Production
 
@@ -107,42 +107,34 @@ total = 18,891 × 1 = 18,891
 
 - Base Tritanium: 22,500 per run
 - Runs: 10
-- Total ME: 16.04%
+- Combined factor: 0.8459
 
 ```
-perRunRaw = 22,500 × (1 - 0.1604)
-          = 22,500 × 0.8396
-          = 18,891
-
-perRunAdjusted = max(1, ceil(18,891)) = 18,891
-total = 18,891 × 10 = 188,910
+totalRaw = 22,500 × 10 × 0.8459 = 190,327.5
+total = max(10, ceil(190,327.5)) = 190,328
 ```
 
-**Result: 188,910 Tritanium** (vs 225,000 base)
+**Result: 190,328 Tritanium** (vs 225,000 base)
 
-Note: Per-unit this is 18,891 Tritanium - same as single run.
+Note: Per-job rounding means batch production is slightly more efficient.
 
-### Example 3: Revelation Navy Issue (Real-World)
+### Example 3: R-O Trigger Neurolink Conduit (Real-World)
 
-**Scenario:** Building 10 Revelation Navy Issues with ME 0 blueprint in Sotiyo with T1 rig in nullsec
+**Scenario:** Building 70 R-O Trigger Neurolink Conduit with ME 10 blueprint in Sotiyo with T1 rig in nullsec
 
-- Base Life Support Backup Units: 200 per run
-- Runs: 10
-- Blueprint ME: 0%
-- Structure ME: 1%
-- Rig ME: 2% × 2.1 = 4.2%
-- **Total ME: 5.2%**
+- Base Axosomatic Neurolink Enhancer: 40 per run
+- Runs: 70
+- Blueprint ME: 10% → factor = 0.90
+- Structure ME: 1% → factor = 0.99
+- Rig ME: 2% × 2.1 = 4.2% → factor = 0.958
+- **Combined factor: 0.90 × 0.99 × 0.958 = 0.8535**
 
 ```
-perRunRaw = 200 × (1 - 0.052)
-          = 200 × 0.948
-          = 189.6
-
-perRunAdjusted = max(1, ceil(189.6)) = 190
-total = 190 × 10 = 1,900
+totalRaw = 40 × 70 × 0.8535 = 2389.8
+total = max(70, ceil(2389.8)) = 2390
 ```
 
-**Result: 1,900 Life Support Backup Units** (190 per ship)
+**Result: 2,390 Axosomatic Neurolink Enhancer** (matches EVE Online)
 
 ### Example 4: Minimum Material Rule
 
@@ -150,52 +142,35 @@ total = 190 × 10 = 1,900
 
 - Base material: 2 per run
 - Runs: 5
-- Total ME: 80% (hypothetical extreme)
+- Combined factor: 0.20 (hypothetical extreme ~80% ME)
 
 ```
-perRunRaw = 2 × (1 - 0.80)
-          = 2 × 0.20
-          = 0.4
-
-perRunAdjusted = max(1, ceil(0.4)) = max(1, 1) = 1
-total = 1 × 5 = 5
+totalRaw = 2 × 5 × 0.20 = 2.0
+total = max(5, ceil(2.0)) = max(5, 2) = 5
 ```
 
-**Result: 5 units** (at least 1 per run)
+**Result: 5 units** (minimum 1 per run enforced via max(runs, ...))
 
-### Example 5: Rounding Behavior
+### Example 5: Per-Job Rounding Benefit
 
-**Scenario:** ME calculation with decimal precision
-
-- Base material: 100 per run
-- Runs: 3
-- Total ME: 10%
-
-```
-perRunRaw = 100 × (1 - 0.10)
-          = 100 × 0.90
-          = 90
-
-perRunAdjusted = max(1, ceil(90)) = 90
-total = 90 × 3 = 270
-```
-
-**Result: 270 units**
-
-Now with a slight change causing decimals:
+**Scenario:** ME calculation showing per-job rounding advantage
 
 - Base material: 101 per run
+- Runs: 3
+- Blueprint ME only: 10% → factor = 0.90
 
 ```
-perRunRaw = 101 × (1 - 0.10)
-          = 101 × 0.90
-          = 90.9
-
-perRunAdjusted = max(1, ceil(90.9)) = 91
-total = 91 × 3 = 273
+totalRaw = 101 × 3 × 0.90 = 272.7
+total = max(3, ceil(272.7)) = 273
 ```
 
-**Result: 273 units** (rounded up per-run, then multiplied)
+**Result: 273 units**
+
+Compare to per-run rounding (old incorrect method):
+- Per run: ceil(101 × 0.90) = ceil(90.9) = 91
+- Total: 91 × 3 = 273 (same in this case)
+
+But with different numbers, per-job rounding provides savings.
 
 ## Implementation
 
@@ -208,26 +183,27 @@ function calculateMaterialQuantity(
   rigMeBonus: number,
   securityMultiplier: number = 1.0
 ): number {
-  // Total ME reduction (blueprint ME + structure + rig × security)
-  const totalMeReduction = (blueprintMe / 100) + structureMeBonus + (rigMeBonus * securityMultiplier)
+  // Multiplicative ME stacking (how EVE Online calculates)
+  const blueprintFactor = 1 - (blueprintMe / 100)
+  const structureFactor = 1 - structureMeBonus
+  const rigFactor = 1 - (rigMeBonus * securityMultiplier)
+  const combinedFactor = blueprintFactor * structureFactor * rigFactor
   
-  // EVE Online calculates ME per-run first, then multiplies by runs
-  // Formula: max(1, ceil(baseQuantity × (1 - totalME))) × runs
-  const perRunRaw = baseQuantity * (1 - totalMeReduction)
-  const perRunAdjusted = Math.max(1, Math.ceil(perRunRaw))
-  
-  return perRunAdjusted * runs
+  // Per-job rounding with 2 decimal precision (matches EVE behavior)
+  const totalRaw = baseQuantity * runs * combinedFactor
+  const rounded = Math.round(totalRaw * 100) / 100
+  return Math.max(runs, Math.ceil(rounded))
 }
 ```
 
 ## Key Points
 
-1. **ME applies per-run first** - Calculate per-run quantity, then multiply by runs
-2. **Minimum 1 per run** - You always need at least 1 of each material per run
-3. **Ceiling applied per-run** - Decimals are rounded up before multiplying by runs
+1. **Multiplicative stacking** - ME bonuses multiply together, not add
+2. **Per-job rounding** - Calculate total materials, then round up once
+3. **Minimum 1 per run** - Enforced via `max(runs, ...)` 
 4. **Rig bonus × security** - Only rig bonuses are affected by security status
-5. **Stacking** - All ME sources stack additively
-6. **Max effective ME** - There's no hard cap, but practical max is ~16-17%
+5. **Combined factor** - Multiply all (1 - bonus) factors together
+6. **Max effective ME** - Practical combined factor is ~0.84-0.85 (15-16% savings)
 
 ## Component ME
 

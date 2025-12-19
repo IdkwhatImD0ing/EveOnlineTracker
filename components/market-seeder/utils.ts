@@ -98,10 +98,9 @@ export function transformApiItemsToUiItems(
  * Cheaper items need higher minimum orders to be worth the effort
  */
 export function getMinOrderQuantity(jitaPrice: number): number {
-  if (jitaPrice < 10_000_000) return 20      // < 10M ISK: min 20 units
-  if (jitaPrice < 50_000_000) return 10      // < 50M ISK: min 10 units
-  if (jitaPrice < 100_000_000) return 5      // < 100M ISK: min 5 units
-  return 2                                    // >= 100M ISK: min 2 units
+  if (jitaPrice < 10_000_000) return 5       // < 10M ISK: min 5 units
+  if (jitaPrice < 50_000_000) return 2       // < 50M ISK: min 2 units
+  return 1                                    // >= 50M ISK: min 1 unit
 }
 
 /**

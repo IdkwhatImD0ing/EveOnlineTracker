@@ -135,8 +135,8 @@ View and manage a manufacturing project:
 ├────────────────────────────────────────────────────────────────────┤
 │  Components                                            [Copy ▼]    │
 │  ┌────────────────────────────────────────────────────────────────┐│
-│  │ ☐ Capital Armor Plates    100   25/100   🔨 Build   +200M     ││
-│  │ ☐ Capital Propulsion      40    0/40    🛒 Buy     -50M       ││
+│  │ ☐ Capital Armor Plates   25/100   75   🔨 Build   +200M       ││
+│  │ ☐ Capital Propulsion      0/40    40   🛒 Buy     -50M        ││
 │  └────────────────────────────────────────────────────────────────┘│
 ├────────────────────────────────────────────────────────────────────┤
 │  Jita Prices                                                       │
@@ -173,6 +173,7 @@ View and manage a manufacturing project:
 **Component Progress:**
 - Click quantity to edit (e.g., "25/100")
 - Progress bar visualization
+- Remaining column shows calculated `quantity - quantity_made`
 - Auto-marks collected when complete
 
 **Buy Mode Toggle:**

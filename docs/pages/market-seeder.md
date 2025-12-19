@@ -533,21 +533,21 @@ priority_score = estimated_daily_sales × profit_per_unit
 
 ### Urgency Levels
 
-Items are color-coded by how soon they'll run out:
+Items are color-coded by their stock status:
 
-| Level | Days Remaining | Visual |
-|-------|----------------|--------|
-| Critical | < 3 days | Red border + "Critical" badge |
-| Warning | 3-7 days | Amber border + "Low Stock" badge |
-| Safe | > 7 days | Green border + "OK" badge |
-| No Data | N/A | Gray badge (no Vale volume data) |
+| Level | Condition | Visual |
+|-------|-----------|--------|
+| Critical | 0 stock | Red border + "Critical" badge |
+| Warning | < 3 days | Amber border + "Low Stock" badge |
+| Safe | >= 3 days | Green border + "OK" badge |
+| No Data | N/A | Gray badge (no regional volume data) |
 
 ### Summary Cards
 
 When predictions are available, summary cards show:
 - **Items Tracked**: Total unique items being sold
-- **Critical**: Items with < 3 days of stock (red highlight)
-- **Warning**: Items with 3-7 days of stock (amber highlight)
+- **Critical**: Items with 0 stock (red highlight)
+- **Warning**: Items with < 3 days of stock (amber highlight)
 - **Daily Profit Potential**: Total ISK/day across all items
 
 ### Item Cards
@@ -560,6 +560,37 @@ Each prediction card displays:
 - **Daily Profit**: Potential daily profit from this item
 - **Priority**: Ranking score for restock urgency
 
+### Sidebar Filters
+
+The Depletion tab includes a filter sidebar (visible on desktop, collapsible on mobile) with the following options:
+
+**Hide Owned Items:**
+Toggle to hide items that you already have in your 3T7 inventory or have active sell orders for. This helps you focus on items you need to acquire from Jita, excluding items you already own across all linked characters.
+
+**Competition Filter:**
+Filter items based on whether you have competition from other sellers:
+
+| Option | Description |
+|--------|-------------|
+| All Items | Show all items regardless of competition |
+| No Competition | Show only items where you're the sole seller (your sell order volume equals total structure stock) |
+| With Competition | Show only items where other sellers have orders (total structure stock exceeds your sell order volume) |
+
+This helps you identify market opportunities where you can dominate a niche without price competition.
+
+**Urgency Level Filters:**
+| Filter | Description |
+|--------|-------------|
+| Critical (0 stock) | Show items that are completely out of stock |
+| Warning (<3 days) | Show items with less than 3 days of stock |
+| OK (≥3 days) | Show items with 3 or more days of stock |
+| No Data | Show items without regional volume data |
+
+**Category Filters:**
+Same as the Analysis tab - filter by Modules, Ships, Ammo, Boosters, Drones, Fighters, Implants, Deployables, and Subsystems.
+
+A **Reset Filters** button appears when any filters are modified from defaults.
+
 ### Copy Restock List
 
 After analyzing depletion, a **Copy Restock List** button appears when there are items needing restocking (Critical or Warning status). Click the button to open a dropdown with options.
@@ -568,8 +599,8 @@ After analyzing depletion, a **Copy Restock List** button appears when there are
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| Include Critical | Checkbox - include items with < 3 days stock | Checked |
-| Include Warning | Checkbox - include items with 3-7 days stock | Checked |
+| Include Critical | Checkbox - include items with 0 stock | Checked |
+| Include Warning | Checkbox - include items with < 3 days stock | Checked |
 | Days of supply | 1, 3, 7, 14, 30 days | 7 days (1 week) |
 | Limit items | All matched, Top 5, Top 10, Top 20 | All matched |
 
@@ -594,10 +625,11 @@ Click **Copy N items** in the dropdown, then paste directly into Eve Online's mu
 1. Select Structure in the Analysis tab (3T7-M8 Keepstar is default)
 2. Switch to the Depletion tab
 3. Click **Analyze Depletion**
-4. Review items sorted by priority score
-5. Click **Copy Restock List** to copy Critical/Warning items
-6. Paste in Eve Online multibuy to purchase restocking quantities
-7. Re-analyze periodically to track changes
+4. Use the **sidebar filters** to filter by urgency level and/or category
+5. Review items sorted by priority score
+6. Click **Copy Restock List** to copy Critical/Warning items (respects current filters)
+7. Paste in Eve Online multibuy to purchase restocking quantities
+8. Re-analyze periodically to track changes
 
 ### Data Sources
 
