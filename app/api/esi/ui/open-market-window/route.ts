@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isAdminRole } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -24,8 +25,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    if (!isAdminRole(session.user.role)) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
     // Rate limiting
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
       characterId ? parseInt(characterId) : undefined,
       request
     )
-    
+
     if (!authToken) {
       return NextResponse.json(
         { error: 'Not authenticated. Login with EVE SSO first.' },
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Call ESI to open the market window
     const esiUrl = `${ESI_BASE}/latest/ui/openwindow/marketdetails/?type_id=${typeId}`
-    
+
     const response = await fetch(esiUrl, {
       method: 'POST',
       headers: {
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`ESI open market window failed: ${response.status} - ${errorText}`)
-      
+
       // Handle specific ESI errors
       if (response.status === 401) {
         return NextResponse.json(
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
           { status: 401 }
         )
       }
-      
+
       if (response.status === 403) {
         return NextResponse.json(
           { error: 'Forbidden - missing esi-ui.open_window.v1 scope' },
@@ -104,8 +105,8 @@ export async function POST(request: NextRequest) {
 
     // ESI returns 204 No Content on success
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         type_id: parseInt(typeId),
         character_id: characterId ? parseInt(characterId) : undefined
       },

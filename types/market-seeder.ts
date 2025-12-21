@@ -629,6 +629,7 @@ export interface ExistingOrderItem {
   type_id: number
   type_name: string
   quantity: number
+  characters: SellOrderItemCharacter[]  // Characters that have this item in inventory
 }
 
 /**

@@ -1317,7 +1317,7 @@ curl -X GET "http://localhost:3000/api/esi/sell-order-generator?structure_id=105
 | summary.total_items | number | Total items with price data |
 | summary.total_with_competition | number | Items with existing sell orders |
 | summary.total_no_competition | number | Items with no existing sell orders |
-| summary.total_isk_per_day | number | Estimated total daily revenue |
+| summary.total_isk_per_day | number | Estimated total daily profit |
 | summary.filtered_out_existing_orders | number | Items excluded because you have sell orders |
 
 **Item Fields:**
@@ -1334,7 +1334,7 @@ curl -X GET "http://localhost:3000/api/esi/sell-order-generator?structure_id=105
 | sell_price_eve | string | Copy-pasteable format for EVE (e.g., "1,800,000.00") |
 | vale_daily_volume | number | Average daily volume in Vale of the Silent |
 | estimated_daily_sales | number | Vale volume × 5% hub factor |
-| isk_per_day | number | estimated_daily_sales × sell_price |
+| isk_per_day | number | estimated_daily_sales × (sell_price - jita_price) — daily profit potential |
 
 **Pricing Logic:**
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { hasRoleLevel } from '@/lib/permissions'
 import type { CreateAdditionalCostRequest } from '@/types/database'
 
 // POST /api/projects/[id]/costs - Add an additional cost
@@ -16,8 +17,8 @@ export async function POST(
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    if (!hasRoleLevel(session.user.role, 'user')) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     // Rate limiting
@@ -99,8 +100,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    if (!hasRoleLevel(session.user.role, 'user')) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     // Rate limiting

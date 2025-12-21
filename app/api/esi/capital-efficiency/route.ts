@@ -14,6 +14,7 @@ import {
 } from '@/types/market-seeder'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isAdminRole } from '@/types/auth'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -138,10 +139,10 @@ async function fetchRegionVolumes(
 async function fetchJitaPrices(typeIds: number[]): Promise<Map<number, number>> {
   const prices = new Map<number, number>()
   const CONCURRENT = 20
-  
+
   for (let i = 0; i < typeIds.length; i += CONCURRENT) {
     const batch = typeIds.slice(i, i + CONCURRENT)
-    
+
     const promises = batch.map(async (typeId) => {
       try {
         const response = await fetch(
@@ -153,30 +154,30 @@ async function fetchJitaPrices(typeIds: number[]): Promise<Map<number, number>> 
             }
           }
         )
-        
+
         if (!response.ok) return null
-        
+
         const orders: { price: number }[] = await response.json()
         if (orders.length === 0) return null
-        
+
         const lowestPrice = Math.min(...orders.map(o => o.price))
         return { typeId, price: lowestPrice }
       } catch {
         return null
       }
     })
-    
+
     const results = await Promise.all(promises)
     for (const r of results) {
       if (r) prices.set(r.typeId, r.price)
     }
-    
+
     // Small delay between batches
     if (i + CONCURRENT < typeIds.length) {
       await new Promise(resolve => setTimeout(resolve, 50))
     }
   }
-  
+
   return prices
 }
 
@@ -222,7 +223,7 @@ export async function GET(request: NextRequest) {
   const transportCostPerM3 = parseFloat(
     searchParams.get('transport_cost') || String(MARKET_SEEDER_DEFAULTS.TRANSPORT_COST_PER_M3)
   )
-  
+
   // Parse volume region ID
   const volumeRegionIdParam = searchParams.get('volume_region_id')
   let volumeRegionId: RegionId = DEFAULT_VOLUME_REGION_ID
@@ -245,7 +246,7 @@ export async function GET(request: NextRequest) {
 
   // Get session with all characters (from session cookie or Authorization header)
   const session = await getSessionWithCharacters(request)
-  
+
   if (!session) {
     return NextResponse.json(
       { error: 'Not authenticated. Login with EVE SSO first.' },
@@ -253,9 +254,9 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (session.user.role !== 'admin') {
+  if (!isAdminRole(session.user.role)) {
     return NextResponse.json(
-      { error: 'Account pending approval' },
+      { error: 'Admin access required' },
       { status: 403 }
     )
   }
@@ -288,12 +289,12 @@ export async function GET(request: NextRequest) {
         })
 
         let allOrders: OrderWithCharacter[] = []
-        
+
         for (let i = 0; i < session.allCharacters.length; i++) {
           const character = session.allCharacters[i]
           const accessToken = await getValidAccessToken(character.character_id)
           if (!accessToken) continue
-          
+
           sendSSEEvent(controller, encoder, 'progress', {
             stage: 'characters',
             message: `Fetching orders for ${character.character_name}...`,
@@ -323,7 +324,7 @@ export async function GET(request: NextRequest) {
             allOrders = allOrders.concat(ordersWithCharacter)
           }
         }
-        
+
         // Filter to only sell orders
         const sellOrders = allOrders.filter(o => !o.is_buy_order)
         console.log(`[Capital Efficiency] Found ${sellOrders.length} active sell orders`)
@@ -366,11 +367,11 @@ export async function GET(request: NextRequest) {
           percent: 25
         })
         const itemNames = await loadItemNames()
-        
+
         // Step 3: Get unique type IDs and fetch market data
         const typeIds = [...new Set(sellOrders.map(o => o.type_id))]
         console.log(`[Capital Efficiency] Fetching market data for ${typeIds.length} unique items`)
-        
+
         sendSSEEvent(controller, encoder, 'progress', {
           stage: 'market_data',
           message: `Fetching market data for ${typeIds.length} items...`,
@@ -388,7 +389,7 @@ export async function GET(request: NextRequest) {
           message: 'Market data loaded',
           percent: 70
         })
-        
+
         // Step 4: Analyze each order
         sendSSEEvent(controller, encoder, 'progress', {
           stage: 'analyzing',
@@ -397,30 +398,30 @@ export async function GET(request: NextRequest) {
         })
 
         const capitalOrders: CapitalOrder[] = []
-        
+
         for (const order of sellOrders) {
           const item = itemNames.get(order.type_id)
           const regionDailyVolume = regionVolumes.get(order.type_id) || 0
           const jitaBuyPrice = jitaPrices.get(order.type_id) || null
-          
+
           // Calculate metrics - using regional volume × hub factor
           const capitalDeployed = order.price * order.volume_remain
           const estimatedDailySales = regionDailyVolume * hubFactor
-          const daysToSell = estimatedDailySales > 0 
-            ? order.volume_remain / estimatedDailySales 
+          const daysToSell = estimatedDailySales > 0
+            ? order.volume_remain / estimatedDailySales
             : null
           const daysListed = daysSince(order.issued)
-          
+
           // Calculate profit if we have Jita price
           const itemVolume = item?.volume || 0.01
           const transportCost = itemVolume * transportCostPerM3
-          const profitPerUnit = jitaBuyPrice !== null 
-            ? order.price - jitaBuyPrice - transportCost 
+          const profitPerUnit = jitaBuyPrice !== null
+            ? order.price - jitaBuyPrice - transportCost
             : null
-          const totalProfit = profitPerUnit !== null 
-            ? profitPerUnit * order.volume_remain 
+          const totalProfit = profitPerUnit !== null
+            ? profitPerUnit * order.volume_remain
             : null
-          
+
           // Calculate APY: (annual profit / capital) * 100
           // APY = (profitPerUnit / totalCost) * (365 / daysToSell) * 100
           let effectiveAPY: number | null = null
@@ -430,10 +431,10 @@ export async function GET(request: NextRequest) {
               effectiveAPY = (profitPerUnit / totalCost) * (365 / daysToSell) * 100
             }
           }
-          
+
           const efficiency = getEfficiencyCategory(daysToSell)
           const isDeadCapital = efficiency === 'dead'
-          
+
           capitalOrders.push({
             orderId: order.order_id,
             typeId: order.type_id,
@@ -461,7 +462,7 @@ export async function GET(request: NextRequest) {
             efficiency,
           })
         }
-        
+
         // Step 5: Calculate summary metrics
         sendSSEEvent(controller, encoder, 'progress', {
           stage: 'summary',
@@ -470,7 +471,7 @@ export async function GET(request: NextRequest) {
         })
 
         const totalCapitalDeployed = capitalOrders.reduce((sum, o) => sum + o.capitalDeployed, 0)
-        
+
         // Calculate capital-weighted average days to sell
         let weightedDaysSum = 0
         let capitalWithDays = 0
@@ -481,7 +482,7 @@ export async function GET(request: NextRequest) {
           }
         }
         const avgDaysToSell = capitalWithDays > 0 ? weightedDaysSum / capitalWithDays : 0
-        
+
         // Calculate total daily revenue (sum of capitalDeployed / daysToSell for each)
         const totalDailyRevenue = capitalOrders.reduce((sum, o) => {
           if (o.daysToSell !== null && o.daysToSell > 0) {
@@ -489,7 +490,7 @@ export async function GET(request: NextRequest) {
           }
           return sum
         }, 0)
-        
+
         // Calculate portfolio-wide APY
         let totalWeightedAPY = 0
         let capitalWithAPY = 0
@@ -500,11 +501,11 @@ export async function GET(request: NextRequest) {
           }
         }
         const effectiveAPY = capitalWithAPY > 0 ? totalWeightedAPY / capitalWithAPY : 0
-        
+
         // Dead capital
         const deadOrders = capitalOrders.filter(o => o.isDeadCapital)
         const deadCapitalValue = deadOrders.reduce((sum, o) => sum + o.capitalDeployed, 0)
-        
+
         // Capital by efficiency
         const fastCapital = capitalOrders
           .filter(o => o.efficiency === 'fast')
@@ -515,7 +516,7 @@ export async function GET(request: NextRequest) {
         const slowCapital = capitalOrders
           .filter(o => o.efficiency === 'slow')
           .reduce((sum, o) => sum + o.capitalDeployed, 0)
-        
+
         // Capital by character
         const characterMap = new Map<number, {
           characterId: number
@@ -526,13 +527,13 @@ export async function GET(request: NextRequest) {
           weightedAPY: number
           capitalWithAPY: number
         }>()
-        
+
         for (const order of capitalOrders) {
           const existing = characterMap.get(order.characterId)
           const orderDailyRevenue = (order.daysToSell !== null && order.daysToSell > 0)
             ? order.capitalDeployed / order.daysToSell
             : 0
-          
+
           if (existing) {
             existing.capital += order.capitalDeployed
             existing.orderCount++
@@ -557,7 +558,7 @@ export async function GET(request: NextRequest) {
             })
           }
         }
-        
+
         // Convert to array and calculate percentages
         const byCharacter: CharacterCapitalSummary[] = Array.from(characterMap.values())
           .map(c => ({
@@ -570,14 +571,14 @@ export async function GET(request: NextRequest) {
             effectiveAPY: c.capitalWithAPY > 0 ? Math.round((c.weightedAPY / c.capitalWithAPY) * 10) / 10 : 0,
           }))
           .sort((a, b) => b.capitalDeployed - a.capitalDeployed)  // Sort by capital, highest first
-        
+
         // Sort by days to sell descending (slowest first to highlight dead capital)
         capitalOrders.sort((a, b) => {
           if (a.daysToSell === null) return 1
           if (b.daysToSell === null) return -1
           return b.daysToSell - a.daysToSell
         })
-        
+
         const response: CapitalEfficiencyResponse = {
           success: true,
           characterId: session.mainCharacter?.character_id ?? 0,
@@ -603,9 +604,9 @@ export async function GET(request: NextRequest) {
             deadCapitalThresholdDays: DEAD_CAPITAL_THRESHOLD_DAYS,
           },
         }
-        
+
         console.log(`[Capital Efficiency] Analysis complete in ${Date.now() - startTime}ms`)
-        
+
         // Send complete event
         sendSSEEvent(controller, encoder, 'progress', {
           stage: 'complete',

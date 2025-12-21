@@ -5,7 +5,7 @@ import { getNoCompetitionMarkup } from '@/lib/market-seeder'
 import { REGION_IDS, DEFAULT_HUB_FACTOR, DEFAULT_VOLUME_REGION_ID, VOLUME_REGIONS, type RegionId } from '@/types/market-seeder'
 import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
-import type { CharacterToken } from '@/types/auth'
+import { isAdminRole, type CharacterToken } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net/latest'
 const DEFAULT_STRUCTURE_ID = '1051567430261' // 3T7-M8 Keepstar
@@ -271,9 +271,9 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (session.user.role !== 'admin') {
+  if (!isAdminRole(session.user.role)) {
     return NextResponse.json(
-      { error: 'Account pending approval' },
+      { error: 'Admin access required' },
       { status: 403 }
     )
   }
@@ -422,14 +422,15 @@ export async function GET(request: NextRequest) {
           }
 
           // Capture items with existing orders before removing them
-          const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number }> = []
+          const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number; characters: SellOrderItemCharacter[] }> = []
           for (const typeId of myExistingOrderTypes) {
             const data = assetsByType.get(typeId)
             if (data !== undefined) {
               itemsWithExistingOrders.push({
                 type_id: typeId,
                 type_name: getTypeName(typeId),
-                quantity: data.quantity
+                quantity: data.quantity,
+                characters: Array.from(data.characters.entries()).map(([id, name]) => ({ id, name }))
               })
             }
             assetsByType.delete(typeId)
@@ -555,7 +556,8 @@ export async function GET(request: NextRequest) {
 
             const valeDailyVolume = regionVolumes.get(typeId) || 0
             const estimatedDailySales = valeDailyVolume * hubFactor
-            const iskPerDay = estimatedDailySales * sellPrice
+            const profitPerUnit = sellPrice - jitaPrice
+            const iskPerDay = estimatedDailySales * profitPerUnit
 
             items.push({
               type_id: typeId,
@@ -693,14 +695,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Capture items with existing orders
-    const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number }> = []
+    const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number; characters: SellOrderItemCharacter[] }> = []
     for (const typeId of myExistingOrderTypes) {
       const data = assetsByType.get(typeId)
       if (data !== undefined) {
         itemsWithExistingOrders.push({
           type_id: typeId,
           type_name: getTypeName(typeId),
-          quantity: data.quantity
+          quantity: data.quantity,
+          characters: Array.from(data.characters.entries()).map(([id, name]) => ({ id, name }))
         })
       }
       assetsByType.delete(typeId)
@@ -778,7 +781,8 @@ export async function GET(request: NextRequest) {
 
       const valeDailyVolume = regionVolumes.get(typeId) || 0
       const estimatedDailySales = valeDailyVolume * hubFactor
-      const iskPerDay = estimatedDailySales * sellPrice
+      const profitPerUnit = sellPrice - jitaPrice
+      const iskPerDay = estimatedDailySales * profitPerUnit
 
       items.push({
         type_id: typeId,

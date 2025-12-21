@@ -7,6 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
   Select,
   SelectContent,
@@ -29,10 +35,28 @@ import {
   Filter,
   User,
   Users,
+  Search,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
-import { type SellOrderItem, type SellOrderData, type ExistingOrderItem, type ProgressState } from "@/types/market-seeder"
+import { type SellOrderItem, type SellOrderData, type ProgressState } from "@/types/market-seeder"
 import { EveItemIcon } from "@/components/eve-item-icon"
 import { ProgressBar } from "./progress-bar"
+
+// Types for the item checker feature
+interface CheckerOrderInfo {
+  name: string
+  type_id: number
+  lowest_price: number
+  lowest_price_formatted: string
+  total_volume: number
+}
+
+interface CheckerResults {
+  with_orders: CheckerOrderInfo[]
+  without_orders: string[]
+  not_found: string[]
+}
 
 interface FilteredOutItem extends SellOrderItem {
   reason: 'quantity' | 'isk_per_day' | 'competition' | 'no_competition'
@@ -90,11 +114,80 @@ export function SellSubtab({
   hubFactorPercent = "5%",
 }: SellSubtabProps) {
   const [selectedCharacter, setSelectedCharacter] = useState<string>("all")
+  
+  // Item Checker state
+  const [checkerExpanded, setCheckerExpanded] = useState(false)
+  const [checkerInput, setCheckerInput] = useState("")
+  const [checkerLoading, setCheckerLoading] = useState(false)
+  const [checkerError, setCheckerError] = useState<string | null>(null)
+  const [checkerResults, setCheckerResults] = useState<CheckerResults | null>(null)
 
-  // Extract unique characters from data
+  // Parse item names from EVE inventory export format
+  // Format: "Item Name\t123\tGroup\t\tSlot\t5 m3\t1,234.56 ISK"
+  const parseItemNames = (text: string): string[] => {
+    const lines = text.trim().split('\n')
+    const names: string[] = []
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      if (!trimmedLine) continue
+      
+      // Split by tab and take the first column (item name)
+      const columns = trimmedLine.split('\t')
+      const itemName = columns[0]?.trim()
+      
+      if (itemName) {
+        names.push(itemName)
+      }
+    }
+    
+    return names
+  }
+
+  // Handle checking items
+  const handleCheckItems = async () => {
+    const itemNames = parseItemNames(checkerInput)
+    
+    if (itemNames.length === 0) {
+      setCheckerError("No item names found. Paste items from EVE inventory.")
+      return
+    }
+    
+    setCheckerLoading(true)
+    setCheckerError(null)
+    setCheckerResults(null)
+    
+    try {
+      const response = await fetch('/api/esi/check-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_names: itemNames }),
+      })
+      
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to check orders')
+      }
+      
+      const data = await response.json()
+      setCheckerResults({
+        with_orders: data.with_orders,
+        without_orders: data.without_orders,
+        not_found: data.not_found,
+      })
+    } catch (err) {
+      setCheckerError(err instanceof Error ? err.message : 'Failed to check orders')
+    } finally {
+      setCheckerLoading(false)
+    }
+  }
+
+  // Extract unique characters from data (both sellable items and items with existing orders)
   const characters = useMemo(() => {
     if (!data) return []
     const charMap = new Map<number, string>()
+    
+    // Include characters from sellable items
     data.items.forEach(item => {
       if (item.characters) {
         item.characters.forEach(char => {
@@ -102,6 +195,16 @@ export function SellSubtab({
         })
       }
     })
+    
+    // Also include characters from items with existing orders
+    data.items_with_existing_orders.forEach(item => {
+      if (item.characters) {
+        item.characters.forEach(char => {
+          charMap.set(char.id, char.name)
+        })
+      }
+    })
+    
     return Array.from(charMap.entries()).map(([id, name]) => ({ id, name }))
   }, [data])
 
@@ -158,8 +261,16 @@ export function SellSubtab({
         return { ...item, reason }
       })
 
+    // Filter existing orders by selected character
+    const existingOrders = data.items_with_existing_orders.filter(item => {
+      if (selectedCharacter === "all") return true
+      if (!item.characters) return false
+      const charId = parseInt(selectedCharacter)
+      return item.characters.some(c => c.id === charId)
+    })
+
     return {
-      existingOrders: data.items_with_existing_orders,
+      existingOrders,
       filteredOut,
     }
   }, [data, filteredItems, minQuantity, minIskPerDay, competitionFilter, selectedCharacter])
@@ -254,6 +365,162 @@ export function SellSubtab({
           </CardContent>
         </Card>
       )}
+
+      {/* Item Checker */}
+      <Collapsible open={checkerExpanded} onOpenChange={setCheckerExpanded}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Search className="size-4" />
+                  Check Items for Sell Orders
+                  {checkerResults && (
+                    <Badge variant="secondary" className="ml-2">
+                      {checkerResults.with_orders.length} with orders, {checkerResults.without_orders.length} without
+                    </Badge>
+                  )}
+                </CardTitle>
+                {checkerExpanded ? (
+                  <ChevronDown className="size-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                )}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="checker-input">
+                  Paste items from EVE inventory (tab-separated format)
+                </Label>
+                <Textarea
+                  id="checker-input"
+                  placeholder="ORE Ice Harvester	3	Strip Miner		High	15 m3	539,595,525.42 ISK
+Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
+                  value={checkerInput}
+                  onChange={(e) => setCheckerInput(e.target.value)}
+                  rows={5}
+                  className="font-mono text-xs"
+                />
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleCheckItems}
+                  disabled={checkerLoading || !checkerInput.trim()}
+                >
+                  {checkerLoading ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin mr-2" />
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="size-4 mr-2" />
+                      Check Orders
+                    </>
+                  )}
+                </Button>
+                {checkerResults && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCheckerResults(null)
+                      setCheckerInput("")
+                    }}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+
+              {/* Error display */}
+              {checkerError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="size-4" />
+                  <AlertDescription>{checkerError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Results */}
+              {checkerResults && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  {/* Has Orders */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <ShoppingCart className="size-4 text-emerald-500" />
+                      Has Orders ({checkerResults.with_orders.length})
+                    </h4>
+                    {checkerResults.with_orders.length > 0 ? (
+                      <div className="space-y-1 max-h-64 overflow-y-auto">
+                        {checkerResults.with_orders.map((item) => (
+                          <div 
+                            key={item.type_id} 
+                            className="flex items-center gap-2 text-sm py-1.5 px-2 bg-emerald-500/10 border border-emerald-500/20 rounded"
+                          >
+                            <EveItemIcon typeId={item.type_id} size={32} className="size-5 shrink-0" />
+                            <span className="flex-1 truncate text-xs">{item.name}</span>
+                            <span className="text-muted-foreground font-mono text-xs shrink-0">
+                              {item.lowest_price_formatted}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No items have existing orders</p>
+                    )}
+                  </div>
+
+                  {/* No Orders */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <Check className="size-4 text-blue-500" />
+                      No Orders - Can Sell ({checkerResults.without_orders.length})
+                    </h4>
+                    {checkerResults.without_orders.length > 0 ? (
+                      <div className="space-y-1 max-h-64 overflow-y-auto">
+                        {checkerResults.without_orders.map((name, idx) => (
+                          <div 
+                            key={idx} 
+                            className="flex items-center gap-2 text-sm py-1.5 px-2 bg-blue-500/10 border border-blue-500/20 rounded"
+                          >
+                            <span className="flex-1 truncate text-xs">{name}</span>
+                            <Badge variant="secondary" className="text-[10px] bg-blue-500/20 text-blue-600">
+                              Available
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">All items already have orders</p>
+                    )}
+                  </div>
+
+                  {/* Not Found */}
+                  {checkerResults.not_found.length > 0 && (
+                    <div className="space-y-2 md:col-span-2">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <AlertTriangle className="size-4 text-amber-500" />
+                        Not Found ({checkerResults.not_found.length})
+                      </h4>
+                      <div className="flex flex-wrap gap-1">
+                        {checkerResults.not_found.map((name, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs text-amber-600 border-amber-500/30">
+                            {name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Filter Controls */}
       {data && data.items.length > 0 && (

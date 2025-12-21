@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isAdminRole } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -39,7 +40,7 @@ interface TypeInfo {
 export async function GET(request: NextRequest) {
   // Get authenticated user from session or Authorization header
   const session = await getAuthenticatedUser(request)
-  
+
   if (!session) {
     return NextResponse.json(
       { error: 'Not authenticated. Login with EVE SSO first.' },
@@ -47,9 +48,9 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (session.user.role !== 'admin') {
+  if (!isAdminRole(session.user.role)) {
     return NextResponse.json(
-      { error: 'Account pending approval' },
+      { error: 'Admin access required' },
       { status: 403 }
     )
   }
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
 
   // Get token from first available character
   const characterTokens = await getAllCharacterTokens(session.user_id)
-  
+
   if (characterTokens.length === 0) {
     return NextResponse.json(
       { error: 'No characters with valid tokens found' },
@@ -126,7 +127,7 @@ export async function GET(request: NextRequest) {
     } while (page <= totalPages)
 
     // Filter orders (by default, only sell orders - is_buy_order = false)
-    const filteredOrders = allOrders.filter(order => 
+    const filteredOrders = allOrders.filter(order =>
       includeBuyOrders ? order.is_buy_order : !order.is_buy_order
     )
 

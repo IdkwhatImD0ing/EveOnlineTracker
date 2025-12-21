@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAuthenticatedUser, removeCharacter } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isApprovedRole } from '@/types/auth'
 
 /**
  * GET /api/characters
@@ -18,7 +19,7 @@ export async function GET() {
             )
         }
 
-        if (session.user.role === 'public') {
+        if (!isApprovedRole(session.user.role)) {
             return NextResponse.json(
                 { error: 'Account pending approval' },
                 { status: 403 }
@@ -66,7 +67,7 @@ export async function DELETE(request: Request) {
             )
         }
 
-        if (session.user.role === 'public') {
+        if (!isApprovedRole(session.user.role)) {
             return NextResponse.json(
                 { error: 'Account pending approval' },
                 { status: 403 }

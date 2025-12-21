@@ -1,117 +1,17 @@
 /**
- * Role-based permissions configuration
- * Centralizes access control for navigation and API routes
+ * Role-based access control configuration
+ * 
+ * Defines which roles can access which pages and API routes.
+ * Unlisted paths default to 'admin' only.
  */
 
 import type { UserRole } from '@/types/auth'
 
 /**
- * Navigation permissions - which roles can see each nav item
- */
-export const NAV_PERMISSIONS: Record<string, UserRole[]> = {
-  '/': ['slyce', 'user', 'pro', 'admin'],
-  '/industry': ['user', 'pro', 'admin'],
-  '/projects': ['user', 'pro', 'admin'],
-  '/public-market-seeding': ['slyce', 'user', 'pro', 'admin'],
-  '/jita-purchase': ['slyce', 'user', 'pro', 'admin'],
-  '/market-seeder': ['admin'],
-  '/jita-opportunities': ['admin'],
-  '/callback': ['admin'],
-  '/admin': ['admin'],
-  '/admin/fits': ['admin'],
-}
-
-/**
- * API route permissions - which roles can access each API endpoint pattern
- */
-export const API_PERMISSIONS: Record<string, UserRole[]> = {
-  // Industry & Projects - user, pro, admin
-  '/api/industry': ['user', 'pro', 'admin'],
-  '/api/projects': ['user', 'pro', 'admin'],
-  
-  // Public Market Seeding - slyce and above
-  '/api/fits-availability': ['slyce', 'user', 'pro', 'admin'],
-  
-  // Jita Purchase - slyce and above
-  '/api/jita-purchase': ['slyce', 'user', 'pro', 'admin'],
-  
-  // Market features - admin only
-  '/api/market': ['admin'],
-  '/api/market-seeder': ['admin'],
-  '/api/sell-opportunities': ['admin'],
-  '/api/watchlist': ['admin'],
-  
-  // ESI endpoints - varies by feature
-  '/api/esi/wallet': ['admin'],
-  '/api/esi/character-orders': ['admin'],
-  '/api/esi/structure-orders': ['admin'],
-  '/api/esi/keepstar-3t7': ['admin'],
-  '/api/esi/undercut-check': ['admin'],
-  '/api/esi/sell-order-generator': ['admin'],
-  '/api/esi/capital-efficiency': ['admin'],
-  '/api/esi/ui': ['admin'],
-  '/api/esi/character-assets': ['user', 'pro', 'admin'],
-  
-  // Character management - all authenticated users
-  '/api/characters': ['slyce', 'user', 'pro', 'admin'],
-  '/api/auth': ['public', 'slyce', 'user', 'pro', 'admin'],
-  
-  // Items search - user and above for industry
-  '/api/items': ['user', 'pro', 'admin'],
-  
-  // Admin endpoints
-  '/api/admin': ['admin'],
-  '/api/admin/fits': ['admin'],
-}
-
-/**
- * Check if a role has access to a navigation path
- */
-export function canAccessNav(role: UserRole, path: string): boolean {
-  // Find the matching permission entry
-  const permissions = NAV_PERMISSIONS[path]
-  if (permissions) {
-    return permissions.includes(role)
-  }
-  
-  // Default: admin only for unlisted paths
-  return role === 'admin'
-}
-
-/**
- * Check if a role has access to an API route
- */
-export function canAccessAPI(role: UserRole, path: string): boolean {
-  // Check for exact match first
-  if (API_PERMISSIONS[path]) {
-    return API_PERMISSIONS[path].includes(role)
-  }
-  
-  // Check for prefix match (e.g., /api/projects/[id] matches /api/projects)
-  for (const [prefix, roles] of Object.entries(API_PERMISSIONS)) {
-    if (path.startsWith(prefix)) {
-      return roles.includes(role)
-    }
-  }
-  
-  // Default: admin only for unlisted paths
-  return role === 'admin'
-}
-
-/**
- * Get all navigation paths accessible by a role
- */
-export function getAccessibleNavPaths(role: UserRole): string[] {
-  return Object.entries(NAV_PERMISSIONS)
-    .filter(([, roles]) => roles.includes(role))
-    .map(([path]) => path)
-}
-
-/**
- * Role display labels
+ * Human-readable labels for each role
  */
 export const ROLE_LABELS: Record<UserRole, string> = {
-  public: 'Public',
+  public: 'Pending Approval',
   slyce: 'Slyce Member',
   user: 'User',
   pro: 'Pro',
@@ -119,13 +19,144 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 }
 
 /**
- * Role colors for UI
+ * Tailwind color classes for each role
  */
 export const ROLE_COLORS: Record<UserRole, string> = {
-  public: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30',
+  public: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   slyce: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  user: 'bg-green-500/20 text-green-400 border-green-500/30',
+  user: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   pro: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-  admin: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  admin: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
 }
 
+/**
+ * Minimum role required to access each navigation path
+ * Roles are hierarchical: public < slyce < user < pro < admin
+ */
+export const NAV_PERMISSIONS: Record<string, UserRole> = {
+  // slyce+ access (all approved users)
+  '/': 'slyce',
+  '/public-market-seeding': 'slyce',
+  '/jita-purchase': 'slyce',
+  
+  // user+ access (excludes slyce)
+  '/industry': 'user',
+  '/projects': 'user',
+  
+  // admin only
+  '/market-seeder': 'admin',
+  '/jita-opportunities': 'admin',
+  '/admin': 'admin',
+  '/admin/fits': 'admin',
+  '/api-explorer': 'admin',
+  '/sell-opportunities': 'admin',
+  '/market': 'admin',
+}
+
+/**
+ * Minimum role required to access each API route
+ * Supports exact matches and prefix matches (paths ending with /*)
+ */
+export const API_PERMISSIONS: Record<string, UserRole> = {
+  // Public access (all authenticated users including public)
+  '/api/auth/*': 'public',
+  
+  // slyce+ access
+  '/api/characters/*': 'slyce',
+  '/api/fits-availability': 'slyce',
+  '/api/jita-purchase': 'slyce',
+  
+  // user+ access
+  '/api/industry/*': 'user',
+  '/api/projects/*': 'user',
+  '/api/items/*': 'user',
+  '/api/esi/character-assets': 'user',
+  
+  // admin only
+  '/api/market/*': 'admin',
+  '/api/market-seeder/*': 'admin',
+  '/api/sell-opportunities': 'admin',
+  '/api/watchlist/*': 'admin',
+  '/api/esi/wallet': 'admin',
+  '/api/esi/character-orders': 'admin',
+  '/api/esi/structure-orders': 'admin',
+  '/api/esi/undercut-check': 'admin',
+  '/api/esi/check-orders': 'admin',
+  '/api/esi/sell-order-generator': 'admin',
+  '/api/esi/keepstar-3t7': 'admin',
+  '/api/esi/capital-efficiency': 'admin',
+  '/api/esi/ui/*': 'admin',
+  '/api/admin/*': 'admin',
+}
+
+/**
+ * Role hierarchy - higher index = more permissions
+ */
+const ROLE_HIERARCHY: UserRole[] = ['public', 'slyce', 'user', 'pro', 'admin']
+
+/**
+ * Check if a role has at least the required permission level
+ */
+export function hasRoleLevel(userRole: UserRole, requiredRole: UserRole): boolean {
+  const userLevel = ROLE_HIERARCHY.indexOf(userRole)
+  const requiredLevel = ROLE_HIERARCHY.indexOf(requiredRole)
+  return userLevel >= requiredLevel
+}
+
+/**
+ * Find the required role for a given path in a permissions map
+ * Supports wildcard matching (paths ending with /*)
+ */
+function findRequiredRole(path: string, permissions: Record<string, UserRole>): UserRole | null {
+  // Check exact match first
+  if (permissions[path]) {
+    return permissions[path]
+  }
+  
+  // Check wildcard matches (e.g., /api/auth/* matches /api/auth/login)
+  for (const [pattern, role] of Object.entries(permissions)) {
+    if (pattern.endsWith('/*')) {
+      const prefix = pattern.slice(0, -1) // Remove the *
+      if (path.startsWith(prefix)) {
+        return role
+      }
+    }
+  }
+  
+  return null
+}
+
+/**
+ * Check if a user role can access a navigation path
+ * Unlisted paths default to admin only
+ * 
+ * @param userRole - The user's role
+ * @param path - The navigation path (e.g., '/market-seeder')
+ * @returns true if the user can access the path
+ */
+export function canAccessNav(userRole: UserRole, path: string): boolean {
+  const requiredRole = findRequiredRole(path, NAV_PERMISSIONS) ?? 'admin'
+  return hasRoleLevel(userRole, requiredRole)
+}
+
+/**
+ * Check if a user role can access an API route
+ * Unlisted routes default to admin only
+ * 
+ * @param userRole - The user's role
+ * @param path - The API path (e.g., '/api/market-seeder/analyze')
+ * @returns true if the user can access the route
+ */
+export function canAccessAPI(userRole: UserRole, path: string): boolean {
+  const requiredRole = findRequiredRole(path, API_PERMISSIONS) ?? 'admin'
+  return hasRoleLevel(userRole, requiredRole)
+}
+
+/**
+ * Get all navigation paths accessible by a role
+ */
+export function getAccessibleNavPaths(userRole: UserRole): string[] {
+  return Object.entries(NAV_PERMISSIONS)
+    .filter(([, requiredRole]) => hasRoleLevel(userRole, requiredRole))
+    .map(([path]) => path)
+}

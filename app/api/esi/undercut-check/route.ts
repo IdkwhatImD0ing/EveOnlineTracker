@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { calculateUndercutPrice, formatPriceForEve, formatISK, calculateTickSize } from '@/lib/market-analysis'
 import { createClient } from '@/utils/supabase/server'
-import { 
-  DEFAULT_HUB_FACTOR, 
-  DEFAULT_VOLUME_REGION_ID, 
+import {
+  DEFAULT_HUB_FACTOR,
+  DEFAULT_VOLUME_REGION_ID,
   VOLUME_REGIONS,
-  type RegionId 
+  type RegionId
 } from '@/types/market-seeder'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isAdminRole } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -127,7 +128,7 @@ function getTypeName(typeId: number): string {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const structureId = searchParams.get('structure_id') || '1051567430261' // Default to 3T7-M8 Keepstar
-  
+
   // Parse volume region ID
   const volumeRegionIdParam = searchParams.get('volume_region_id')
   let volumeRegionId: RegionId = DEFAULT_VOLUME_REGION_ID
@@ -147,10 +148,10 @@ export async function GET(request: NextRequest) {
       hubFactor = parsed
     }
   }
-  
+
   // Get session with all characters (from session cookie or Authorization header)
   const session = await getSessionWithCharacters(request)
-  
+
   if (!session) {
     return NextResponse.json(
       { error: 'Not authenticated. Login with EVE SSO first.' },
@@ -158,9 +159,9 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (session.user.role !== 'admin') {
+  if (!isAdminRole(session.user.role)) {
     return NextResponse.json(
-      { error: 'Account pending approval' },
+      { error: 'Admin access required' },
       { status: 403 }
     )
   }
@@ -176,12 +177,12 @@ export async function GET(request: NextRequest) {
 
     // Step 1: Fetch all characters' market orders and aggregate with owner info
     let allCharOrders: CharacterOrderWithOwner[] = []
-    
+
     for (const character of session.allCharacters) {
       // Get valid access token for this character
       const accessToken = await getValidAccessToken(character.character_id)
       if (!accessToken) continue
-      
+
       const charOrdersResponse = await fetch(
         `${ESI_BASE}/characters/${character.character_id}/orders/`,
         {
@@ -204,7 +205,7 @@ export async function GET(request: NextRequest) {
         allCharOrders = allCharOrders.concat(ordersWithOwner)
       }
     }
-    
+
     // Get access token for structure market access (use main character)
     const authToken = await getValidAccessToken()
     if (!authToken) {
@@ -297,7 +298,7 @@ export async function GET(request: NextRequest) {
       character_id: number
       character_name: string
     }
-    
+
     const preliminaryUndercuts: PreliminaryUndercut[] = []
     const safeItems: SafeItem[] = []
 
@@ -306,18 +307,18 @@ export async function GET(request: NextRequest) {
 
     for (const myOrder of myStructureOrders) {
       const typeOrders = ordersByType[myOrder.type_id] || []
-      
+
       // Find absolute lowest price (including own orders)
       const allSellOrdersSorted = [...typeOrders].sort((a, b) => a.price - b.price)
       const absoluteLowest = allSellOrdersSorted[0]
-      
+
       // If one of my characters has the absolute lowest price, don't show as undercut
       // This prevents showing "undercut" alerts when you've already won the price war with another character
       if (absoluteLowest && myOrderIds.has(absoluteLowest.order_id)) {
         const typeName = getTypeName(myOrder.type_id)
         // Find the next competitor price (first order not owned by us)
         const nextCompetitor = allSellOrdersSorted.find(o => !myOrderIds.has(o.order_id))
-        
+
         safeItems.push({
           type_id: myOrder.type_id,
           type_name: typeName,
@@ -332,7 +333,7 @@ export async function GET(request: NextRequest) {
         })
         continue
       }
-      
+
       // Get competitor orders (not yours) sorted by price
       const competitorOrders = typeOrders
         .filter(o => !myOrderIds.has(o.order_id))
@@ -356,13 +357,13 @@ export async function GET(request: NextRequest) {
         })
       } else {
         const lowestCompetitor = competitorOrders[0]
-        
+
         if (lowestCompetitor.price < myOrder.price) {
           // You're being undercut!
           // Calculate competitors below you and their total volume
           const competitorsBelowMe = competitorOrders.filter(o => o.price < myOrder.price)
           const competitorsBelowVolume = competitorsBelowMe.reduce((sum, o) => sum + o.volume_remain, 0)
-          
+
           preliminaryUndercuts.push({
             type_id: myOrder.type_id,
             type_name: typeName,
@@ -397,7 +398,7 @@ export async function GET(request: NextRequest) {
     // Step 6: Fetch regional market data for undercut items
     const undercutTypeIds = [...new Set(preliminaryUndercuts.map(u => u.type_id))]
     const regionVolumes = new Map<number, number>()
-    
+
     if (undercutTypeIds.length > 0) {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
@@ -417,13 +418,13 @@ export async function GET(request: NextRequest) {
     const undercutItems: UndercutItem[] = preliminaryUndercuts.map(prelim => {
       const valeDailyVolume = regionVolumes.get(prelim.type_id) || 0
       const estimatedDailySales = valeDailyVolume * hubFactor
-      const daysToLowest = estimatedDailySales > 0 
-        ? prelim.competitors_below_volume / estimatedDailySales 
+      const daysToLowest = estimatedDailySales > 0
+        ? prelim.competitors_below_volume / estimatedDailySales
         : null
-      
+
       const undercutPrice = calculateUndercutPrice(prelim.competitor_price)
       const priceDiff = prelim.your_price - prelim.competitor_price
-      
+
       return {
         type_id: prelim.type_id,
         type_name: prelim.type_name,

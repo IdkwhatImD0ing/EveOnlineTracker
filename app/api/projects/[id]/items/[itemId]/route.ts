@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { hasRoleLevel } from '@/lib/permissions'
 import type { UpdateItemRequest } from '@/types/database'
 
 // PATCH /api/projects/[id]/items/[itemId] - Update item collected status and/or quantity_made
@@ -16,8 +17,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    if (!hasRoleLevel(session.user.role, 'user')) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     // Rate limiting

@@ -842,14 +842,14 @@ Each item shows:
 
 #### Character Filter
 
-When multiple characters are linked, a dropdown appears in the header allowing you to filter items by character. This shows only items where the selected character has inventory, making it easy to focus on one character's assets at a time.
+When multiple characters are linked, a dropdown appears in the header allowing you to filter items by character. This shows only items where the selected character has inventory, making it easy to focus on one character's assets at a time. The "Has Existing Orders" section in the Do Not Sell panel also respects this filter, showing only items where the selected character has inventory that already has sell orders from any of your characters.
 
 #### Side-by-Side Layout
 
 The Sell sub-tab uses a two-column layout on large screens:
 - **Left column (wider)**: Sell orders with pricing and copy buttons
 - **Right column (sticky)**: "Do Not Sell" items - always visible while scrolling
-  - **Has Existing Orders**: Items you already have sell orders for (blue)
+  - **Has Existing Orders**: Items where the selected character has inventory AND any of your characters already has a sell order for (blue). When "All Characters" is selected, shows all items with existing orders.
   - **Filtered Out**: Items excluded by current filters (amber) with reason badges
 
 On smaller screens, the layout stacks vertically with sell orders first.

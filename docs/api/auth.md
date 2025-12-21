@@ -7,6 +7,7 @@ EVE SSO (Single Sign-On) authentication endpoints with multi-account (alt) suppo
 The application uses EVE Online's OAuth 2.0 Authorization Code flow for authentication. Users authenticate with their EVE character, which becomes their main. They can link additional alt characters to their account.
 
 Access is controlled via a `role` field in the database. New users are automatically assigned:
+
 - `slyce` role if they are in the Slyce alliance (auto-approved)
 - `public` role otherwise (pending approval)
 
@@ -20,14 +21,15 @@ The application uses a two-tier scope system to minimize the permissions request
 
 When users first log in, only these 4 scopes are requested:
 
-| Scope | Purpose |
-|-------|---------|
-| `publicData` | Basic public character data |
-| `esi-search.search_structures.v1` | Search for structures by name |
-| `esi-universe.read_structures.v1` | Get structure details |
+| Scope                              | Purpose                        |
+| ---------------------------------- | ------------------------------ |
+| `publicData`                       | Basic public character data    |
+| `esi-search.search_structures.v1`  | Search for structures by name  |
+| `esi-universe.read_structures.v1`  | Get structure details          |
 | `esi-markets.structure_markets.v1` | Access structure market orders |
 
 This allows users to:
+
 - View structure market orders
 - Search for structures
 - Access public market data
@@ -46,20 +48,21 @@ Users who need advanced features can request full access via the sidebar menu. T
 **How to upgrade:** Click your character portrait in the sidebar → "Request Full Access"
 
 A confirmation modal will appear instructing you to contact **darkislife zhang** in-game first. You have two options:
+
 - **"I will contact"** - Closes the modal so you can contact them in-game
 - **"He said yes"** - Proceeds with the OAuth flow to upgrade your access
 
 ## User Roles
 
-| Role | Description | Auto-assigned | App Access |
-|------|-------------|---------------|------------|
-| `public` | Pending approval | Yes (non-Slyce) | None |
-| `slyce` | Slyce alliance member | Yes | Restricted* |
-| `user` | Approved by admin | No | Restricted* |
-| `pro` | Premium features | No | Restricted* |
-| `admin` | Full access | No | Full |
+| Role     | Description           | Auto-assigned   | App Access                    |
+| -------- | --------------------- | --------------- | ----------------------------- |
+| `public` | Pending approval      | Yes (non-Slyce) | None (blocked)                |
+| `slyce`  | Slyce alliance member | Yes             | Full app access               |
+| `user`   | Approved by admin     | No              | Full app access               |
+| `pro`    | Premium features      | No              | Full app access               |
+| `admin`  | Full access           | No              | Full app access + Admin panel |
 
-*Currently all pages are admin-only. Access will be expanded in future updates.
+Users with `slyce`, `user`, `pro`, or `admin` roles have access to all application features. Only `public` users (pending approval) are blocked from accessing the app.
 
 ## Authentication Flow
 
@@ -84,14 +87,14 @@ A confirmation modal will appear instructing you to contact **darkislife zhang**
                                    │               │
                                    ▼               ▼
                             EVE SSO OAuth   ┌──────────────┐
-                                   │        │ Role=admin?  │
+                                   │        │ Role=public? │
                                    │        └──────────────┘
                                    │            │       │
-                                   │           No      Yes
+                                   │           Yes      No
                                    │            │       │
                                    │            ▼       ▼
-                                   │      Restricted  Show App
-                                   │      Access Screen
+                                   │       Pending    Show App
+                                   │       Approval
                                    ▼
                             ┌──────────────────┐
                             │ Character exists │
@@ -119,6 +122,7 @@ Initiates the EVE SSO authentication flow for login.
 **Response:** 302 Redirect to EVE SSO authorization page
 
 **Flow:**
+
 1. Generates random state for CSRF protection
 2. Stores state in HTTP-only cookie (10 minute expiry)
 3. Redirects to EVE SSO with configured scopes
@@ -134,6 +138,7 @@ Initiates the EVE SSO authentication flow to add an alt character.
 **Response:** 302 Redirect to EVE SSO authorization page
 
 **Flow:**
+
 1. Verifies user is authenticated
 2. Generates state with `add_alt` marker
 3. Redirects to EVE SSO with minimal scopes
@@ -151,6 +156,7 @@ Initiates the EVE SSO authentication flow to upgrade a character's permissions t
 **Response:** 302 Redirect to EVE SSO authorization page
 
 **Flow:**
+
 1. Verifies user is authenticated
 2. Generates state with `full_access` marker
 3. Redirects to EVE SSO with all 60+ scopes
@@ -165,6 +171,7 @@ Initiates the EVE SSO authentication flow to upgrade a character's permissions t
 Exchanges the authorization code for tokens and creates/updates user.
 
 **Request Body:**
+
 ```json
 {
   "code": "authorization_code_from_callback",
@@ -173,6 +180,7 @@ Exchanges the authorization code for tokens and creates/updates user.
 ```
 
 **Success Response (Login):**
+
 ```json
 {
   "success": true,
@@ -187,6 +195,7 @@ Exchanges the authorization code for tokens and creates/updates user.
 ```
 
 **Success Response (Add Alt):**
+
 ```json
 {
   "success": true,
@@ -199,6 +208,7 @@ Exchanges the authorization code for tokens and creates/updates user.
 ```
 
 **Success Response (Full Access):**
+
 ```json
 {
   "success": true,
@@ -211,6 +221,7 @@ Exchanges the authorization code for tokens and creates/updates user.
 ```
 
 **Behavior:**
+
 - For login: Creates user if new, updates tokens if existing
 - For add_alt: Links character to current user's account
 - For full_access: Updates existing character's tokens with new scopes
@@ -223,6 +234,7 @@ Exchanges the authorization code for tokens and creates/updates user.
 Returns the current user's session information.
 
 **Success Response (Authenticated):**
+
 ```json
 {
   "authenticated": true,
@@ -250,6 +262,7 @@ Returns the current user's session information.
 ```
 
 **Response (Not Authenticated):**
+
 ```json
 {
   "authenticated": false
@@ -263,6 +276,7 @@ Returns the current user's session information.
 Clears the session cookie and logs the user out.
 
 **Success Response:**
+
 ```json
 {
   "success": true,
@@ -277,6 +291,7 @@ Clears the session cookie and logs the user out.
 Refreshes an EVE SSO access token using a refresh token.
 
 **Request Body:**
+
 ```json
 {
   "refresh_token": "..."
@@ -284,6 +299,7 @@ Refreshes an EVE SSO access token using a refresh token.
 ```
 
 **Success Response:**
+
 ```json
 {
   "access_token": "new_access_token",
@@ -302,6 +318,7 @@ Refreshes an EVE SSO access token using a refresh token.
 Returns all characters linked to the current user.
 
 **Success Response:**
+
 ```json
 {
   "characters": [
@@ -323,6 +340,7 @@ Returns all characters linked to the current user.
 Removes a character from the user's account.
 
 **Request Body:**
+
 ```json
 {
   "character_id": 87654321
@@ -340,6 +358,7 @@ Sets the specified character as the user's main character.
 **URL Parameter:** `id` - EVE character ID
 
 **Success Response:**
+
 ```json
 {
   "success": true,
@@ -359,6 +378,7 @@ Sessions are stored in HTTP-only cookies for security:
 - **Flags:** HttpOnly, Secure (in production), SameSite=Lax
 
 Tokens are stored in the database:
+
 - Access tokens are cached and refreshed automatically when expired
 - Refresh tokens are stored securely per character
 
@@ -367,6 +387,7 @@ Tokens are stored in the database:
 ## Access Control
 
 New users are automatically assigned a role based on alliance membership:
+
 - **Slyce alliance members** → `slyce` role (auto-approved)
 - **Non-Slyce members** → `public` role (pending approval)
 
@@ -379,7 +400,38 @@ To change a user's role:
 
 Available roles: `public`, `slyce`, `user`, `pro`, `admin`
 
-**Note:** Currently all pages require `admin` role for access.
+### Page Access by Role
+
+| Page                                             | public | slyce | user | pro | admin |
+| ------------------------------------------------ | ------ | ----- | ---- | --- | ----- |
+| Dashboard (`/`)                                  | ✗      | ✓     | ✓    | ✓   | ✓     |
+| Public Market Seeding (`/public-market-seeding`) | ✗      | ✓     | ✓    | ✓   | ✓     |
+| Jita Purchase (`/jita-purchase`)                 | ✗      | ✓     | ✓    | ✓   | ✓     |
+| Industry (`/industry`)                           | ✗      | ✗     | ✓    | ✓   | ✓     |
+| Projects (`/projects`)                           | ✗      | ✗     | ✓    | ✓   | ✓     |
+| Market Seeder (`/market-seeder`)                 | ✗      | ✗     | ✗    | ✗   | ✓     |
+| Jita Opportunities (`/jita-opportunities`)       | ✗      | ✗     | ✗    | ✗   | ✓     |
+| Admin (`/admin`, `/admin/fits`)                  | ✗      | ✗     | ✗    | ✗   | ✓     |
+
+### API Route Access by Role
+
+| Route Category                                          | public | slyce | user | pro | admin |
+| ------------------------------------------------------- | ------ | ----- | ---- | --- | ----- |
+| Auth routes (`/api/auth/*`)                             | ✓      | ✓     | ✓    | ✓   | ✓     |
+| Character routes (`/api/characters/*`)                  | ✗      | ✓     | ✓    | ✓   | ✓     |
+| Fits availability (`/api/fits-availability`)            | ✗      | ✓     | ✓    | ✓   | ✓     |
+| Jita purchase (`/api/jita-purchase`)                    | ✗      | ✓     | ✓    | ✓   | ✓     |
+| Industry routes (`/api/industry/*`)                     | ✗      | ✗     | ✓    | ✓   | ✓     |
+| Projects routes (`/api/projects/*`)                     | ✗      | ✗     | ✓    | ✓   | ✓     |
+| Items search (`/api/items`)                             | ✗      | ✗     | ✓    | ✓   | ✓     |
+| Character assets (`/api/esi/character-assets`)          | ✗      | ✗     | ✓    | ✓   | ✓     |
+| Market routes (`/api/market/*`, `/api/market-seeder/*`) | ✗      | ✗     | ✗    | ✗   | ✓     |
+| Sell opportunities (`/api/sell-opportunities`)          | ✗      | ✗     | ✗    | ✗   | ✓     |
+| Watchlist routes (`/api/watchlist/*`)                   | ✗      | ✗     | ✗    | ✗   | ✓     |
+| ESI market routes (wallet, orders, etc.)                | ✗      | ✗     | ✗    | ✗   | ✓     |
+| Admin routes (`/api/admin/*`)                           | ✗      | ✗     | ✗    | ✗   | ✓     |
+
+Access control is centralized in `lib/permissions.ts` which defines `NAV_PERMISSIONS` and `API_PERMISSIONS`. The `canAccessNav()` and `canAccessAPI()` functions check if a user's role has access to a given path. Unlisted paths default to `admin` only.
 
 ---
 
@@ -394,6 +446,7 @@ Available roles: `public`, `slyce`, `user`, `pro`, `admin`
 
 ## Related Files
 
+- `lib/permissions.ts` - Role-based access control configuration (NAV_PERMISSIONS, API_PERMISSIONS)
 - `lib/auth.ts` - Auth utilities and session management
 - `lib/eve-sso.ts` - SSO helper functions
 - `lib/esi-scopes.ts` - ESI scope definitions (MINIMAL_ESI_SCOPES, FULL_ESI_SCOPES)

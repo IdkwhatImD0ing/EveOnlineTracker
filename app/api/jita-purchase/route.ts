@@ -6,6 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getAuthenticatedUser } from '@/lib/auth'
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isApprovedRole } from '@/types/auth'
 import invTypes from '@/data/inv-types.json'
 
 // Type the imported JSON
@@ -271,6 +274,22 @@ function formatIsk(value: number): string {
 
 export async function POST(request: NextRequest): Promise<NextResponse<PurchaseCalculationResponse | { error: string }>> {
   const startTime = Date.now()
+  
+  // Authentication
+  const session = await getAuthenticatedUser(request)
+  if (!session) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+  
+  if (!isApprovedRole(session.user.role)) {
+    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  }
+  
+  // Rate limiting
+  const rateLimitResult = await checkRateLimit(session.user_id)
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult) as NextResponse<{ error: string }>
+  }
   
   try {
     // Parse input

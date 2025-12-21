@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { getCachedMarketSeederStatistics, getCachedJitaPrices } from '@/lib/cached-data'
-import { 
-  DEFAULT_HUB_FACTOR, 
-  DEFAULT_VOLUME_REGION_ID, 
+import {
+  DEFAULT_HUB_FACTOR,
+  DEFAULT_VOLUME_REGION_ID,
   VOLUME_REGIONS,
-  type RegionId 
+  type RegionId
 } from '@/types/market-seeder'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isAdminRole } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -71,8 +72,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  if (session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  if (!isAdminRole(session.user.role)) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
   }
 
   // Rate limiting
@@ -145,7 +146,7 @@ export async function GET(request: NextRequest) {
 
     // Get access token from session or Authorization header for structure stock check
     const authToken = await getValidAccessToken(undefined, request)
-    
+
     if (!authToken) {
       return NextResponse.json(
         { error: 'Not authenticated. Login with EVE SSO to check structure stock.' },
@@ -156,12 +157,12 @@ export async function GET(request: NextRequest) {
     // Fetch user's character sell orders in parallel with structure orders
     // to determine which items the user already has sell orders for
     const userSellOrderTypeIds = new Set<number>()
-    
+
     // Fetch all characters' market orders
     for (const character of session.allCharacters) {
       const charAccessToken = await getValidAccessToken(character.character_id)
       if (!charAccessToken) continue
-      
+
       try {
         const charOrdersResponse = await fetch(
           `${ESI_BASE}/characters/${character.character_id}/orders/`,
@@ -190,7 +191,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch structure orders
     const structureOrders = await fetchStructureOrders(structureId, `Bearer ${authToken}`)
-    
+
     if (!structureOrders.success) {
       const errorResult = structureOrders
       return NextResponse.json(
@@ -218,7 +219,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch market data for all watchlist items
     const typeIds = (watchlistItems || []).map(item => item.type_id)
-    
+
     // Fetch regional volumes and Jita prices in parallel
     const [regionData, jitaPrices] = await Promise.all([
       getCachedMarketSeederStatistics(typeIds, 30, volumeRegionId),
@@ -230,29 +231,29 @@ export async function GET(request: NextRequest) {
       const stockInfo = stockMap.get(item.type_id)
       const regionStats = regionData.get(item.type_id)
       const jitaPrice = jitaPrices.get(item.type_id)
-      
+
       const stock = stockInfo?.volume ?? 0
       const lowestPrice = stockInfo?.lowestPrice ?? null
-      
+
       // Check if user has a sell order for this item
       const hasSellOrder = userSellOrderTypeIds.has(item.type_id)
-      
+
       // Calculate depletion metrics
       const avgDailyVolume = regionStats?.avgDailyVolume || 0
       const estimatedDailySales = avgDailyVolume * hubFactor
-      
-      const daysUntilStockout = stock === 0 
+
+      const daysUntilStockout = stock === 0
         ? 0  // Already out of stock
-        : estimatedDailySales > 0 
+        : estimatedDailySales > 0
           ? stock / estimatedDailySales
           : null  // Only null when there's truly no sales data
-      
+
       const jitaBuyPrice = jitaPrice?.lowestSellPrice ?? null
-      const profitPerUnit = lowestPrice && jitaBuyPrice 
-        ? lowestPrice - jitaBuyPrice 
+      const profitPerUnit = lowestPrice && jitaBuyPrice
+        ? lowestPrice - jitaBuyPrice
         : 0
       const dailyProfit = estimatedDailySales * Math.max(0, profitPerUnit)
-      
+
       return {
         ...item,
         stock,
@@ -303,7 +304,7 @@ export async function GET(request: NextRequest) {
 
     for (const item of itemsWithStock) {
       totalDailyProfit += item.dailyProfit
-      
+
       // If user has a sell order, it's always OK (not critical or warning)
       if (item.hasSellOrder) {
         okCount++

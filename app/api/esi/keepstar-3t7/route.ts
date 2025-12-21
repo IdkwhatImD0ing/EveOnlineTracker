@@ -3,6 +3,7 @@ import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isAdminRole } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -17,7 +18,7 @@ let solarSystemsCache: SolarSystem[] | null = null
 
 async function loadSolarSystems(): Promise<SolarSystem[]> {
   if (solarSystemsCache) return solarSystemsCache
-  
+
   const filePath = path.join(process.cwd(), 'public', 'solar-systems.json')
   const data = await fs.readFile(filePath, 'utf-8')
   solarSystemsCache = JSON.parse(data) as SolarSystem[]
@@ -33,10 +34,10 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const searchTerm = searchParams.get('search') || '3T7'
   const systemName = searchParams.get('system_name') || '3T7-M8'
-  
+
   // Get session with main character
   const session = await getSessionWithCharacters()
-  
+
   if (!session || !session.mainCharacter) {
     return NextResponse.json(
       { error: 'Not authenticated. Login with EVE SSO first.' },
@@ -44,9 +45,9 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (session.user.role !== 'admin') {
+  if (!isAdminRole(session.user.role)) {
     return NextResponse.json(
-      { error: 'Account pending approval' },
+      { error: 'Admin access required' },
       { status: 403 }
     )
   }
@@ -56,10 +57,10 @@ export async function GET(request: NextRequest) {
   if (!rateLimitResult.success) {
     return createRateLimitResponse(rateLimitResult)
   }
-  
+
   const characterId = session.mainCharacter.character_id
   const authToken = await getValidAccessToken()
-  
+
   if (!authToken) {
     return NextResponse.json(
       { error: 'Failed to get access token' },
@@ -70,18 +71,18 @@ export async function GET(request: NextRequest) {
   // Look up the solar system by name
   let targetSystemId: number
   let targetSystemName: string
-  
+
   try {
     const solarSystems = await loadSolarSystems()
     const system = findSystemByName(solarSystems, systemName)
-    
+
     if (!system) {
       return NextResponse.json({
         error: `System "${systemName}" not found`,
         hint: 'Make sure the system name is spelled correctly (e.g., "Jita", "3T7-M8", "1DQ1-A")',
       }, { status: 400 })
     }
-    
+
     targetSystemId = system.id
     targetSystemName = system.name
   } catch (error) {
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     // Get details for each structure to find the Keepstar (type_id: 35834)
     const KEEPSTAR_TYPE_ID = 35834
-    
+
     const structureDetails: Array<{
       structure_id: number
       name?: string
@@ -144,7 +145,7 @@ export async function GET(request: NextRequest) {
     }> = []
 
     let keepstar = null
-    
+
     for (const structureId of structureIds) {
       try {
         const structureResponse = await fetch(
@@ -160,14 +161,14 @@ export async function GET(request: NextRequest) {
 
         if (structureResponse.ok) {
           const structureData = await structureResponse.json()
-          
+
           structureDetails.push({
             structure_id: structureId,
             name: structureData.name,
             type_id: structureData.type_id,
             solar_system_id: structureData.solar_system_id,
           })
-          
+
           // Check if it's a Keepstar in the target system
           if (structureData.type_id === KEEPSTAR_TYPE_ID && structureData.solar_system_id === targetSystemId) {
             keepstar = {

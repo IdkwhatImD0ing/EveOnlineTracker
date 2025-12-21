@@ -36,6 +36,7 @@ import {
 } from '@/types/market-seeder'
 import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isAdminRole } from '@/types/auth'
 
 /**
  * Format ISK value with proper formatting
@@ -230,8 +231,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  if (session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  if (!isAdminRole(session.user.role)) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
   }
 
   // Rate limiting

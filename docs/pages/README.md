@@ -125,19 +125,18 @@ The application uses EVE SSO (Single Sign-On) for authentication. The `AuthGate`
 1. Checks for a valid session cookie
 2. Shows a login screen if not authenticated
 3. Shows a "Pending Approval" screen if role is `public`
-4. Shows a "Restricted Access" screen if role is not `admin`
-5. Renders the app if user has `admin` role
+4. Renders the app for all approved roles (`slyce`, `user`, `pro`, `admin`)
 
 **Multi-Account Support:** Users can link multiple EVE characters (alts) to their account. Data is automatically aggregated across all linked characters.
 
 **User Roles:**
-- `public` - New user, not in Slyce alliance, pending approval
-- `slyce` - Slyce alliance member, auto-approved on registration
-- `user` - Manually approved by admin
-- `pro` - Premium access granted by admin
+- `public` - New user, not in Slyce alliance, pending approval (no access)
+- `slyce` - Slyce alliance member, auto-approved on registration (full access)
+- `user` - Manually approved by admin (full access)
+- `pro` - Premium access granted by admin (full access)
 - `admin` - Full access including admin dashboard
 
-**Access Control:** New users are automatically assigned `slyce` role if they're in the Slyce alliance, or `public` role otherwise. Administrators can change user roles via the Admin Dashboard (`/admin`).
+**Access Control:** New users are automatically assigned `slyce` role if they're in the Slyce alliance, or `public` role otherwise. All approved roles have full access to the application except the Admin Dashboard which requires `admin` role. Administrators can change user roles via the Admin Dashboard (`/admin`).
 
 See [Authentication API](../api/auth.md) and [Admin Dashboard](admin.md) for details.
 

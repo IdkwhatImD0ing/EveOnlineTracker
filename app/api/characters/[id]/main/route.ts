@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser, setMainCharacter } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isApprovedRole } from '@/types/auth'
 
 /**
  * POST /api/characters/[id]/main
@@ -22,7 +23,7 @@ export async function POST(
             )
         }
 
-        if (session.user.role === 'public') {
+        if (!isApprovedRole(session.user.role)) {
             return NextResponse.json(
                 { error: 'Account pending approval' },
                 { status: 403 }

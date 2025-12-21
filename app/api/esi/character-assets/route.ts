@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { hasRoleLevel } from '@/lib/permissions'
 import type { CharacterToken } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net/latest'
@@ -136,9 +137,9 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!['user', 'pro', 'admin'].includes(session.user.role)) {
+  if (!hasRoleLevel(session.user.role, 'user')) {
     return NextResponse.json(
-      { error: 'Account pending approval' },
+      { error: 'Insufficient permissions' },
       { status: 403 }
     )
   }

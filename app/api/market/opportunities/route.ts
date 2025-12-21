@@ -7,6 +7,7 @@ import {
 } from '@/lib/cached-data'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isAdminRole } from '@/types/auth'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
@@ -662,8 +663,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  if (session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+  if (!isAdminRole(session.user.role)) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
   }
 
   // Rate limiting

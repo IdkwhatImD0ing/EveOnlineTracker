@@ -4,6 +4,7 @@ import { createAppraisal } from '@/lib/janice'
 import { getGroupNamesBatch } from '@/lib/sde'
 import { getAuthenticatedUser } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse, applyRateLimitHeaders } from '@/lib/rate-limit'
+import { hasRoleLevel } from '@/lib/permissions'
 import type { CreateProjectRequest, Project } from '@/types/database'
 
 // GET /api/projects - List all projects
@@ -15,8 +16,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    if (!hasRoleLevel(session.user.role, 'user')) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     // Rate limiting
@@ -56,8 +57,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (!['user', 'pro', 'admin'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    if (!hasRoleLevel(session.user.role, 'user')) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     // Rate limiting

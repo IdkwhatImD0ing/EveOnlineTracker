@@ -7,7 +7,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { refreshAccessToken } from '@/lib/eve-sso'
 import { config } from '@/lib/config'
-import type { User, Character, Session, CharacterToken, EveJWTPayload, UserRole } from '@/types/auth'
+import { isApprovedRole, type User, type Character, type Session, type CharacterToken, type EveJWTPayload, type UserRole } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net/latest'
 
@@ -606,13 +606,12 @@ export async function getValidAccessToken(characterId?: number, request?: NextRe
 
 /**
  * Check if a user has access to protected routes
- * Currently all routes are admin-only
+ * Allows slyce, user, pro, and admin roles (blocks only 'public' pending users)
  * 
  * @param user - User object from session
  * @returns true if user has access
  */
 export function hasRouteAccess(user: User): boolean {
-  // Currently all routes are admin-only
-  return user.role === 'admin'
+  return isApprovedRole(user.role)
 }
 

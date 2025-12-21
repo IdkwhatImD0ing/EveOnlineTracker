@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { isApprovedRole } from '@/types/auth'
 import { createClient } from '@/utils/supabase/server'
 import type { AllianceFit, FitItem } from '@/types/fits'
 
@@ -82,8 +83,8 @@ export async function GET(request: NextRequest) {
     )
   }
   
-  // Check for slyce role or higher (not public)
-  if (session.user.role === 'public') {
+  // Check for approved role (not public)
+  if (!isApprovedRole(session.user.role)) {
     return NextResponse.json(
       { error: 'Account pending approval' },
       { status: 403 }
