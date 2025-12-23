@@ -194,7 +194,8 @@ CREATE TABLE projects (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  updated_at timestamptz DEFAULT now(),
+  completed boolean NOT NULL DEFAULT false
 );
 ```
 
@@ -204,6 +205,7 @@ CREATE TABLE projects (
 | name       | text        | NOT NULL           | Project name/title    |
 | created_at | timestamptz | DEFAULT now()      | Creation timestamp    |
 | updated_at | timestamptz | DEFAULT now()      | Last update timestamp |
+| completed  | boolean     | NOT NULL, DEFAULT false | Whether project is marked as complete |
 
 **Trigger:** `updated_at` is automatically updated on row modification.
 
@@ -542,6 +544,7 @@ export interface Project {
   name: string
   created_at: string
   updated_at: string
+  completed: boolean
 }
 
 export interface RawMaterial {
@@ -997,7 +1000,21 @@ CREATE TRIGGER update_alliance_fits_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 ```
 
+### Migration 013: Add Project Completed Status
+
+```sql
+-- migrations/013_add_project_completed.sql
+-- Add completed status to projects table
+
+ALTER TABLE projects
+ADD COLUMN completed boolean NOT NULL DEFAULT false;
+
+CREATE INDEX idx_projects_completed ON projects(completed);
+```
+
 ---
+
+## Notes
 
 ## Notes
 

@@ -10,7 +10,7 @@ import { GroupedItemList } from "@/components/grouped-item-list"
 import { PriceSummary } from "@/components/price-summary"
 import { AdditionalCosts } from "@/components/additional-costs"
 import { TotalCost } from "@/components/total-cost"
-import { ArrowLeft, Loader2, AlertCircle, Trash2, ShoppingCart, Hammer } from "lucide-react"
+import { ArrowLeft, Loader2, AlertCircle, Trash2, ShoppingCart, Hammer, CheckCircle2, Circle } from "lucide-react"
 import type { ProjectWithDetails, AdditionalCost, RawMaterial, Component } from "@/types/database"
 
 export default function ProjectDetailPage() {
@@ -22,6 +22,7 @@ export default function ProjectDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
   const [showBuyRecommendations, setShowBuyRecommendations] = useState(false)
 
   // Calculate buy recommendations for components
@@ -154,6 +155,33 @@ export default function ProjectDetailPage() {
     })
   }
 
+  const handleToggleComplete = async () => {
+    if (!project) return
+    
+    setIsCompleting(true)
+    
+    try {
+      const response = await fetch(`/api/projects/${projectId}/complete`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ completed: !project.completed }),
+      })
+      
+      if (response.ok) {
+        const updatedProject = await response.json()
+        setProject((prev) => prev ? { ...prev, completed: updatedProject.completed } : null)
+      } else {
+        console.error("Failed to update project completion")
+      }
+    } catch (err) {
+      console.error("Failed to update project completion:", err)
+    } finally {
+      setIsCompleting(false)
+    }
+  }
+
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
       return
@@ -193,7 +221,7 @@ export default function ProjectDetailPage() {
             <AlertDescription>{error || "Project not found"}</AlertDescription>
           </Alert>
           <Button className="mt-4" asChild>
-            <Link href="/">Back to Home</Link>
+            <Link href="/projects">Back to Projects</Link>
           </Button>
         </div>
       </div>
@@ -206,7 +234,7 @@ export default function ProjectDetailPage() {
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 md:gap-4">
             <Button variant="ghost" size="icon" asChild className="shrink-0">
-              <Link href="/">
+              <Link href="/projects">
                 <ArrowLeft className="size-5" />
               </Link>
             </Button>
@@ -239,6 +267,27 @@ export default function ProjectDetailPage() {
                 )}
               </Button>
             )}
+            <Button
+              variant={project.completed ? "outline" : "default"}
+              size="sm"
+              onClick={handleToggleComplete}
+              disabled={isCompleting}
+              className="gap-2"
+            >
+              {isCompleting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : project.completed ? (
+                <>
+                  <Circle className="size-4" />
+                  Mark as Active
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="size-4" />
+                  Mark as Complete
+                </>
+              )}
+            </Button>
             <Button
               variant="destructive"
               size="sm"

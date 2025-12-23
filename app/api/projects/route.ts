@@ -37,7 +37,60 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    const response = NextResponse.json(projects as Project[])
+    if (!projects || projects.length === 0) {
+      const response = NextResponse.json([] as Project[])
+      return applyRateLimitHeaders(response, rateLimitResult)
+    }
+
+    // Fetch components for all projects in parallel
+    const projectIds = projects.map(p => p.id)
+    const { data: allComponents, error: componentsError } = await supabase
+      .from('components')
+      .select('project_id, quantity, quantity_made, collected')
+      .in('project_id', projectIds)
+
+    if (componentsError) {
+      console.error('Error fetching components for progress:', componentsError)
+      // Continue without progress if components fetch fails
+    }
+
+    // Calculate progress for each project
+    const projectsWithProgress = projects.map(project => {
+      const projectComponents = allComponents?.filter(c => c.project_id === project.id) || []
+      
+      if (projectComponents.length === 0) {
+        return { ...project, progress: 0 }
+      }
+
+      // Calculate progress for each component: 
+      // - If collected is true, count as 100%
+      // - Otherwise use (quantity_made / quantity) * 100
+      const componentProgresses = projectComponents
+        .filter(c => c.quantity > 0) // Avoid division by zero
+        .map(c => {
+          // If marked as collected/complete, count as 100%
+          if (c.collected) return 100
+          
+          const quantityMade = Number(c.quantity_made) || 0
+          const quantity = Number(c.quantity) || 1
+          const progress = (quantityMade / quantity) * 100
+          // Handle NaN and clamp between 0-100
+          if (isNaN(progress)) return 0
+          return Math.min(100, Math.max(0, progress))
+        })
+
+      if (componentProgresses.length === 0) {
+        return { ...project, progress: 0 }
+      }
+
+      // Average across all components
+      const averageProgress = componentProgresses.reduce((sum, p) => sum + p, 0) / componentProgresses.length
+      const roundedProgress = Math.round(averageProgress)
+
+      return { ...project, progress: roundedProgress }
+    })
+
+    const response = NextResponse.json(projectsWithProgress as Project[])
     return applyRateLimitHeaders(response, rateLimitResult)
   } catch (err) {
     console.error('Error fetching projects:', err)
