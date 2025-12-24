@@ -90,6 +90,48 @@ npx tsx scripts/extract-item-types.ts "C:\path\to\eve-static-data-jsonl"
 {"typeId":587,"name":"Rifter","groupId":25,"groupName":"Frigate","categoryId":6,"categoryName":"Ship","volume":27289,"marketGroupId":64}
 ```
 
+### `add-t2-drones-to-watchlist.ts`
+
+Adds all T2 drones to the market watchlist. Reads from `data/tradeable-items.jsonl` and inserts items where `categoryId === 18` (Drone) and name ends with " II".
+
+**Usage:**
+```bash
+npx tsx scripts/add-t2-drones-to-watchlist.ts
+```
+
+**Required Environment Variables:**
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
+
+**Drones Added:**
+| Group | Examples |
+|-------|----------|
+| Combat Drone | Hobgoblin II, Hammerhead II, Ogre II, Warrior II, etc. |
+| Logistic Drone | Light/Medium/Heavy Armor/Shield/Hull Maintenance Bot II |
+| Mining Drone | Mining Drone II, Ice Harvesting Drone II |
+| Salvage Drone | Salvage Drone II |
+
+The script uses upsert to handle existing items - running it multiple times is safe.
+
+### `remove-logistic-salvage-drones.ts`
+
+Removes logistic drones and salvage drones from the market watchlist.
+
+**Usage:**
+```bash
+npx tsx scripts/remove-logistic-salvage-drones.ts
+```
+
+**Required Environment Variables:**
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
+
+**Drones Removed:**
+| Group | Examples |
+|-------|----------|
+| Logistic Drone | Light/Medium/Heavy Armor/Shield/Hull Maintenance Bot II |
+| Salvage Drone | Salvage Drone II |
+
 ## Usage
 
 ### Update SDE Data

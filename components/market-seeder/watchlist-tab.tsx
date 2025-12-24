@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -7,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   Loader2,
@@ -21,11 +23,13 @@ import {
   Clock,
   Minus,
   BarChart3,
+  Settings2,
 } from "lucide-react"
 import { type WatchlistItem } from "@/types/market-seeder"
 import { EveItemIcon } from "@/components/eve-item-icon"
 import { ItemSearch, TradeableItem } from "@/components/market/item-search"
-import { formatIskShort, generateWatchlistRestockText } from "./utils"
+import { formatIskShort } from "./utils"
+import { WatchlistFilterSidebar, WatchlistFilterState } from "./watchlist-filter-sidebar"
 
 interface WatchlistTabProps {
   // Data
@@ -41,6 +45,10 @@ interface WatchlistTabProps {
   onRemoveItem: (typeId: number) => void
   addingItem: boolean
 
+  // Filter state
+  filters: WatchlistFilterState
+  onFiltersChange: (filters: WatchlistFilterState) => void
+
   // Restock copy state
   restockDays: number
   setRestockDays: (days: number) => void
@@ -54,6 +62,15 @@ interface WatchlistTabProps {
   onCopyRestock: () => void
 }
 
+// Helper to determine urgency level for a watchlist item
+function getUrgencyLevel(item: WatchlistItem): 'critical' | 'warning' | 'ok' | 'none' {
+  if (item.hasSellOrder) return 'ok'
+  if ((item.stock ?? 0) === 0) return 'critical'
+  if (item.daysUntilStockout === null) return 'none'
+  if (item.daysUntilStockout < 3) return 'warning'
+  return 'ok'
+}
+
 export function WatchlistTab({
   items,
   loading,
@@ -64,6 +81,8 @@ export function WatchlistTab({
   onAddItem,
   onRemoveItem,
   addingItem,
+  filters,
+  onFiltersChange,
   restockDays,
   setRestockDays,
   restockTopN,
@@ -77,25 +96,39 @@ export function WatchlistTab({
 }: WatchlistTabProps) {
   const existingTypeIds = new Set(items.map(item => item.type_id))
 
-  // Group items by urgency
-  // New logic:
-  // - Critical: stock = 0 AND user has no sell order
-  // - Warning: stock > 0 AND daysUntilStockout < 3 AND user has no sell order  
-  // - Fine: everything else (>= 3 days OR user has sell order)
-  const itemsByUrgency = {
-    critical: items.filter(i =>
+  // Filter items based on selected filters
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const urgency = getUrgencyLevel(item)
+      
+      // Check urgency filter
+      if (!filters.selectedUrgency.has(urgency)) return false
+      
+      // Check category filter
+      if (item.category_name && !filters.selectedCategories.has(item.category_name)) return false
+      
+      // Check hide sell order items filter
+      if (filters.hideSellOrderItems && item.hasSellOrder) return false
+      
+      return true
+    })
+  }, [items, filters])
+
+  // Group items by urgency (from filtered items for restock)
+  const itemsByUrgency = useMemo(() => ({
+    critical: filteredItems.filter(i =>
       (i.stock ?? 0) === 0 && !i.hasSellOrder
     ),
-    warning: items.filter(i =>
+    warning: filteredItems.filter(i =>
       (i.stock ?? 0) > 0 &&
       !i.hasSellOrder &&
       i.daysUntilStockout !== null &&
       i.daysUntilStockout < 3
     ),
-    safe: items.filter(i =>
+    safe: filteredItems.filter(i =>
       i.hasSellOrder || (i.daysUntilStockout !== null && i.daysUntilStockout >= 3)
     ),
-  }
+  }), [filteredItems])
 
   // Items to restock based on filters
   const itemsToRestock = [
@@ -308,7 +341,7 @@ export function WatchlistTab({
           <Card>
             <CardContent className="p-4">
               <p className="text-2xl font-bold text-emerald-500">
-                {formatIskShort(items.reduce((sum, i) => sum + (i.dailyProfit ?? 0), 0))}
+                {formatIskShort(filteredItems.reduce((sum, i) => sum + (i.dailyProfit ?? 0), 0))}
               </p>
               <p className="text-sm text-muted-foreground">Daily Profit Potential</p>
             </CardContent>
@@ -382,113 +415,147 @@ export function WatchlistTab({
           ))}
         </div>
       ) : (
-        <div className="space-y-3">
-          {items.map((item) => {
-            // Determine urgency level:
-            // - If user has a sell order, it's always 'safe' (not actionable)
-            // - Critical: stock = 0 AND no sell order
-            // - Warning: stock > 0 AND daysUntilStockout < 3 AND no sell order
-            // - Safe: daysUntilStockout >= 3 OR user has sell order
-            const urgencyLevel = item.hasSellOrder
-              ? 'safe'
-              : (item.stock ?? 0) === 0
-                ? 'critical'
-                : item.daysUntilStockout === null
-                  ? 'none'
-                  : item.daysUntilStockout < 3
-                    ? 'warning'
-                    : 'safe'
+        <>
+          {/* Sidebar + List Layout */}
+          <div className="flex gap-6">
+            {/* Main Content - Items List */}
+            <div className="flex-1 min-w-0 space-y-3">
+              {filteredItems.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Eye className="size-12 mx-auto text-muted-foreground/50 mb-4" />
+                    <p className="text-muted-foreground">
+                      No items match your current filters
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredItems.map((item) => {
+                  const urgencyLevel = getUrgencyLevel(item)
 
-            return (
-              <Card
-                key={item.id}
-                className={
-                  urgencyLevel === 'critical'
-                    ? "border-destructive/50 bg-destructive/5"
-                    : urgencyLevel === 'warning'
-                      ? "border-amber-500/50 bg-amber-500/5"
-                      : urgencyLevel === 'safe'
-                        ? "border-emerald-500/30 bg-emerald-500/5"
-                        : ""
-                }
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-4">
-                    <EveItemIcon typeId={item.type_id} size={64} className="size-10 shrink-0 rounded" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{item.item_name}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {item.category_name} • {item.group_name}
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
-                        <div>
-                          <p className="text-muted-foreground text-xs">Current Stock</p>
-                          <p className="font-medium">{(item.stock ?? 0).toLocaleString()} units</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
-                          <p className="font-medium">{(item.estimatedDailySales ?? 0).toFixed(1)} units/day</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-xs">Days Until Stockout</p>
-                          <p className={`font-bold ${urgencyLevel === 'critical' ? 'text-destructive' :
-                            urgencyLevel === 'warning' ? 'text-amber-500' :
-                              urgencyLevel === 'safe' ? 'text-emerald-500' :
-                                'text-muted-foreground'
-                            }`}>
-                            {item.daysUntilStockout !== null
-                              ? `${item.daysUntilStockout.toFixed(1)} days`
-                              : 'No sales data'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-xs">Daily Profit</p>
-                          <p className="font-medium text-primary">{formatIskShort(item.dailyProfit ?? 0)} ISK</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      {urgencyLevel === 'critical' && (
-                        <Badge variant="destructive" className="gap-1">
-                          <AlertTriangle className="size-3" />
-                          Out of Stock
-                        </Badge>
-                      )}
-                      {urgencyLevel === 'warning' && (
-                        <Badge className="gap-1 bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
-                          <Clock className="size-3" />
-                          Low Stock
-                        </Badge>
-                      )}
-                      {urgencyLevel === 'safe' && (
-                        <Badge variant="secondary" className="gap-1 bg-emerald-500/20 text-emerald-600">
-                          <Check className="size-3" />
-                          OK
-                        </Badge>
-                      )}
-                      {urgencyLevel === 'none' && (
-                        <Badge variant="secondary" className="gap-1">
-                          <Minus className="size-3" />
-                          No Data
-                        </Badge>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => onRemoveItem(item.type_id)}
+                  return (
+                    <Card
+                      key={item.id}
+                      className={
+                        urgencyLevel === 'critical'
+                          ? "border-destructive/50 bg-destructive/5"
+                          : urgencyLevel === 'warning'
+                            ? "border-amber-500/50 bg-amber-500/5"
+                            : urgencyLevel === 'ok'
+                              ? "border-emerald-500/30 bg-emerald-500/5"
+                              : ""
+                      }
                     >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          <EveItemIcon typeId={item.type_id} size={64} className="size-10 shrink-0 rounded" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{item.item_name}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {item.category_name} • {item.group_name}
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
+                              <div>
+                                <p className="text-muted-foreground text-xs">Current Stock</p>
+                                <p className="font-medium">{(item.stock ?? 0).toLocaleString()} units</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
+                                <p className="font-medium">{(item.estimatedDailySales ?? 0).toFixed(1)} units/day</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Days Until Stockout</p>
+                                <p className={`font-bold ${urgencyLevel === 'critical' ? 'text-destructive' :
+                                  urgencyLevel === 'warning' ? 'text-amber-500' :
+                                    urgencyLevel === 'ok' ? 'text-emerald-500' :
+                                      'text-muted-foreground'
+                                  }`}>
+                                  {item.daysUntilStockout !== null
+                                    ? `${item.daysUntilStockout.toFixed(1)} days`
+                                    : 'No sales data'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Daily Profit</p>
+                                <p className="font-medium text-primary">{formatIskShort(item.dailyProfit ?? 0)} ISK</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            {urgencyLevel === 'critical' && (
+                              <Badge variant="destructive" className="gap-1">
+                                <AlertTriangle className="size-3" />
+                                Out of Stock
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'warning' && (
+                              <Badge className="gap-1 bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
+                                <Clock className="size-3" />
+                                Low Stock
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'ok' && (
+                              <Badge variant="secondary" className="gap-1 bg-emerald-500/20 text-emerald-600">
+                                <Check className="size-3" />
+                                OK
+                              </Badge>
+                            )}
+                            {urgencyLevel === 'none' && (
+                              <Badge variant="secondary" className="gap-1">
+                                <Minus className="size-3" />
+                                No Data
+                              </Badge>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => onRemoveItem(item.type_id)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Sidebar - Filters (Desktop) */}
+            <div className="w-64 shrink-0 hidden lg:block">
+              <WatchlistFilterSidebar
+                filters={filters}
+                onFiltersChange={onFiltersChange}
+                totalItems={items.length}
+                filteredCount={filteredItems.length}
+              />
+            </div>
+          </div>
+
+          {/* Mobile Filters (collapsible) */}
+          <div className="lg:hidden">
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full gap-2">
+                  <Settings2 className="size-4" />
+                  Filters ({filteredItems.length} of {items.length})
+                  <ChevronDown className="size-4" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <WatchlistFilterSidebar
+                  filters={filters}
+                  onFiltersChange={onFiltersChange}
+                  totalItems={items.length}
+                  filteredCount={filteredItems.length}
+                />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </>
       )}
     </div>
   )
 }
-

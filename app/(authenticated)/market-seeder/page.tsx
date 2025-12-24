@@ -25,6 +25,7 @@ import {
 import { type ProfitAnalysis } from "@/components/market-seeder/results-table"
 import { type FilterState, DEFAULT_FILTERS } from "@/components/market-seeder/filter-sidebar"
 import { type DepletionFilterState, DEFAULT_DEPLETION_FILTERS } from "@/components/market-seeder/depletion-filter-sidebar"
+import { type WatchlistFilterState, DEFAULT_WATCHLIST_FILTERS } from "@/components/market-seeder/watchlist-filter-sidebar"
 import { type TradeableItem } from "@/components/market/item-search"
 import {
   DEFAULT_STRUCTURE_ID,
@@ -54,8 +55,6 @@ export default function MarketSeederPage() {
   const [structureId, setStructureId] = useState(DEFAULT_STRUCTURE_ID)
   const [isCustomStructure, setIsCustomStructure] = useState(false)
   const [transportCost, setTransportCost] = useState("450")
-  const [minProfit, setMinProfit] = useState("100000")
-  const [minVolume, setMinVolume] = useState("10")
   const [supplyDays, setSupplyDays] = useState(DEFAULT_SUPPLY_DAYS)
   const [isCustomSupplyDays, setIsCustomSupplyDays] = useState(false)
 
@@ -68,6 +67,8 @@ export default function MarketSeederPage() {
     minOrdersPerDay: DEFAULT_FILTERS.minOrdersPerDay,
     minProfitPerDay: DEFAULT_FILTERS.minProfitPerDay,
     noCompetitionOnly: DEFAULT_FILTERS.noCompetitionOnly,
+    hideInInventory: DEFAULT_FILTERS.hideInInventory,
+    hideWithSellOrders: DEFAULT_FILTERS.hideWithSellOrders,
     selectedCategories: new Set(DEFAULT_FILTERS.selectedCategories),
   })
 
@@ -102,6 +103,11 @@ export default function MarketSeederPage() {
   const [restockTopN, setRestockTopN] = useState<number | null>(null)
   const [includeCritical, setIncludeCritical] = useState(true)
   const [includeWarning, setIncludeWarning] = useState(true)
+  const [watchlistFilters, setWatchlistFilters] = useState<WatchlistFilterState>({
+    selectedUrgency: new Set(DEFAULT_WATCHLIST_FILTERS.selectedUrgency),
+    selectedCategories: new Set(DEFAULT_WATCHLIST_FILTERS.selectedCategories),
+    hideSellOrderItems: DEFAULT_WATCHLIST_FILTERS.hideSellOrderItems,
+  })
 
   // ============================================================================
   // Depletion Predictor State
@@ -178,8 +184,6 @@ export default function MarketSeederPage() {
           }
         }
         if (settings.transportCost) setTransportCost(settings.transportCost)
-        if (settings.minProfit) setMinProfit(settings.minProfit)
-        if (settings.minVolume) setMinVolume(settings.minVolume)
         if (settings.filters) {
           setFilters({
             minMargin: settings.filters.minMargin ?? DEFAULT_FILTERS.minMargin,
@@ -187,6 +191,8 @@ export default function MarketSeederPage() {
             minOrdersPerDay: settings.filters.minOrdersPerDay ?? DEFAULT_FILTERS.minOrdersPerDay,
             minProfitPerDay: settings.filters.minProfitPerDay ?? DEFAULT_FILTERS.minProfitPerDay,
             noCompetitionOnly: settings.filters.noCompetitionOnly ?? DEFAULT_FILTERS.noCompetitionOnly,
+            hideInInventory: settings.filters.hideInInventory ?? DEFAULT_FILTERS.hideInInventory,
+            hideWithSellOrders: settings.filters.hideWithSellOrders ?? DEFAULT_FILTERS.hideWithSellOrders,
             selectedCategories: settings.filters.selectedCategories
               ? new Set(settings.filters.selectedCategories)
               : new Set(DEFAULT_FILTERS.selectedCategories),
@@ -204,19 +210,19 @@ export default function MarketSeederPage() {
       JSON.stringify({
         structureId,
         transportCost,
-        minProfit,
-        minVolume,
         filters: {
           minMargin: filters.minMargin,
           maxJitaCost: filters.maxJitaCost,
           minOrdersPerDay: filters.minOrdersPerDay,
           minProfitPerDay: filters.minProfitPerDay,
           noCompetitionOnly: filters.noCompetitionOnly,
+          hideInInventory: filters.hideInInventory,
+          hideWithSellOrders: filters.hideWithSellOrders,
           selectedCategories: Array.from(filters.selectedCategories),
         }
       })
     )
-  }, [structureId, transportCost, minProfit, minVolume, filters])
+  }, [structureId, transportCost, filters])
 
   // ============================================================================
   // Analysis Tab Functions
@@ -277,7 +283,9 @@ export default function MarketSeederPage() {
         (filters.minOrdersPerDay === null || ordersPerDay >= filters.minOrdersPerDay) &&
         (filters.minProfitPerDay === null || profitPerDay >= filters.minProfitPerDay) &&
         filters.selectedCategories.has(item.categoryName) &&
-        (!filters.noCompetitionOnly || !item.hasCompetition)
+        (!filters.noCompetitionOnly || !item.hasCompetition) &&
+        (!filters.hideInInventory || !item.userHasInInventory) &&
+        (!filters.hideWithSellOrders || !item.userHasSellOrder)
       )
     })
   }, [transformedItems, filters, hubFactor])
@@ -312,8 +320,8 @@ export default function MarketSeederPage() {
       const params = new URLSearchParams({
         structure_id: structureId,
         transportCost,
-        minProfit,
-        minVolume,
+        minProfit: "100000",
+        minVolume: "10",
         volume_region_id: String(volumeRegionId),
         hub_factor: String(hubFactor),
         stream: "true",
@@ -402,7 +410,7 @@ export default function MarketSeederPage() {
       setIsLoading(false)
       setProgress(null)
     }
-  }, [structureId, transportCost, minProfit, minVolume, volumeRegionId, hubFactor, clearSelection])
+  }, [structureId, transportCost, volumeRegionId, hubFactor, clearSelection])
 
   // ============================================================================
   // Watchlist Functions
@@ -496,9 +504,24 @@ export default function MarketSeederPage() {
   }, [])
 
   const copyWatchlistBuyText = useCallback(async () => {
+    // First apply sidebar filters (same as UI in watchlist-tab.tsx)
+    const filteredItems = watchlistItems.filter(item => {
+      // Check category filter
+      if (item.category_name && !watchlistFilters.selectedCategories.has(item.category_name)) return false
+      // Check hide sell order items filter
+      if (watchlistFilters.hideSellOrderItems && item.hasSellOrder) return false
+      return true
+    })
+
+    // Use same urgency definitions as watchlist-tab.tsx
+    const critical = filteredItems.filter(i => (i.stock ?? 0) === 0 && !i.hasSellOrder)
+    const warning = filteredItems.filter(i => 
+      (i.stock ?? 0) > 0 && !i.hasSellOrder && i.daysUntilStockout !== null && i.daysUntilStockout < 3
+    )
+
     const itemsToRestock = [
-      ...(includeCritical ? watchlistItems.filter(i => (i.stock ?? 0) === 0 || (i.daysUntilStockout !== null && i.daysUntilStockout < 3)) : []),
-      ...(includeWarning ? watchlistItems.filter(i => (i.stock ?? 0) > 0 && i.daysUntilStockout !== null && i.daysUntilStockout >= 3 && i.daysUntilStockout < 7) : []),
+      ...(includeCritical ? critical : []),
+      ...(includeWarning ? warning : []),
     ]
     const itemsToCopy = restockTopN ? itemsToRestock.slice(0, restockTopN) : itemsToRestock
 
@@ -516,7 +539,7 @@ export default function MarketSeederPage() {
     } catch (err) {
       console.error('Failed to copy:', err)
     }
-  }, [watchlistItems, includeCritical, includeWarning, restockTopN, restockDays])
+  }, [watchlistItems, watchlistFilters, includeCritical, includeWarning, restockTopN, restockDays])
 
   // ============================================================================
   // Depletion Functions
@@ -992,10 +1015,6 @@ export default function MarketSeederPage() {
               setIsCustomStructure={setIsCustomStructure}
               transportCost={transportCost}
               setTransportCost={setTransportCost}
-              minProfit={minProfit}
-              setMinProfit={setMinProfit}
-              minVolume={minVolume}
-              setMinVolume={setMinVolume}
               isLoading={isLoading}
               error={error}
               result={result}
@@ -1016,7 +1035,6 @@ export default function MarketSeederPage() {
               setIsCustomSupplyDays={setIsCustomSupplyDays}
               hubFactorPercent={hubFactorPercent}
               hubFactor={hubFactor}
-              volumeRegionShortName={regionInfo.shortName}
             />
           </TabsContent>
 
@@ -1032,6 +1050,8 @@ export default function MarketSeederPage() {
               onAddItem={addToWatchlist}
               onRemoveItem={removeFromWatchlist}
               addingItem={addingItem}
+              filters={watchlistFilters}
+              onFiltersChange={setWatchlistFilters}
               restockDays={restockDays}
               setRestockDays={setRestockDays}
               restockTopN={restockTopN}

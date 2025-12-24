@@ -34,9 +34,93 @@ import {
   DEFAULT_HUB_FACTOR,
   VOLUME_REGIONS,
 } from '@/types/market-seeder'
-import { getValidAccessToken, getAuthenticatedUser } from '@/lib/auth'
+import { getValidAccessToken, getAuthenticatedUser, getAllCharacterTokens } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 import { isAdminRole } from '@/types/auth'
+
+const ESI_BASE = 'https://esi.evetech.net'
+
+// Valid hangar location flags for assets
+const HANGAR_FLAGS = new Set([
+  'Hangar', 'HangarAll',
+  'CorpSAG1', 'CorpSAG2', 'CorpSAG3', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6', 'CorpSAG7',
+  'Deliveries',
+])
+
+interface ESIAsset {
+  is_blueprint_copy?: boolean
+  is_singleton: boolean
+  item_id: number
+  location_flag: string
+  location_id: number
+  location_type: string
+  quantity: number
+  type_id: number
+}
+
+interface ESICharacterOrder {
+  is_buy_order: boolean
+  location_id: number
+  type_id: number
+  volume_remain: number
+}
+
+/**
+ * Fetch all assets for a character (handles pagination)
+ */
+async function fetchCharacterAssets(
+  characterId: number,
+  accessToken: string
+): Promise<ESIAsset[]> {
+  const allAssets: ESIAsset[] = []
+  let page = 1
+  let totalPages = 1
+
+  do {
+    const response = await fetch(
+      `${ESI_BASE}/latest/characters/${characterId}/assets/?page=${page}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      }
+    )
+
+    if (!response.ok) break
+
+    const assets: ESIAsset[] = await response.json()
+    allAssets.push(...assets)
+
+    const pagesHeader = response.headers.get('x-pages')
+    totalPages = pagesHeader ? parseInt(pagesHeader) : 1
+    page++
+  } while (page <= totalPages)
+
+  return allAssets
+}
+
+/**
+ * Fetch character's market orders
+ */
+async function fetchCharacterOrders(
+  characterId: number,
+  accessToken: string
+): Promise<ESICharacterOrder[]> {
+  const response = await fetch(
+    `${ESI_BASE}/latest/characters/${characterId}/orders/`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
+      },
+    }
+  )
+
+  if (!response.ok) return []
+
+  return response.json()
+}
 
 /**
  * Format ISK value with proper formatting
@@ -130,6 +214,7 @@ async function handleStreamingRequest(
   params: {
     structureId: string
     authToken: string
+    userId: string
     minProfit: number
     minVolume: number
     transportCost: number
@@ -139,7 +224,7 @@ async function handleStreamingRequest(
     startTime: number
   }
 ) {
-  const { structureId, authToken, minProfit, minVolume, transportCost, days, volumeRegionId, hubFactor, startTime } = params
+  const { structureId, authToken, userId, minProfit, minVolume, transportCost, days, volumeRegionId, hubFactor, startTime } = params
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -168,11 +253,45 @@ async function handleStreamingRequest(
         })
 
         // Generate ranked lists (returns all items sorted by score)
-        onProgress('ranking', 'Sorting results...', 95)
+        onProgress('ranking', 'Sorting results...', 92)
         const rankedLists = generateRankedLists(result.items)
 
-        // Enrich items with formatted values
-        const enrichedItems = rankedLists.allItems.map(item => enrichProfitAnalysis(item, hubFactor))
+        // Fetch user's assets and sell orders in the structure
+        onProgress('user_data', 'Checking your inventory and orders...', 94)
+        const characterTokens = await getAllCharacterTokens(userId)
+        const userInventoryTypes = new Set<number>()
+        const userSellOrderTypes = new Set<number>()
+        const locationId = parseInt(structureId)
+
+        for (const token of characterTokens) {
+          try {
+            // Fetch assets (across all locations)
+            const assets = await fetchCharacterAssets(token.character_id, token.access_token)
+            for (const asset of assets) {
+              if (HANGAR_FLAGS.has(asset.location_flag) && !asset.is_blueprint_copy) {
+                userInventoryTypes.add(asset.type_id)
+              }
+            }
+
+            // Fetch orders (only in target structure)
+            const orders = await fetchCharacterOrders(token.character_id, token.access_token)
+            for (const order of orders) {
+              if (!order.is_buy_order && order.location_id === locationId) {
+                userSellOrderTypes.add(order.type_id)
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to fetch data for character ${token.character_name}:`, err)
+          }
+        }
+
+        // Enrich items with formatted values and user ownership flags
+        onProgress('enriching', 'Finalizing results...', 97)
+        const enrichedItems = rankedLists.allItems.map(item => ({
+          ...enrichProfitAnalysis(item, hubFactor),
+          userHasInInventory: userInventoryTypes.has(item.typeId),
+          userHasSellOrder: userSellOrderTypes.has(item.typeId),
+        }))
 
         const totalTime = Date.now() - startTime
 
@@ -303,6 +422,7 @@ export async function GET(request: NextRequest) {
     return handleStreamingRequest({
       structureId,
       authToken,
+      userId: session.user_id,
       minProfit,
       minVolume,
       transportCost,
@@ -330,8 +450,40 @@ export async function GET(request: NextRequest) {
     // Generate ranked lists (returns all items sorted by score)
     const rankedLists = generateRankedLists(result.items)
     
-    // Enrich items with formatted values
-    const enrichedItems = rankedLists.allItems.map(item => enrichProfitAnalysis(item, hubFactor))
+    // Fetch user's assets (all locations) and sell orders (target structure only)
+    const characterTokens = await getAllCharacterTokens(session.user_id)
+    const userInventoryTypes = new Set<number>()
+    const userSellOrderTypes = new Set<number>()
+    const locationId = parseInt(structureId)
+
+    for (const token of characterTokens) {
+      try {
+        // Fetch assets (across all locations)
+        const assets = await fetchCharacterAssets(token.character_id, token.access_token)
+        for (const asset of assets) {
+          if (HANGAR_FLAGS.has(asset.location_flag) && !asset.is_blueprint_copy) {
+            userInventoryTypes.add(asset.type_id)
+          }
+        }
+
+        // Fetch orders (only in target structure)
+        const orders = await fetchCharacterOrders(token.character_id, token.access_token)
+        for (const order of orders) {
+          if (!order.is_buy_order && order.location_id === locationId) {
+            userSellOrderTypes.add(order.type_id)
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to fetch data for character ${token.character_name}:`, err)
+      }
+    }
+    
+    // Enrich items with formatted values and user ownership flags
+    const enrichedItems = rankedLists.allItems.map(item => ({
+      ...enrichProfitAnalysis(item, hubFactor),
+      userHasInInventory: userInventoryTypes.has(item.typeId),
+      userHasSellOrder: userSellOrderTypes.has(item.typeId),
+    }))
     
     const totalTime = Date.now() - startTime
     

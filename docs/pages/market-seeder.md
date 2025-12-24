@@ -202,8 +202,6 @@ Configure the analysis parameters:
 |---------|-------------|
 | **Structure** | Dropdown to select your alliance market hub (default: 3T7-M8 Keepstar). Includes "Other (Custom ID)" option. |
 | **Transport Cost** | ISK per m³ for Jump Freighter shipping (default: 450) |
-| **Min Profit/Unit** | Minimum profit per unit in ISK (default: 100,000) |
-| **Min [Region] Vol/Day** | Minimum daily volume in the selected Volume Region (default: 10). Label changes based on header Volume Region setting (e.g., "Min Vale Vol/Day", "Min Deklein Vol/Day", "Min Jita Vol/Day"). |
 
 ### Sidebar Filters
 
@@ -216,6 +214,8 @@ After running an analysis, filter results using the sidebar on the right:
 | **Min Orders/Day** | Minimum estimated daily sales at hub (regional volume × hub factor) |
 | **Min Profit/Day** | Minimum estimated daily profit in ISK (profit per unit × orders/day) |
 | **No Competition Only** | Show only items with no existing sell orders |
+| **None in Inventory** | Hide items you already have in your inventory (across all locations) |
+| **No Sell Orders (Mine)** | Hide items you already have active sell orders for (in target structure) |
 | **Categories** | Checkboxes for Modules, Ships, Ammo, Boosters, Drones, Fighters, Implants, Deployables, Subsystems |
 | **Reset Filters** | Button to restore default filter values |
 
@@ -386,7 +386,7 @@ The main bottleneck is fetching ~5,800 Jita prices from ESI (20 concurrent reque
 ## Settings Persistence
 
 All settings are saved to localStorage:
-- `market-seeder-settings`: JSON object with structureId, transportCost, minMargin, maxJitaCost, minOrdersPerDay, minProfitPerDay, minProfit, minVolume, noCompetitionOnly, selectedCategories
+- `market-seeder-settings`: JSON object with structureId, transportCost, minMargin, maxJitaCost, minOrdersPerDay, minProfitPerDay, noCompetitionOnly, hideInInventory, hideWithSellOrders, selectedCategories
 - `eve-tracker-volume-region`: Selected volume region ID
 - `eve-tracker-hub-factor`: Selected hub factor (e.g., 0.05 for 5%)
 
@@ -443,6 +443,26 @@ Gyrostabilizer II 18
 
 Click **Copy N items** in the dropdown, then paste directly into Eve Online's multibuy feature.
 
+### Sidebar Filters
+
+The Watchlist tab includes a filter sidebar (visible on desktop, collapsible on mobile) with the following options:
+
+**Hide Items with Sell Orders:**
+Toggle to hide items where you already have active sell orders. This helps you focus on items that need action.
+
+**Urgency Level Filters:**
+| Filter | Description |
+|--------|-------------|
+| Critical (0 stock) | Show items that are completely out of stock |
+| Warning (<3 days) | Show items with less than 3 days of stock |
+| OK (≥3 days) | Show items with 3 or more days of stock |
+| No Data | Show items without regional volume data |
+
+**Category Filters:**
+Filter by Modules, Ships, Ammo, Boosters, Drones, Fighters, Implants, Deployables, and Subsystems.
+
+A **Reset Filters** button appears when any filters are modified from defaults.
+
 ### Core Formulas
 
 The same formulas used in the Depletion tab:
@@ -493,9 +513,10 @@ Watchlist items are stored in Supabase (`watchlist_items` table) and persist acr
 2. Switch to the Watchlist tab
 3. Search and add items you want to track
 4. Click **Refresh Stock** to check current levels and depletion metrics
-5. Review items sorted by urgency (Critical first, then Warning)
-6. Click **Copy Restock List** to copy all Critical/Warning items
-7. Paste in Eve Online multibuy to purchase 1 week's supply
+5. Use the **sidebar filters** to filter by urgency level, category, or sell order status
+6. Review items sorted by urgency (Critical first, then Warning)
+7. Click **Copy Restock List** to copy all Critical/Warning items (respects current filters)
+8. Paste in Eve Online multibuy to purchase 1 week's supply
 
 ### Data Sources
 

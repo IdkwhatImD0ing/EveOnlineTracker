@@ -168,6 +168,10 @@ export interface ProfitAnalysis {
   
   // Composite score
   compositeScore: number          // Weighted profitability score (0-100+)
+  
+  // User ownership (optional - populated when user data is available)
+  userHasInInventory?: boolean    // True if any linked character has this item in their hangar
+  userHasSellOrder?: boolean      // True if any linked character has an active sell order for this item
 }
 
 /**
