@@ -42,6 +42,7 @@ next-env.d.ts
 
 # EVE SDE data
 data/*.sqlite
+/.sde-temp/
 
 # Cache files (large, regenerated at runtime)
 data/market-history-cache.jsonl

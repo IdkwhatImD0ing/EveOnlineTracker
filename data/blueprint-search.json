@@ -988,9 +988,9 @@
   },
   {
     "id": 1076,
-    "name": "Survey Scanner I Blueprint",
+    "name": "Mining Survey Chipset I Blueprint",
     "productId": 444,
-    "productName": "Survey Scanner I",
+    "productName": "Mining Survey Chipset I",
     "isReaction": false
   },
   {
@@ -2248,9 +2248,9 @@
   },
   {
     "id": 2334,
-    "name": "Survey Scanner II Blueprint",
+    "name": "Mining Survey Chipset II Blueprint",
     "productId": 2333,
-    "productName": "Survey Scanner II",
+    "productName": "Mining Survey Chipset II",
     "isReaction": false
   },
   {
@@ -9122,9 +9122,9 @@
   },
   {
     "id": 20610,
-    "name": "'Cactus' Modified Kinetic Shield Amplifier Blueprint",
+    "name": "'Cactus' Kinetic Shield Amplifier Blueprint",
     "productId": 20609,
-    "productName": "'Cactus' Modified Kinetic Shield Amplifier",
+    "productName": "'Cactus' Kinetic Shield Amplifier",
     "isReaction": false
   },
   {
@@ -14437,14 +14437,14 @@
     "id": 28386,
     "name": "Compressed Crimson Arkonor Blueprint",
     "productId": 28385,
-    "productName": "Batch Compressed Crimson Arkonor",
+    "productName": "Batch Compressed Arkonor II-Grade",
     "isReaction": false
   },
   {
     "id": 28448,
     "name": "Compressed Prime Arkonor Blueprint",
     "productId": 28387,
-    "productName": "Batch Compressed Prime Arkonor",
+    "productName": "Batch Compressed Arkonor III-Grade",
     "isReaction": false
   },
   {
@@ -14458,14 +14458,14 @@
     "id": 28450,
     "name": "Compressed Monoclinic Bistot Blueprint",
     "productId": 28389,
-    "productName": "Batch Compressed Monoclinic Bistot",
+    "productName": "Batch Compressed Bistot III-Grade",
     "isReaction": false
   },
   {
     "id": 28451,
     "name": "Compressed Triclinic Bistot Blueprint",
     "productId": 28390,
-    "productName": "Batch Compressed Triclinic Bistot",
+    "productName": "Batch Compressed Bistot II-Grade",
     "isReaction": false
   },
   {
@@ -14479,14 +14479,14 @@
     "id": 28453,
     "name": "Compressed Crystalline Crokite Blueprint",
     "productId": 28392,
-    "productName": "Batch Compressed Crystalline Crokite",
+    "productName": "Batch Compressed Crokite III-Grade",
     "isReaction": false
   },
   {
     "id": 28454,
     "name": "Compressed Sharp Crokite Blueprint",
     "productId": 28393,
-    "productName": "Batch Compressed Sharp Crokite",
+    "productName": "Batch Compressed Crokite IV-Grade",
     "isReaction": false
   },
   {
@@ -14500,14 +14500,14 @@
     "id": 28456,
     "name": "Compressed Obsidian Ochre Blueprint",
     "productId": 28395,
-    "productName": "Batch Compressed Obsidian Ochre",
+    "productName": "Batch Compressed Dark Ochre III-Grade",
     "isReaction": false
   },
   {
     "id": 28457,
     "name": "Compressed Onyx Ochre Blueprint",
     "productId": 28396,
-    "productName": "Batch Compressed Onyx Ochre",
+    "productName": "Batch Compressed Dark Ochre II-Grade",
     "isReaction": false
   },
   {
@@ -14521,14 +14521,14 @@
     "id": 28459,
     "name": "Compressed Iridescent Gneiss Blueprint",
     "productId": 28398,
-    "productName": "Batch Compressed Iridescent Gneiss",
+    "productName": "Batch Compressed Gneiss II-Grade",
     "isReaction": false
   },
   {
     "id": 28460,
     "name": "Compressed Prismatic Gneiss Blueprint",
     "productId": 28399,
-    "productName": "Batch Compressed Prismatic Gneiss",
+    "productName": "Batch Compressed Gneiss III-Grade",
     "isReaction": false
   },
   {
@@ -14542,14 +14542,14 @@
     "id": 28462,
     "name": "Compressed Glazed Hedbergite Blueprint",
     "productId": 28400,
-    "productName": "Batch Compressed Glazed Hedbergite",
+    "productName": "Batch Compressed Hedbergite III-Grade",
     "isReaction": false
   },
   {
     "id": 28463,
     "name": "Compressed Vitric Hedbergite Blueprint",
     "productId": 28402,
-    "productName": "Batch Compressed Vitric Hedbergite",
+    "productName": "Batch Compressed Hedbergite II-Grade",
     "isReaction": false
   },
   {
@@ -14563,14 +14563,14 @@
     "id": 28465,
     "name": "Compressed Radiant Hemorphite Blueprint",
     "productId": 28404,
-    "productName": "Batch Compressed Radiant Hemorphite",
+    "productName": "Batch Compressed Hemorphite III-Grade",
     "isReaction": false
   },
   {
     "id": 28466,
     "name": "Compressed Vivid Hemorphite Blueprint",
     "productId": 28405,
-    "productName": "Batch Compressed Vivid Hemorphite",
+    "productName": "Batch Compressed Hemorphite II-Grade",
     "isReaction": false
   },
   {
@@ -14584,14 +14584,14 @@
     "id": 28468,
     "name": "Compressed Pristine Jaspet Blueprint",
     "productId": 28407,
-    "productName": "Batch Compressed Pristine Jaspet",
+    "productName": "Batch Compressed Jaspet III-Grade",
     "isReaction": false
   },
   {
     "id": 28469,
     "name": "Compressed Pure Jaspet Blueprint",
     "productId": 28408,
-    "productName": "Batch Compressed Pure Jaspet",
+    "productName": "Batch Compressed Jaspet II-Grade",
     "isReaction": false
   },
   {
@@ -14605,21 +14605,21 @@
     "id": 28471,
     "name": "Compressed Fiery Kernite Blueprint",
     "productId": 28409,
-    "productName": "Batch Compressed Fiery Kernite",
+    "productName": "Batch Compressed Kernite III-Grade",
     "isReaction": false
   },
   {
     "id": 28472,
     "name": "Compressed Luminous Kernite Blueprint",
     "productId": 28411,
-    "productName": "Batch Compressed Luminous Kernite",
+    "productName": "Batch Compressed Kernite II-Grade",
     "isReaction": false
   },
   {
     "id": 28473,
     "name": "Compressed Magma Mercoxit Blueprint",
     "productId": 28412,
-    "productName": "Batch Compressed Magma Mercoxit",
+    "productName": "Batch Compressed Mercoxit II-Grade",
     "isReaction": false
   },
   {
@@ -14633,7 +14633,7 @@
     "id": 28475,
     "name": "Compressed Vitreous Mercoxit Blueprint",
     "productId": 28414,
-    "productName": "Batch Compressed Vitreous Mercoxit",
+    "productName": "Batch Compressed Mercoxit III-Grade",
     "isReaction": false
   },
   {
@@ -14647,21 +14647,21 @@
     "id": 28477,
     "name": "Compressed Golden Omber Blueprint",
     "productId": 28415,
-    "productName": "Batch Compressed Golden Omber",
+    "productName": "Batch Compressed Omber III-Grade",
     "isReaction": false
   },
   {
     "id": 28478,
     "name": "Compressed Silvery Omber Blueprint",
     "productId": 28417,
-    "productName": "Batch Compressed Silvery Omber",
+    "productName": "Batch Compressed Omber II-Grade",
     "isReaction": false
   },
   {
     "id": 28479,
     "name": "Compressed Azure Plagioclase Blueprint",
     "productId": 28421,
-    "productName": "Batch Compressed Azure Plagioclase",
+    "productName": "Batch Compressed Plagioclase II-Grade",
     "isReaction": false
   },
   {
@@ -14675,7 +14675,7 @@
     "id": 28481,
     "name": "Compressed Rich Plagioclase Blueprint",
     "productId": 28423,
-    "productName": "Batch Compressed Rich Plagioclase",
+    "productName": "Batch Compressed Plagioclase III-Grade",
     "isReaction": false
   },
   {
@@ -14689,28 +14689,28 @@
     "id": 28483,
     "name": "Compressed Solid Pyroxeres Blueprint",
     "productId": 28425,
-    "productName": "Batch Compressed Solid Pyroxeres",
+    "productName": "Batch Compressed Pyroxeres II-Grade",
     "isReaction": false
   },
   {
     "id": 28484,
     "name": "Compressed Viscous Pyroxeres Blueprint",
     "productId": 28426,
-    "productName": "Batch Compressed Viscous Pyroxeres",
+    "productName": "Batch Compressed Pyroxeres III-Grade",
     "isReaction": false
   },
   {
     "id": 28485,
     "name": "Compressed Condensed Scordite Blueprint",
     "productId": 28427,
-    "productName": "Batch Compressed Condensed Scordite",
+    "productName": "Batch Compressed Scordite II-Grade",
     "isReaction": false
   },
   {
     "id": 28486,
     "name": "Compressed Massive Scordite Blueprint",
     "productId": 28428,
-    "productName": "Batch Compressed Massive Scordite",
+    "productName": "Batch Compressed Scordite III-Grade",
     "isReaction": false
   },
   {
@@ -14724,14 +14724,14 @@
     "id": 28488,
     "name": "Compressed Bright Spodumain Blueprint",
     "productId": 28418,
-    "productName": "Batch Compressed Bright Spodumain",
+    "productName": "Batch Compressed Spodumain II-Grade",
     "isReaction": false
   },
   {
     "id": 28489,
     "name": "Compressed Gleaming Spodumain Blueprint",
     "productId": 28419,
-    "productName": "Batch Compressed Gleaming Spodumain",
+    "productName": "Batch Compressed Spodumain III-Grade",
     "isReaction": false
   },
   {
@@ -14745,14 +14745,14 @@
     "id": 28491,
     "name": "Compressed Concentrated Veldspar Blueprint",
     "productId": 28430,
-    "productName": "Batch Compressed Concentrated Veldspar",
+    "productName": "Batch Compressed Veldspar II-Grade",
     "isReaction": false
   },
   {
     "id": 28492,
     "name": "Compressed Dense Veldspar Blueprint",
     "productId": 28431,
-    "productName": "Batch Compressed Dense Veldspar",
+    "productName": "Batch Compressed Veldspar III-Grade",
     "isReaction": false
   },
   {
@@ -14787,7 +14787,7 @@
     "id": 28497,
     "name": "Compressed Enriched Clear Icicle Blueprint",
     "productId": 28436,
-    "productName": "Compressed Enriched Clear Icicle",
+    "productName": "Compressed Clear Icicle IV-Grade",
     "isReaction": false
   },
   {
@@ -14822,21 +14822,21 @@
     "id": 28502,
     "name": "Compressed Pristine White Glaze Blueprint",
     "productId": 28441,
-    "productName": "Compressed Pristine White Glaze",
+    "productName": "Compressed White Glaze IV-Grade",
     "isReaction": false
   },
   {
     "id": 28503,
     "name": "Compressed Smooth Glacial Mass Blueprint",
     "productId": 28442,
-    "productName": "Compressed Smooth Glacial Mass",
+    "productName": "Compressed Glacial Mass IV-Grade",
     "isReaction": false
   },
   {
     "id": 28504,
     "name": "Compressed Thick Blue Ice Blueprint",
     "productId": 28443,
-    "productName": "Compressed Thick Blue Ice",
+    "productName": "Compressed Blue Ice IV-Grade",
     "isReaction": false
   },
   {
@@ -28050,7 +28050,7 @@
   },
   {
     "id": 46209,
-    "name": "Fulleride Reaction Formula",
+    "name": "Fullerides Reaction Formula",
     "productId": 16679,
     "productName": "Fullerides",
     "isReaction": true
@@ -32049,7 +32049,7 @@
     "id": 79175,
     "name": "Consortium Vorton Tuning System Blueprint",
     "productId": 78740,
-    "productName": "Consortium Vorton Tuning system",
+    "productName": "Consortium Vorton Tuning System",
     "isReaction": false
   },
   {
@@ -34297,6 +34297,202 @@
     "name": "Xarasier Capital Micro Jump Drive Blueprint",
     "productId": 88712,
     "productName": "Xarasier Capital Micro Jump Drive",
+    "isReaction": false
+  },
+  {
+    "id": 89485,
+    "name": "Pioneer Blueprint",
+    "productId": 89240,
+    "productName": "Pioneer",
+    "isReaction": false
+  },
+  {
+    "id": 89632,
+    "name": "Expedition Command Burst I Blueprint",
+    "productId": 89608,
+    "productName": "Expedition Command Burst I",
+    "isReaction": false
+  },
+  {
+    "id": 89633,
+    "name": "Expedition Command Burst II Blueprint",
+    "productId": 89615,
+    "productName": "Expedition Command Burst II",
+    "isReaction": false
+  },
+  {
+    "id": 89634,
+    "name": "Expedition Strength Charge Blueprint",
+    "productId": 89612,
+    "productName": "Expedition Strength Charge",
+    "isReaction": false
+  },
+  {
+    "id": 89635,
+    "name": "Expedition Reach Charge Blueprint",
+    "productId": 89613,
+    "productName": "Expedition Reach Charge",
+    "isReaction": false
+  },
+  {
+    "id": 89636,
+    "name": "Expedition Pinpointing Charge Blueprint",
+    "productId": 89614,
+    "productName": "Expedition Pinpointing Charge",
+    "isReaction": false
+  },
+  {
+    "id": 89637,
+    "name": "Odysseus Blueprint",
+    "productId": 89607,
+    "productName": "Odysseus",
+    "isReaction": false
+  },
+  {
+    "id": 89652,
+    "name": "Outrider Blueprint",
+    "productId": 89649,
+    "productName": "Outrider",
+    "isReaction": false
+  },
+  {
+    "id": 89675,
+    "name": "Pioneer Consortium Issue Blueprint",
+    "productId": 89647,
+    "productName": "Pioneer Consortium Issue",
+    "isReaction": false
+  },
+  {
+    "id": 89676,
+    "name": "Venture Consortium Issue Blueprint",
+    "productId": 89648,
+    "productName": "Venture Consortium Issue",
+    "isReaction": false
+  },
+  {
+    "id": 90039,
+    "name": "Mobile Phase Anchor Blueprint",
+    "productId": 90037,
+    "productName": "Mobile Phase Anchor",
+    "isReaction": false
+  },
+  {
+    "id": 90054,
+    "name": "Erratic Ore Mining Crystal Type A I Blueprint",
+    "productId": 90045,
+    "productName": "Erratic Ore Mining Crystal Type A I",
+    "isReaction": false
+  },
+  {
+    "id": 90055,
+    "name": "Erratic Ore Mining Crystal Type B I Blueprint",
+    "productId": 90046,
+    "productName": "Erratic Ore Mining Crystal Type B I",
+    "isReaction": false
+  },
+  {
+    "id": 90056,
+    "name": "Erratic Ore Mining Crystal Type C I Blueprint",
+    "productId": 90048,
+    "productName": "Erratic Ore Mining Crystal Type C I",
+    "isReaction": false
+  },
+  {
+    "id": 90057,
+    "name": "Erratic Ore Mining Crystal Type A II Blueprint",
+    "productId": 90047,
+    "productName": "Erratic Ore Mining Crystal Type A II",
+    "isReaction": false
+  },
+  {
+    "id": 90058,
+    "name": "Erratic Ore Mining Crystal Type B II Blueprint",
+    "productId": 90050,
+    "productName": "Erratic Ore Mining Crystal Type B II",
+    "isReaction": false
+  },
+  {
+    "id": 90059,
+    "name": "Erratic Ore Mining Crystal Type C II Blueprint",
+    "productId": 90049,
+    "productName": "Erratic Ore Mining Crystal Type C II",
+    "isReaction": false
+  },
+  {
+    "id": 90274,
+    "name": "Unrefined Tritanium Formula",
+    "productId": 90283,
+    "productName": "Unrefined Tritanium",
+    "isReaction": true
+  },
+  {
+    "id": 90275,
+    "name": "Unrefined Pyerite Formula",
+    "productId": 90284,
+    "productName": "Unrefined Pyerite",
+    "isReaction": true
+  },
+  {
+    "id": 90276,
+    "name": "Unrefined Mexallon Formula",
+    "productId": 90286,
+    "productName": "Unrefined Mexallon",
+    "isReaction": true
+  },
+  {
+    "id": 90277,
+    "name": "Unrefined Isogen Formula",
+    "productId": 90289,
+    "productName": "Unrefined Isogen",
+    "isReaction": true
+  },
+  {
+    "id": 90278,
+    "name": "Unrefined Nocxium Formula",
+    "productId": 90292,
+    "productName": "Unrefined Nocxium",
+    "isReaction": true
+  },
+  {
+    "id": 90279,
+    "name": "Unrefined Zydrine Formula",
+    "productId": 90294,
+    "productName": "Unrefined Zydrine",
+    "isReaction": true
+  },
+  {
+    "id": 90281,
+    "name": "Unrefined Megacyte Formula",
+    "productId": 90296,
+    "productName": "Unrefined Megacyte",
+    "isReaction": true
+  },
+  {
+    "id": 90282,
+    "name": "Unrefined Morphite Formula",
+    "productId": 90298,
+    "productName": "Unrefined Morphite",
+    "isReaction": true
+  },
+  {
+    "id": 90476,
+    "name": "Integrated Sensor Array Blueprint",
+    "productId": 90475,
+    "productName": "Integrated Sensor Array",
+    "isReaction": false
+  },
+  {
+    "id": 90734,
+    "name": "Mining Laser Efficiency Charge Blueprint",
+    "productId": 90733,
+    "productName": "Mining Laser Efficiency Charge",
+    "isReaction": false
+  },
+  {
+    "id": 91175,
+    "name": "Perseverance Blueprint",
+    "productId": 91174,
+    "productName": "Perseverance",
     "isReaction": false
   }
 ]

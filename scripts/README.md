@@ -6,13 +6,52 @@ This directory contains scripts for downloading and processing EVE Online Static
 
 The industry calculator uses data from the EVE SDE to look up blueprints, materials, item names, and solar systems. This data needs to be updated periodically when CCP releases new game patches.
 
-## Data Source
+## Data Sources
 
-Data is downloaded from [Fuzzwork's SDE dump](https://www.fuzzwork.co.uk/dump/), which provides MySQL/CSV conversions of the official EVE SDE.
+There are two options for downloading SDE data:
+
+1. **Official CCP SDE** (recommended) - Direct from CCP via `download-official-sde.ts`
+2. **Fuzzwork SDE dump** (legacy) - Third-party MySQL/CSV conversion via `download-sde.ts`
 
 ## Scripts
 
-### `download-sde.ts`
+### `download-official-sde.ts` (Recommended)
+
+Downloads and processes the official EVE SDE directly from CCP's developer portal.
+
+**Data Source:** [developers.eveonline.com/static-data](https://developers.eveonline.com/static-data/)
+
+**Usage:**
+```bash
+# Download and process directly to data/
+npx tsx scripts/download-official-sde.ts
+
+# Or using npm script
+pnpm run update-sde-official
+```
+
+**Output:** Files are written directly to `data/` and `public/` (production directories).
+
+| JSONL File | Output JSON | Description |
+|------------|-------------|-------------|
+| `types.jsonl` | `inv-types.json` | Item type names and volumes (~51k types) |
+| `groups.jsonl` | `inv-groups.json` | Item group categories (~1,578 groups) |
+| `blueprints.jsonl` | `blueprints.json` | Blueprint material requirements (~4,928 blueprints) |
+| `blueprints.jsonl` | `blueprints-by-product.json` | Product to blueprint mapping |
+| `blueprints.jsonl` | `blueprint-search.json` | Lightweight blueprint data for search |
+| `mapSolarSystems.jsonl` | `solar-systems.json` | All solar systems (~8,437 systems) |
+| `types.jsonl` + `groups.jsonl` | `tradeable-items.jsonl` | Ships, modules, ammo, drones, etc. (~7,000 items) |
+
+**Features:**
+- Downloads from official CCP source (no third-party dependency)
+- Handles JSONL format with `_key` fields for integer keys
+- Streams large files for memory efficiency
+- Automatically copies `solar-systems.json` to `public/` for client-side access
+- Automatic cleanup of temp files
+
+---
+
+### `download-sde.ts` (Legacy - Fuzzwork)
 
 Downloads and processes the following data from Fuzzwork:
 
@@ -113,6 +152,59 @@ npx tsx scripts/add-t2-drones-to-watchlist.ts
 
 The script uses upsert to handle existing items - running it multiple times is safe.
 
+### `add-deklein-nullsec-items.ts`
+
+Adds comprehensive nullsec items to the **essential_items** table (Essentials tab), optimized for Deklein (Guristas space). This includes mining equipment, ratting ships, exploration gear, and utility items.
+
+**Target Table:** `essential_items` (not `watchlist_items`)
+
+**Usage:**
+```bash
+npx tsx scripts/add-deklein-nullsec-items.ts
+```
+
+**Required Environment Variables:**
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
+
+**Items Included (~2,700 items):**
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| Module | ~1,500 | Shield/armor tank, mining upgrades, prop mods, damage mods, cap modules |
+| Implant | ~400 | Attribute implants, skill hardwirings |
+| Charge | ~375 | Kinetic (Scourge) missiles, mining crystals, hybrid charges |
+| Ship | ~180 | Mining barges, exhumers, ratting subcapitals, exploration ships |
+| Drone | ~125 | Combat, mining, salvage, ECM, logistics drones |
+| Fighter | ~50 | Light, heavy, and support fighters |
+| Subsystem | 48 | All T3 cruiser subsystems |
+| Deployable | ~20 | MTUs, Mobile Depots, scan inhibitors |
+
+**Key Features:**
+- **Kinetic Focus**: Scourge missiles, hybrid charges (optimal vs Guristas)
+- **No Capitals**: Excludes Rorqual, carriers, dreadnoughts, capital modules
+- **Mining Complete**: All barges, exhumers, strip miners, crystals, mining drones
+- **Exploration Ready**: Covert ops, probes, analyzers, cloaking devices
+
+**Excluded Items:**
+- Capital ships (Rorqual, Carriers, Dreadnoughts, Titans)
+- Capital modules (Siege, Triage, Capital armor/shield)
+- Excavator mining drones (Rorqual-only)
+- Non-kinetic ammunition (thermal, EM, explosive missiles)
+
+The script uses upsert - running it multiple times is safe and will update existing items.
+
+### `clear-watchlist-essentials.ts`
+
+Clears all items from the `watchlist_items` table. Used for cleanup before migrating to the separate essentials system.
+
+**Usage:**
+```bash
+npx tsx scripts/clear-watchlist-essentials.ts
+```
+
+**Note:** This is a destructive operation - it removes ALL items from the personal watchlist.
+
 ### `remove-logistic-salvage-drones.ts`
 
 Removes logistic drones and salvage drones from the market watchlist.
@@ -139,7 +231,15 @@ npx tsx scripts/remove-logistic-salvage-drones.ts
 When a new EVE expansion or patch is released:
 
 ```bash
-# From project root
+# Recommended: Use official CCP SDE
+pnpm run update-sde-official
+
+# Or directly with tsx
+npx tsx scripts/download-official-sde.ts
+```
+
+**Alternative (Legacy - Fuzzwork):**
+```bash
 pnpm run update-sde
 
 # Or directly with tsx
@@ -147,9 +247,10 @@ npx tsx scripts/download-sde.ts
 ```
 
 This will:
-1. Download latest CSV files from Fuzzwork
+1. Download latest files from CCP (or Fuzzwork for legacy script)
 2. Process and transform the data
 3. Save JSON files to `/data/` directory
+4. Copy `solar-systems.json` to `/public/` for client-side access
 
 ### When to Update
 
@@ -159,7 +260,7 @@ Update the SDE data when:
 - New solar systems are added (rare)
 - After major EVE expansions
 
-Check the [Fuzzwork dump page](https://www.fuzzwork.co.uk/dump/) for the latest SDE version date.
+Check the [CCP SDE page](https://developers.eveonline.com/static-data/) or [Fuzzwork dump page](https://www.fuzzwork.co.uk/dump/) for the latest version.
 
 ## Output Files
 

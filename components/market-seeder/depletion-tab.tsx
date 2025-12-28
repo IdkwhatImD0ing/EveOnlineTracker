@@ -3,31 +3,39 @@
 import { useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   Loader2,
   AlertCircle,
-  ChevronDown,
-  Copy,
-  Check,
-  AlertTriangle,
-  Clock,
-  Minus,
   BarChart3,
   Timer,
   Settings2,
+  ChevronDown,
+  CheckSquare,
+  X,
+  Copy,
+  Check,
 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { type DepletionPrediction, type ProgressState } from "@/types/market-seeder"
-import { EveItemIcon } from "@/components/eve-item-icon"
 import { ProgressBar } from "./progress-bar"
-import { formatIskShort } from "./utils"
-import { DepletionFilterSidebar, DepletionFilterState } from "./depletion-filter-sidebar"
+import {
+  StockSummaryCards,
+  StockTable,
+  StockFilterSidebar,
+  type StockItemData,
+  type UrgencyLevel,
+  type StockFilterState,
+} from "./stock-tracker"
+
+const SUPPLY_DAYS_PRESETS = [
+  { value: "3", label: "3 days" },
+  { value: "7", label: "7 days" },
+  { value: "14", label: "14 days" },
+  { value: "30", label: "30 days" },
+]
 
 interface DepletionSummary {
   totalItems: number
@@ -52,31 +60,49 @@ interface DepletionTabProps {
   onAnalyze: () => void
 
   // Filter state
-  filters: DepletionFilterState
-  onFiltersChange: (filters: DepletionFilterState) => void
+  filters: StockFilterState
+  onFiltersChange: (filters: StockFilterState) => void
 
-  // Restock copy state
-  restockDays: number
-  setRestockDays: (days: number) => void
-  restockTopN: number | null
-  setRestockTopN: (n: number | null) => void
-  includeCritical: boolean
-  setIncludeCritical: (include: boolean) => void
-  includeWarning: boolean
-  setIncludeWarning: (include: boolean) => void
+  // Selection state
+  selectedItems: Set<number>
+  onToggleSelect: (typeId: number) => void
+  onSelectAll: (items: StockItemData[]) => void
+  onClearSelection: () => void
+  onCopySelected: () => void
   copySuccess: boolean
-  onCopyRestock: () => void
+
+  // Supply days for copy
+  supplyDays: number
+  setSupplyDays: (days: number) => void
+  isCustomSupplyDays: boolean
+  setIsCustomSupplyDays: (isCustom: boolean) => void
 
   // Hub factor display
   hubFactorPercent?: string  // e.g. "5%" - for display in labels
 }
 
 // Helper to determine urgency level for a prediction
-function getUrgencyLevel(prediction: DepletionPrediction): 'critical' | 'warning' | 'ok' | 'none' {
+function getUrgencyLevel(prediction: DepletionPrediction): UrgencyLevel {
   if (prediction.currentStock === 0) return 'critical'
   if (prediction.daysUntilStockout === null) return 'none'
   if (prediction.daysUntilStockout < 3) return 'warning'
   return 'ok'
+}
+
+// Transform DepletionPrediction to StockItemData
+function toStockItemData(prediction: DepletionPrediction): StockItemData {
+  return {
+    typeId: prediction.typeId,
+    name: prediction.name,
+    categoryName: prediction.categoryName,
+    groupName: prediction.groupName,
+    stock: prediction.currentStock,
+    estimatedDailySales: prediction.estimatedDailySales,
+    daysUntilStockout: prediction.daysUntilStockout,
+    dailyProfit: prediction.dailyProfitPotential,
+    urgencyLevel: getUrgencyLevel(prediction),
+    priorityScore: prediction.priorityScore,
+  }
 }
 
 export function DepletionTab({
@@ -90,33 +116,40 @@ export function DepletionTab({
   onAnalyze,
   filters,
   onFiltersChange,
-  restockDays,
-  setRestockDays,
-  restockTopN,
-  setRestockTopN,
-  includeCritical,
-  setIncludeCritical,
-  includeWarning,
-  setIncludeWarning,
+  selectedItems,
+  onToggleSelect,
+  onSelectAll,
+  onClearSelection,
+  onCopySelected,
   copySuccess,
-  onCopyRestock,
+  supplyDays,
+  setSupplyDays,
+  isCustomSupplyDays,
+  setIsCustomSupplyDays,
   hubFactorPercent = "5%",
 }: DepletionTabProps) {
-  // Filter predictions based on selected urgency, categories, ownership, and competition
+  // Filter predictions based on selected filters
   const filteredPredictions = useMemo(() => {
     return predictions.filter(p => {
       const urgency = getUrgencyLevel(p)
-      // Map 'ok' urgency to 'ok' in filter, 'safe' is used in display
-      const urgencyKey = urgency === 'ok' ? 'ok' : urgency
       
       // Check urgency filter
-      if (!filters.selectedUrgency.has(urgencyKey)) return false
+      if (!filters.selectedUrgency.has(urgency)) return false
       
       // Check category filter
       if (p.categoryName && !filters.selectedCategories.has(p.categoryName)) return false
       
-      // Check hide owned items filter
-      if (filters.hideOwnedItems && (p.userHasInInventory || p.userHasSellOrder)) return false
+      // Check hide sell order items filter (uses ownership flags)
+      if (filters.hideSellOrderItems && (p.userHasInInventory || p.userHasSellOrder)) return false
+      
+      // Check min orders/day filter
+      if (filters.minOrdersPerDay !== null && p.estimatedDailySales < filters.minOrdersPerDay) return false
+      
+      // Check min profit/day filter
+      if (filters.minProfitPerDay !== null && p.dailyProfitPotential < filters.minProfitPerDay) return false
+      
+      // Check max Jita cost filter
+      if (filters.maxJitaCost !== null && p.jitaBuyPrice > filters.maxJitaCost) return false
       
       // Check competition filter
       if (filters.competitionFilter === 'no_competition' && p.hasCompetition) return false
@@ -126,7 +159,10 @@ export function DepletionTab({
     })
   }, [predictions, filters])
 
-  // Group items by urgency (from filtered predictions for restock)
+  // Transform to StockItemData for table
+  const tableItems = useMemo(() => filteredPredictions.map(toStockItemData), [filteredPredictions])
+
+  // Group items by urgency for summary
   const itemsByUrgency = useMemo(() => ({
     critical: filteredPredictions.filter(p => p.currentStock === 0),
     warning: filteredPredictions.filter(p =>
@@ -136,13 +172,17 @@ export function DepletionTab({
     ),
   }), [filteredPredictions])
 
-  // Items to restock based on filters
-  const itemsToRestock = [
-    ...(includeCritical ? itemsByUrgency.critical : []),
-    ...(includeWarning ? itemsByUrgency.warning : []),
-  ]
-
-  const itemsToCopy = restockTopN ? itemsToRestock.slice(0, restockTopN) : itemsToRestock
+  const filterSidebar = (
+    <StockFilterSidebar
+      filters={filters}
+      onFiltersChange={onFiltersChange}
+      totalItems={predictions.length}
+      filteredCount={filteredPredictions.length}
+      hubFactorPercent={hubFactorPercent}
+      showCompetitionFilter={true}
+      idPrefix="depletion"
+    />
+  )
 
   return (
     <div className="space-y-6">
@@ -160,114 +200,6 @@ export function DepletionTab({
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {predictions.length > 0 && (itemsByUrgency.critical.length > 0 || itemsByUrgency.warning.length > 0) && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Copy className="size-4" />
-                      <span className="ml-2">Copy Restock List</span>
-                      <ChevronDown className="size-3 ml-1" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64">
-                    {/* Include filters */}
-                    <div className="p-2 space-y-2">
-                      <Label className="text-xs text-muted-foreground">Include urgency levels</Label>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="depletionIncludeCritical"
-                          checked={includeCritical}
-                          onCheckedChange={(checked) => setIncludeCritical(checked === true)}
-                        />
-                        <label
-                          htmlFor="depletionIncludeCritical"
-                          className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
-                        >
-                          <span className="text-destructive">Critical</span>
-                          <Badge variant="destructive" className="px-1.5 py-0 text-xs">
-                            {itemsByUrgency.critical.length}
-                          </Badge>
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="depletionIncludeWarning"
-                          checked={includeWarning}
-                          onCheckedChange={(checked) => setIncludeWarning(checked === true)}
-                        />
-                        <label
-                          htmlFor="depletionIncludeWarning"
-                          className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
-                        >
-                          <span className="text-amber-500">Warning</span>
-                          <Badge className="px-1.5 py-0 text-xs bg-amber-500/20 text-amber-600">
-                            {itemsByUrgency.warning.length}
-                          </Badge>
-                        </label>
-                      </div>
-                    </div>
-                    <DropdownMenuSeparator />
-                    {/* Days of supply */}
-                    <div className="p-2 space-y-1">
-                      <Label className="text-xs text-muted-foreground">Days of supply</Label>
-                      <Select
-                        value={restockDays.toString()}
-                        onValueChange={(v) => setRestockDays(parseInt(v))}
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 day</SelectItem>
-                          <SelectItem value="3">3 days</SelectItem>
-                          <SelectItem value="7">7 days (1 week)</SelectItem>
-                          <SelectItem value="14">14 days (2 weeks)</SelectItem>
-                          <SelectItem value="30">30 days</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {/* Top N items */}
-                    <div className="p-2 space-y-1">
-                      <Label className="text-xs text-muted-foreground">Limit items</Label>
-                      <Select
-                        value={restockTopN?.toString() ?? "all"}
-                        onValueChange={(v) => setRestockTopN(v === "all" ? null : parseInt(v))}
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All matched ({itemsToRestock.length})</SelectItem>
-                          <SelectItem value="5">Top 5</SelectItem>
-                          <SelectItem value="10">Top 10</SelectItem>
-                          <SelectItem value="20">Top 20</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <DropdownMenuSeparator />
-                    {/* Copy button with count */}
-                    <div className="p-2">
-                      <Button
-                        onClick={onCopyRestock}
-                        className="w-full"
-                        disabled={copySuccess || itemsToCopy.length === 0}
-                      >
-                        {copySuccess ? (
-                          <>
-                            <Check className="size-4 mr-2" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="size-4 mr-2" />
-                            Copy {itemsToCopy.length} items
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
               <Button
                 variant="default"
                 size="sm"
@@ -333,41 +265,98 @@ export function DepletionTab({
 
       {/* Depletion Summary */}
       {summary && predictions.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-2xl font-bold">{summary.totalItems}</p>
-              <p className="text-sm text-muted-foreground">Items Tracked</p>
-            </CardContent>
-          </Card>
-          <Card className="border-destructive/50">
-            <CardContent className="p-4">
-              <p className="text-2xl font-bold text-destructive">
-                {summary.criticalCount}
-              </p>
-              <p className="text-sm text-muted-foreground">Critical (0 stock)</p>
-            </CardContent>
-          </Card>
-          <Card className="border-amber-500/50">
-            <CardContent className="p-4">
-              <p className="text-2xl font-bold text-amber-500">
-                {summary.warningCount}
-              </p>
-              <p className="text-sm text-muted-foreground">Warning (&lt;3 days)</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-2xl font-bold text-emerald-500">
-                {formatIskShort(summary.totalDailyProfit)}
-              </p>
-              <p className="text-sm text-muted-foreground">Daily Profit Potential</p>
-            </CardContent>
-          </Card>
-        </div>
+        <StockSummaryCards
+          totalItems={summary.totalItems}
+          criticalCount={summary.criticalCount}
+          warningCount={summary.warningCount}
+          dailyProfit={summary.totalDailyProfit}
+        />
       )}
 
-      {/* Depletion Predictions List */}
+      {/* Selection Action Bar */}
+      {selectedItems.size > 0 && (
+        <Card className="sticky top-4 z-10 border-primary/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="size-5 text-primary" />
+                <span className="font-medium">{selectedItems.size} items selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Supply:</span>
+                <Select
+                  value={isCustomSupplyDays ? "custom" : supplyDays.toString()}
+                  onValueChange={(value) => {
+                    if (value === "custom") {
+                      setIsCustomSupplyDays(true)
+                    } else {
+                      setIsCustomSupplyDays(false)
+                      setSupplyDays(parseInt(value))
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-24 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPLY_DAYS_PRESETS.map((preset) => (
+                      <SelectItem key={preset.value} value={preset.value}>
+                        {preset.label}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isCustomSupplyDays && (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={supplyDays}
+                      onChange={(e) => setSupplyDays(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="h-7 w-16 text-xs"
+                    />
+                    <span className="text-xs text-muted-foreground">days</span>
+                  </div>
+                )}
+                <span className="text-xs text-muted-foreground">@ {hubFactorPercent} regional</span>
+              </div>
+              <div className="flex-1" />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onClearSelection}
+                  className="gap-2"
+                >
+                  <X className="size-4" />
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={onCopySelected}
+                  className="gap-2"
+                  disabled={copySuccess}
+                >
+                  {copySuccess ? (
+                    <>
+                      <Check className="size-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="size-4" />
+                      Copy Buy List
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Depletion Predictions */}
       {loading && !progress ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -383,116 +372,22 @@ export function DepletionTab({
         </Card>
       ) : (
         <>
-          {/* Sidebar + List Layout */}
+          {/* Sidebar + Table Layout */}
           <div className="flex gap-6">
-            {/* Main Content - Predictions List */}
-            <div className="flex-1 min-w-0 space-y-3">
-              {filteredPredictions.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <Timer className="size-12 mx-auto text-muted-foreground/50 mb-4" />
-                    <p className="text-muted-foreground">
-                      No items match your current filters
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                filteredPredictions.map((prediction) => {
-                  const urgencyLevel = getUrgencyLevel(prediction)
-
-                  return (
-                    <Card
-                      key={prediction.typeId}
-                      className={
-                        urgencyLevel === 'critical'
-                          ? "border-destructive/50 bg-destructive/5"
-                          : urgencyLevel === 'warning'
-                            ? "border-amber-500/50 bg-amber-500/5"
-                            : urgencyLevel === 'ok'
-                              ? "border-emerald-500/30 bg-emerald-500/5"
-                              : ""
-                      }
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-4">
-                          <EveItemIcon typeId={prediction.typeId} size={64} className="size-10 shrink-0 rounded" />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{prediction.name}</div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {prediction.categoryName} • {prediction.groupName}
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
-                              <div>
-                                <p className="text-muted-foreground text-xs">Current Stock</p>
-                                <p className="font-medium">{prediction.currentStock.toLocaleString()} units</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Est. Daily Sales</p>
-                                <p className="font-medium">{prediction.estimatedDailySales.toFixed(1)} units/day</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Days Until Stockout</p>
-                                <p className={`font-bold ${urgencyLevel === 'critical' ? 'text-destructive' :
-                                  urgencyLevel === 'warning' ? 'text-amber-500' :
-                                    urgencyLevel === 'ok' ? 'text-emerald-500' :
-                                      'text-muted-foreground'
-                                  }`}>
-                                  {prediction.daysUntilStockout !== null
-                                    ? `${prediction.daysUntilStockout.toFixed(1)} days`
-                                    : 'No sales data'}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Daily Profit</p>
-                                <p className="font-medium text-primary">{formatIskShort(prediction.dailyProfitPotential)} ISK</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            {urgencyLevel === 'critical' && (
-                              <Badge variant="destructive" className="gap-1">
-                                <AlertTriangle className="size-3" />
-                                Critical
-                              </Badge>
-                            )}
-                            {urgencyLevel === 'warning' && (
-                              <Badge className="gap-1 bg-amber-500/20 text-amber-600 hover:bg-amber-500/30">
-                                <Clock className="size-3" />
-                                Low Stock
-                              </Badge>
-                            )}
-                            {urgencyLevel === 'ok' && (
-                              <Badge variant="secondary" className="gap-1 bg-emerald-500/20 text-emerald-600">
-                                <Check className="size-3" />
-                                OK
-                              </Badge>
-                            )}
-                            {urgencyLevel === 'none' && (
-                              <Badge variant="secondary" className="gap-1">
-                                <Minus className="size-3" />
-                                No Data
-                              </Badge>
-                            )}
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Priority: {prediction.priorityScore.toFixed(0)}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })
-              )}
+            {/* Main Content - Table */}
+            <div className="flex-1 min-w-0">
+              <StockTable
+                items={tableItems}
+                showPriorityScore={true}
+                selectedItems={selectedItems}
+                onToggleSelect={onToggleSelect}
+                onSelectAll={onSelectAll}
+              />
             </div>
 
             {/* Sidebar - Filters (Desktop) */}
             <div className="w-64 shrink-0 hidden lg:block">
-              <DepletionFilterSidebar
-                filters={filters}
-                onFiltersChange={onFiltersChange}
-                totalItems={predictions.length}
-                filteredCount={filteredPredictions.length}
-              />
+              {filterSidebar}
             </div>
           </div>
 
@@ -507,12 +402,7 @@ export function DepletionTab({
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-4">
-                <DepletionFilterSidebar
-                  filters={filters}
-                  onFiltersChange={onFiltersChange}
-                  totalItems={predictions.length}
-                  filteredCount={filteredPredictions.length}
-                />
+                {filterSidebar}
               </CollapsibleContent>
             </Collapsible>
           </div>
@@ -521,3 +411,6 @@ export function DepletionTab({
     </div>
   )
 }
+
+// Re-export types for backwards compatibility
+export type { StockFilterState as DepletionFilterState }

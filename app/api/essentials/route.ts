@@ -9,7 +9,7 @@ import {
 } from '@/types/market-seeder'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
-import { isAdminRole } from '@/types/auth'
+import { isAdminRole, isApprovedRole } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
 
@@ -29,7 +29,7 @@ interface CharacterOrder {
   order_id: number
 }
 
-interface WatchlistItem {
+interface EssentialItem {
   id: string
   type_id: number
   item_name: string
@@ -39,7 +39,7 @@ interface WatchlistItem {
   created_at: string
 }
 
-interface WatchlistItemWithStock extends WatchlistItem {
+interface EssentialItemWithStock extends EssentialItem {
   stock: number
   lowest_price: number | null
   needs_restock: boolean
@@ -54,12 +54,14 @@ interface WatchlistItemWithStock extends WatchlistItem {
 }
 
 /**
- * GET /api/watchlist
+ * GET /api/essentials
  * 
- * Fetches all watchlist items with current stock levels from the structure.
+ * Fetches all essential items (admin-curated nullsec essentials) with current stock levels.
  * 
  * Query Parameters:
  *   - structure_id (optional): Structure ID to check stock levels. If not provided, returns items without stock info.
+ *   - volume_region_id (optional): Region ID for volume data (default: Vale of the Silent)
+ *   - hub_factor (optional): Hub factor for demand estimation (default: 0.05)
  * 
  * Headers:
  *   - Authorization (optional): Bearer token from EVE SSO. Required if structure_id is provided.
@@ -72,8 +74,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  if (!isAdminRole(session.user.role)) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+  if (!isApprovedRole(session.user.role)) {
+    return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
   }
 
   // Rate limiting
@@ -108,22 +110,22 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createClient()
 
-    // Fetch all watchlist items from Supabase
-    const { data: watchlistItems, error } = await supabase
-      .from('watchlist_items')
+    // Fetch all essential items from Supabase
+    const { data: essentialItems, error } = await supabase
+      .from('essential_items')
       .select('*')
       .order('item_name', { ascending: true })
 
     if (error) {
       return NextResponse.json(
-        { error: 'Failed to fetch watchlist', details: error.message },
+        { error: 'Failed to fetch essentials', details: error.message },
         { status: 500 }
       )
     }
 
     // If no structure_id, return items without stock info
     if (!structureId) {
-      const itemsWithoutStock: WatchlistItemWithStock[] = (watchlistItems || []).map(item => ({
+      const itemsWithoutStock: EssentialItemWithStock[] = (essentialItems || []).map(item => ({
         ...item,
         stock: 0,
         lowest_price: null,
@@ -217,8 +219,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch market data for all watchlist items
-    const typeIds = (watchlistItems || []).map(item => item.type_id)
+    // Fetch market data for all essential items
+    const typeIds = (essentialItems || []).map(item => item.type_id)
 
     // Fetch regional volumes and Jita prices in parallel
     const [regionData, jitaPrices] = await Promise.all([
@@ -226,8 +228,8 @@ export async function GET(request: NextRequest) {
       getCachedJitaPrices(typeIds)
     ])
 
-    // Merge stock info and market data with watchlist items
-    const itemsWithStock: WatchlistItemWithStock[] = (watchlistItems || []).map(item => {
+    // Merge stock info and market data with essential items
+    const itemsWithStock: EssentialItemWithStock[] = (essentialItems || []).map(item => {
       const stockInfo = stockMap.get(item.type_id)
       const regionStats = regionData.get(item.type_id)
       const jitaPrice = jitaPrices.get(item.type_id)
@@ -294,10 +296,6 @@ export async function GET(request: NextRequest) {
     })
 
     // Calculate summary with depletion-style counts
-    // New logic:
-    // - Critical: stock = 0 AND user has no sell order
-    // - Warning: stock > 0 AND daysUntilStockout < 3 AND user has no sell order
-    // - OK: everything else (>= 3 days OR user has sell order)
     let criticalCount = 0
     let warningCount = 0
     let okCount = 0
@@ -343,18 +341,18 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Watchlist fetch error:', error)
+    console.error('Essentials fetch error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch watchlist' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch essentials' },
       { status: 500 }
     )
   }
 }
 
 /**
- * POST /api/watchlist
+ * POST /api/essentials
  * 
- * Adds an item to the watchlist.
+ * Adds an item to the essentials list (admin only).
  * 
  * Body:
  *   - typeId: number (required)
@@ -371,8 +369,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    if (session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    if (!isAdminRole(session.user.role)) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
     // Rate limiting
@@ -395,7 +393,7 @@ export async function POST(request: NextRequest) {
 
     // Insert the item (will fail if type_id already exists due to UNIQUE constraint)
     const { data, error } = await supabase
-      .from('watchlist_items')
+      .from('essential_items')
       .insert({
         type_id: typeId,
         item_name: itemName,
@@ -410,7 +408,7 @@ export async function POST(request: NextRequest) {
       // Check if it's a unique constraint violation
       if (error.code === '23505') {
         return NextResponse.json(
-          { error: 'Item already in watchlist' },
+          { error: 'Item already in essentials' },
           { status: 409 }
         )
       }
@@ -426,7 +424,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Watchlist add error:', error)
+    console.error('Essentials add error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to add item' },
       { status: 500 }

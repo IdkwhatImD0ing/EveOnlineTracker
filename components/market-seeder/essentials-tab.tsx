@@ -3,16 +3,15 @@
 import { useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   Loader2,
   RefreshCw,
   AlertCircle,
-  Eye,
   Trash2,
   BarChart3,
+  Package,
   Settings2,
   ChevronDown,
   CheckSquare,
@@ -23,13 +22,11 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { type WatchlistItem } from "@/types/market-seeder"
-import { ItemSearch, TradeableItem } from "@/components/market/item-search"
 import {
   StockItemCardSimple,
   StockSummaryCards,
   StockTable,
   StockFilterSidebar,
-  DEFAULT_STOCK_FILTERS,
   type StockItemData,
   type UrgencyLevel,
   type StockFilterState,
@@ -42,19 +39,18 @@ const SUPPLY_DAYS_PRESETS = [
   { value: "30", label: "30 days" },
 ]
 
-interface WatchlistTabProps {
+interface EssentialsTabProps {
   // Data
   items: WatchlistItem[]
   loading: boolean
   error: string | null
   checkedAt: string | null
   structureId: string
+  isAdmin: boolean
 
   // Actions
   onRefresh: (checkStock: boolean) => void
-  onAddItem: (item: TradeableItem) => void
-  onRemoveItem: (typeId: number) => void
-  addingItem: boolean
+  onRemoveItem?: (typeId: number) => void // Only available for admins
 
   // Filter state
   filters: StockFilterState
@@ -76,7 +72,7 @@ interface WatchlistTabProps {
   hubFactorPercent?: string
 }
 
-// Helper to determine urgency level for a watchlist item
+// Helper to determine urgency level for an essential item
 function getUrgencyLevel(item: WatchlistItem): UrgencyLevel {
   if (item.hasSellOrder) return 'ok'
   if ((item.stock ?? 0) === 0) return 'critical'
@@ -100,16 +96,15 @@ function toStockItemData(item: WatchlistItem): StockItemData {
   }
 }
 
-export function WatchlistTab({
+export function EssentialsTab({
   items,
   loading,
   error,
   checkedAt,
   structureId,
+  isAdmin,
   onRefresh,
-  onAddItem,
   onRemoveItem,
-  addingItem,
   filters,
   onFiltersChange,
   selectedItems,
@@ -123,9 +118,7 @@ export function WatchlistTab({
   isCustomSupplyDays,
   setIsCustomSupplyDays,
   hubFactorPercent = "5%",
-}: WatchlistTabProps) {
-  const existingTypeIds = new Set(items.map(item => item.type_id))
-
+}: EssentialsTabProps) {
   // Filter items based on selected filters
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -181,20 +174,23 @@ export function WatchlistTab({
       onFiltersChange={onFiltersChange}
       totalItems={items.length}
       filteredCount={filteredItems.length}
-      idPrefix="watchlist"
+      idPrefix="essentials"
     />
   )
 
   return (
     <div className="space-y-6">
-      {/* Watchlist Header */}
+      {/* Essentials Header */}
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Watchlist</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="size-5" />
+                Nullsec Essentials
+              </CardTitle>
               <CardDescription>
-                Track specific items and monitor stock levels
+                Pre-curated list of essential items for nullsec living ({items.length} items)
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -226,16 +222,15 @@ export function WatchlistTab({
             </Alert>
           )}
 
-          {/* Add Item Search */}
-          <div className="space-y-2">
-            <Label>Add Item to Watchlist</Label>
-            <ItemSearch
-              onSelect={onAddItem}
-              placeholder="Search for items to add..."
-              disabled={addingItem}
-              existingTypeIds={existingTypeIds}
-            />
-          </div>
+          {/* Admin info */}
+          {isAdmin && (
+            <Alert>
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                Admin mode: You can remove items from the essentials list. To add items, run the script: <code className="text-xs bg-muted px-1 py-0.5 rounded">npx tsx scripts/add-deklein-nullsec-items.ts</code>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {error && (
             <Alert variant="destructive">
@@ -252,13 +247,14 @@ export function WatchlistTab({
         </CardContent>
       </Card>
 
-      {/* Watchlist Summary */}
+      {/* Essentials Summary */}
       {items.length > 0 && checkedAt && (
         <StockSummaryCards
           totalItems={items.length}
           criticalCount={itemsByUrgency.critical.length}
           warningCount={itemsByUrgency.warning.length}
           dailyProfit={totalDailyProfit}
+          totalLabel="Essential Items"
         />
       )}
 
@@ -345,7 +341,7 @@ export function WatchlistTab({
         </Card>
       )}
 
-      {/* Watchlist Items */}
+      {/* Essentials Items */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -353,10 +349,13 @@ export function WatchlistTab({
       ) : items.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Eye className="size-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">
-              No items in watchlist yet. Use the search above to add items.
+            <Package className="size-12 mx-auto text-muted-foreground/50 mb-4" />
+            <p className="text-muted-foreground mb-2">
+              No essential items found. Run the setup script to populate:
             </p>
+            <code className="text-sm bg-muted px-3 py-1.5 rounded">
+              npx tsx scripts/add-deklein-nullsec-items.ts
+            </code>
           </CardContent>
         </Card>
       ) : !checkedAt ? (
@@ -366,7 +365,7 @@ export function WatchlistTab({
             <CardContent className="py-8 text-center">
               <BarChart3 className="size-10 mx-auto text-muted-foreground/50 mb-3" />
               <p className="text-muted-foreground mb-4">
-                Load stock levels and depletion metrics for your {items.length} watchlist item{items.length !== 1 ? 's' : ''}
+                Load stock levels and depletion metrics for {items.length} essential item{items.length !== 1 ? 's' : ''}
               </p>
               <Button
                 onClick={() => onRefresh(true)}
@@ -386,14 +385,15 @@ export function WatchlistTab({
               )}
             </CardContent>
           </Card>
-          {items.map((item) => (
+          {/* Show first 20 items as preview */}
+          {items.slice(0, 20).map((item) => (
             <StockItemCardSimple
               key={item.id}
               typeId={item.type_id}
               name={item.item_name}
               categoryName={item.category_name}
               groupName={item.group_name}
-              actions={
+              actions={isAdmin && onRemoveItem ? (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -402,9 +402,14 @@ export function WatchlistTab({
                 >
                   <Trash2 className="size-4" />
                 </Button>
-              }
+              ) : undefined}
             />
           ))}
+          {items.length > 20 && (
+            <p className="text-center text-sm text-muted-foreground py-2">
+              ... and {items.length - 20} more items. Load stock data to see all.
+            </p>
+          )}
         </div>
       ) : (
         <>
@@ -414,8 +419,8 @@ export function WatchlistTab({
             <div className="flex-1 min-w-0">
               <StockTable
                 items={tableItems}
-                onRemoveItem={onRemoveItem}
-                showRemoveButton={true}
+                onRemoveItem={isAdmin ? onRemoveItem : undefined}
+                showRemoveButton={isAdmin && !!onRemoveItem}
                 selectedItems={selectedItems}
                 onToggleSelect={onToggleSelect}
                 onSelectAll={onSelectAll}
@@ -448,7 +453,3 @@ export function WatchlistTab({
     </div>
   )
 }
-
-// Re-export types for backwards compatibility
-export { DEFAULT_STOCK_FILTERS as DEFAULT_WATCHLIST_FILTERS }
-export type { StockFilterState as WatchlistFilterState }

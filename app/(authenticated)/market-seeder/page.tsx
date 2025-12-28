@@ -9,6 +9,7 @@ import {
   BarChart3,
   Eye,
   Timer,
+  Package,
 } from "lucide-react"
 import {
   type CapitalEfficiencyResponse,
@@ -21,11 +22,12 @@ import {
   type SellOrderData,
   type AnalysisResponse,
   type ProgressState,
+  type OrderHistoryData,
+  type OrderHistoryPeriod,
 } from "@/types/market-seeder"
 import { type ProfitAnalysis } from "@/components/market-seeder/results-table"
 import { type FilterState, DEFAULT_FILTERS } from "@/components/market-seeder/filter-sidebar"
-import { type DepletionFilterState, DEFAULT_DEPLETION_FILTERS } from "@/components/market-seeder/depletion-filter-sidebar"
-import { type WatchlistFilterState, DEFAULT_WATCHLIST_FILTERS } from "@/components/market-seeder/watchlist-filter-sidebar"
+import { type StockFilterState, DEFAULT_STOCK_FILTERS, type StockItemData } from "@/components/market-seeder/stock-tracker"
 import { type TradeableItem } from "@/components/market/item-search"
 import {
   DEFAULT_STRUCTURE_ID,
@@ -39,6 +41,7 @@ import { RegionSelector, useVolumeRegion, HubFactorSelector, useHubFactor } from
 import { CapitalTab } from "@/components/market-seeder/capital-tab"
 import { AnalysisTab } from "@/components/market-seeder/analysis-tab"
 import { WatchlistTab } from "@/components/market-seeder/watchlist-tab"
+import { EssentialsTab } from "@/components/market-seeder/essentials-tab"
 import { DepletionTab } from "@/components/market-seeder/depletion-tab"
 import { MarketTab } from "@/components/market-seeder/market-tab"
 
@@ -87,7 +90,7 @@ export default function MarketSeederPage() {
   // ============================================================================
   // Tab Navigation State
   // ============================================================================
-  const [activeMainTab, setActiveMainTab] = useState<"capital" | "analysis" | "watchlist" | "depletion" | "market">("capital")
+  const [activeMainTab, setActiveMainTab] = useState<"capital" | "analysis" | "watchlist" | "essentials" | "depletion" | "market">("capital")
 
   // ============================================================================
   // Watchlist State
@@ -103,11 +106,47 @@ export default function MarketSeederPage() {
   const [restockTopN, setRestockTopN] = useState<number | null>(null)
   const [includeCritical, setIncludeCritical] = useState(true)
   const [includeWarning, setIncludeWarning] = useState(true)
-  const [watchlistFilters, setWatchlistFilters] = useState<WatchlistFilterState>({
-    selectedUrgency: new Set(DEFAULT_WATCHLIST_FILTERS.selectedUrgency),
-    selectedCategories: new Set(DEFAULT_WATCHLIST_FILTERS.selectedCategories),
-    hideSellOrderItems: DEFAULT_WATCHLIST_FILTERS.hideSellOrderItems,
+  const [watchlistFilters, setWatchlistFilters] = useState<StockFilterState>({
+    selectedUrgency: new Set(DEFAULT_STOCK_FILTERS.selectedUrgency),
+    selectedCategories: new Set(DEFAULT_STOCK_FILTERS.selectedCategories),
+    hideSellOrderItems: DEFAULT_STOCK_FILTERS.hideSellOrderItems,
+    competitionFilter: DEFAULT_STOCK_FILTERS.competitionFilter,
+    minOrdersPerDay: DEFAULT_STOCK_FILTERS.minOrdersPerDay,
+    minProfitPerDay: DEFAULT_STOCK_FILTERS.minProfitPerDay,
+    maxJitaCost: DEFAULT_STOCK_FILTERS.maxJitaCost,
   })
+  // Watchlist selection state
+  const [watchlistSelectedItems, setWatchlistSelectedItems] = useState<Set<number>>(new Set())
+  const [watchlistSupplyDays, setWatchlistSupplyDays] = useState(7)
+  const [watchlistIsCustomSupplyDays, setWatchlistIsCustomSupplyDays] = useState(false)
+
+  // ============================================================================
+  // Essentials State (Nullsec Essentials - separate from personal watchlist)
+  // ============================================================================
+  const [essentialsItems, setEssentialsItems] = useState<WatchlistItem[]>([])
+  const [essentialsLoading, setEssentialsLoading] = useState(false)
+  const [essentialsError, setEssentialsError] = useState<string | null>(null)
+  const [essentialsCheckedAt, setEssentialsCheckedAt] = useState<string | null>(null)
+  const [essentialsInitialized, setEssentialsInitialized] = useState(false)
+  const [essentialsCopySuccess, setEssentialsCopySuccess] = useState(false)
+  const [essentialsRestockDays, setEssentialsRestockDays] = useState(7)
+  const [essentialsRestockTopN, setEssentialsRestockTopN] = useState<number | null>(null)
+  const [essentialsIncludeCritical, setEssentialsIncludeCritical] = useState(true)
+  const [essentialsIncludeWarning, setEssentialsIncludeWarning] = useState(true)
+  const [essentialsFilters, setEssentialsFilters] = useState<StockFilterState>({
+    selectedUrgency: new Set(DEFAULT_STOCK_FILTERS.selectedUrgency),
+    selectedCategories: new Set(DEFAULT_STOCK_FILTERS.selectedCategories),
+    hideSellOrderItems: DEFAULT_STOCK_FILTERS.hideSellOrderItems,
+    competitionFilter: DEFAULT_STOCK_FILTERS.competitionFilter,
+    minOrdersPerDay: DEFAULT_STOCK_FILTERS.minOrdersPerDay,
+    minProfitPerDay: DEFAULT_STOCK_FILTERS.minProfitPerDay,
+    maxJitaCost: DEFAULT_STOCK_FILTERS.maxJitaCost,
+  })
+  // Essentials selection state
+  const [essentialsSelectedItems, setEssentialsSelectedItems] = useState<Set<number>>(new Set())
+  const [essentialsSupplyDays, setEssentialsSupplyDays] = useState(7)
+  const [essentialsIsCustomSupplyDays, setEssentialsIsCustomSupplyDays] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // ============================================================================
   // Depletion Predictor State
@@ -130,12 +169,19 @@ export default function MarketSeederPage() {
   const [depletionRestockTopN, setDepletionRestockTopN] = useState<number | null>(null)
   const [depletionIncludeCritical, setDepletionIncludeCritical] = useState(true)
   const [depletionIncludeWarning, setDepletionIncludeWarning] = useState(true)
-  const [depletionFilters, setDepletionFilters] = useState<DepletionFilterState>({
-    selectedUrgency: new Set(DEFAULT_DEPLETION_FILTERS.selectedUrgency),
-    selectedCategories: new Set(DEFAULT_DEPLETION_FILTERS.selectedCategories),
-    hideOwnedItems: DEFAULT_DEPLETION_FILTERS.hideOwnedItems,
-    competitionFilter: DEFAULT_DEPLETION_FILTERS.competitionFilter,
+  const [depletionFilters, setDepletionFilters] = useState<StockFilterState>({
+    selectedUrgency: new Set(DEFAULT_STOCK_FILTERS.selectedUrgency),
+    selectedCategories: new Set(DEFAULT_STOCK_FILTERS.selectedCategories),
+    hideSellOrderItems: DEFAULT_STOCK_FILTERS.hideSellOrderItems,
+    competitionFilter: DEFAULT_STOCK_FILTERS.competitionFilter,
+    minOrdersPerDay: DEFAULT_STOCK_FILTERS.minOrdersPerDay,
+    minProfitPerDay: DEFAULT_STOCK_FILTERS.minProfitPerDay,
+    maxJitaCost: DEFAULT_STOCK_FILTERS.maxJitaCost,
   })
+  // Depletion selection state
+  const [depletionSelectedItems, setDepletionSelectedItems] = useState<Set<number>>(new Set())
+  const [depletionSupplyDays, setDepletionSupplyDays] = useState(7)
+  const [depletionIsCustomSupplyDays, setDepletionIsCustomSupplyDays] = useState(false)
 
   // ============================================================================
   // Capital Efficiency State
@@ -161,13 +207,21 @@ export default function MarketSeederPage() {
   const [sellOrderError, setSellOrderError] = useState<string | null>(null)
   const [sellCopiedNameId, setSellCopiedNameId] = useState<number | null>(null)
   const [sellCopiedPriceId, setSellCopiedPriceId] = useState<number | null>(null)
-  const [activeMarketSubTab, setActiveMarketSubTab] = useState<"undercut" | "sell">("undercut")
+  const [activeMarketSubTab, setActiveMarketSubTab] = useState<"undercut" | "sell" | "history">("undercut")
   const [sellMinQuantity, setSellMinQuantity] = useState<number>(1)
   const [sellProgress, setSellProgress] = useState<ProgressState | null>(null)
   const [sellCompetitionFilter, setSellCompetitionFilter] = useState<"all" | "no_competition" | "with_competition">("all")
   const [sellSortBy, setSellSortBy] = useState<"isk_per_day" | "volume" | "price">("isk_per_day")
   const [sellMinIskPerDay, setSellMinIskPerDay] = useState<number>(0)
   const [sellCopySuccess, setSellCopySuccess] = useState(false)
+
+  // ============================================================================
+  // Order History State
+  // ============================================================================
+  const [historyData, setHistoryData] = useState<OrderHistoryData | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historyPeriod, setHistoryPeriod] = useState<OrderHistoryPeriod>('7d')
 
   // ============================================================================
   // Settings Persistence
@@ -498,37 +552,63 @@ export default function MarketSeederPage() {
       }
 
       setWatchlistItems(prev => prev.filter(item => item.type_id !== typeId))
+      // Also remove from selection if it was selected
+      setWatchlistSelectedItems(prev => {
+        const next = new Set(prev)
+        next.delete(typeId)
+        return next
+      })
     } catch (err) {
       setWatchlistError(err instanceof Error ? err.message : "Failed to remove item")
     }
   }, [])
 
-  const copyWatchlistBuyText = useCallback(async () => {
-    // First apply sidebar filters (same as UI in watchlist-tab.tsx)
-    const filteredItems = watchlistItems.filter(item => {
-      // Check category filter
-      if (item.category_name && !watchlistFilters.selectedCategories.has(item.category_name)) return false
-      // Check hide sell order items filter
-      if (watchlistFilters.hideSellOrderItems && item.hasSellOrder) return false
-      return true
+  // Watchlist selection handlers
+  const handleWatchlistToggleSelect = useCallback((typeId: number) => {
+    setWatchlistSelectedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(typeId)) {
+        next.delete(typeId)
+      } else {
+        next.add(typeId)
+      }
+      return next
     })
+  }, [])
 
-    // Use same urgency definitions as watchlist-tab.tsx
-    const critical = filteredItems.filter(i => (i.stock ?? 0) === 0 && !i.hasSellOrder)
-    const warning = filteredItems.filter(i => 
-      (i.stock ?? 0) > 0 && !i.hasSellOrder && i.daysUntilStockout !== null && i.daysUntilStockout < 3
+  const handleWatchlistSelectAll = useCallback((items: StockItemData[]) => {
+    setWatchlistSelectedItems(prev => {
+      const allSelected = items.every(item => prev.has(item.typeId))
+      if (allSelected) {
+        // Deselect all
+        const next = new Set(prev)
+        items.forEach(item => next.delete(item.typeId))
+        return next
+      } else {
+        // Select all
+        const next = new Set(prev)
+        items.forEach(item => next.add(item.typeId))
+        return next
+      }
+    })
+  }, [])
+
+  const handleWatchlistClearSelection = useCallback(() => {
+    setWatchlistSelectedItems(new Set())
+  }, [])
+
+  const copyWatchlistBuyText = useCallback(async () => {
+    // Copy selected items
+    if (watchlistSelectedItems.size === 0) return
+
+    const selectedItemsList = watchlistItems.filter(item => 
+      watchlistSelectedItems.has(item.type_id)
     )
 
-    const itemsToRestock = [
-      ...(includeCritical ? critical : []),
-      ...(includeWarning ? warning : []),
-    ]
-    const itemsToCopy = restockTopN ? itemsToRestock.slice(0, restockTopN) : itemsToRestock
+    if (selectedItemsList.length === 0) return
 
-    if (itemsToCopy.length === 0) return
-
-    const buyText = itemsToCopy.map(item => {
-      const qty = Math.max(1, Math.ceil((item.estimatedDailySales ?? 0) * restockDays))
+    const buyText = selectedItemsList.map(item => {
+      const qty = Math.max(1, Math.ceil((item.estimatedDailySales ?? 0) * watchlistSupplyDays))
       return `${item.item_name} ${qty}`
     }).join('\n')
 
@@ -539,7 +619,133 @@ export default function MarketSeederPage() {
     } catch (err) {
       console.error('Failed to copy:', err)
     }
-  }, [watchlistItems, watchlistFilters, includeCritical, includeWarning, restockTopN, restockDays])
+  }, [watchlistItems, watchlistSelectedItems, watchlistSupplyDays])
+
+  // ============================================================================
+  // Essentials Functions (Nullsec Essentials)
+  // ============================================================================
+  const fetchEssentials = useCallback(async (checkStock: boolean = true) => {
+    setEssentialsLoading(true)
+    setEssentialsError(null)
+
+    try {
+      const params = new URLSearchParams({
+        volume_region_id: String(volumeRegionId),
+        hub_factor: String(hubFactor),
+      })
+      if (checkStock && structureId) {
+        params.set('structure_id', structureId)
+      }
+      const url = `/api/essentials?${params}`
+
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to fetch essentials")
+      }
+
+      const data: WatchlistResponse = await response.json()
+      setEssentialsItems(data.items)
+      setEssentialsCheckedAt(checkStock && structureId ? data.checked_at : null)
+    } catch (err) {
+      setEssentialsError(err instanceof Error ? err.message : "Failed to fetch essentials")
+    } finally {
+      setEssentialsLoading(false)
+      setEssentialsInitialized(true)
+    }
+  }, [structureId, volumeRegionId, hubFactor])
+
+  const removeFromEssentials = useCallback(async (typeId: number) => {
+    try {
+      const response = await fetch(`/api/essentials/${typeId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to remove item")
+      }
+
+      setEssentialsItems(prev => prev.filter(item => item.type_id !== typeId))
+      // Also remove from selection if it was selected
+      setEssentialsSelectedItems(prev => {
+        const next = new Set(prev)
+        next.delete(typeId)
+        return next
+      })
+    } catch (err) {
+      setEssentialsError(err instanceof Error ? err.message : "Failed to remove item")
+    }
+  }, [])
+
+  // Essentials selection handlers
+  const handleEssentialsToggleSelect = useCallback((typeId: number) => {
+    setEssentialsSelectedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(typeId)) {
+        next.delete(typeId)
+      } else {
+        next.add(typeId)
+      }
+      return next
+    })
+  }, [])
+
+  const handleEssentialsSelectAll = useCallback((items: StockItemData[]) => {
+    setEssentialsSelectedItems(prev => {
+      const allSelected = items.every(item => prev.has(item.typeId))
+      if (allSelected) {
+        const next = new Set(prev)
+        items.forEach(item => next.delete(item.typeId))
+        return next
+      } else {
+        const next = new Set(prev)
+        items.forEach(item => next.add(item.typeId))
+        return next
+      }
+    })
+  }, [])
+
+  const handleEssentialsClearSelection = useCallback(() => {
+    setEssentialsSelectedItems(new Set())
+  }, [])
+
+  const copyEssentialsBuyText = useCallback(async () => {
+    // Copy selected items
+    if (essentialsSelectedItems.size === 0) return
+
+    const selectedItemsList = essentialsItems.filter(item => 
+      essentialsSelectedItems.has(item.type_id)
+    )
+
+    if (selectedItemsList.length === 0) return
+
+    const buyText = selectedItemsList.map(item => {
+      const qty = Math.max(1, Math.ceil((item.estimatedDailySales ?? 0) * essentialsSupplyDays))
+      return `${item.item_name} ${qty}`
+    }).join('\n')
+
+    try {
+      await navigator.clipboard.writeText(buyText)
+      setEssentialsCopySuccess(true)
+      setTimeout(() => setEssentialsCopySuccess(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }, [essentialsItems, essentialsSelectedItems, essentialsSupplyDays])
+
+  // Fetch user role on mount
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.user?.role === 'admin') {
+          setIsAdmin(true)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // ============================================================================
   // Depletion Functions
@@ -623,34 +829,50 @@ export default function MarketSeederPage() {
     }
   }, [structureId, volumeRegionId, hubFactor])
 
-  const copyDepletionBuyText = useCallback(async () => {
-    // Apply all filters: category, competition, and hide owned items
-    const filteredPredictions = depletionPredictions.filter(p => {
-      // Category filter
-      if (p.categoryName && !depletionFilters.selectedCategories.has(p.categoryName)) return false
-      // Competition filter
-      if (depletionFilters.competitionFilter === 'no_competition' && p.hasCompetition) return false
-      if (depletionFilters.competitionFilter === 'with_competition' && !p.hasCompetition) return false
-      // Hide owned items filter
-      if (depletionFilters.hideOwnedItems && (p.userHasInInventory || p.userHasSellOrder)) return false
-      return true
+  // Depletion selection handlers
+  const handleDepletionToggleSelect = useCallback((typeId: number) => {
+    setDepletionSelectedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(typeId)) {
+        next.delete(typeId)
+      } else {
+        next.add(typeId)
+      }
+      return next
     })
-    
-    // Critical: 0 stock, Warning: <3 days
-    const itemsByUrgency = {
-      critical: filteredPredictions.filter(p => p.currentStock === 0),
-      warning: filteredPredictions.filter(p => p.currentStock > 0 && p.daysUntilStockout !== null && p.daysUntilStockout < 3),
-    }
-    const itemsToRestock = [
-      ...(depletionIncludeCritical ? itemsByUrgency.critical : []),
-      ...(depletionIncludeWarning ? itemsByUrgency.warning : []),
-    ]
-    const itemsToCopy = depletionRestockTopN ? itemsToRestock.slice(0, depletionRestockTopN) : itemsToRestock
+  }, [])
 
-    if (itemsToCopy.length === 0) return
+  const handleDepletionSelectAll = useCallback((items: StockItemData[]) => {
+    setDepletionSelectedItems(prev => {
+      const allSelected = items.every(item => prev.has(item.typeId))
+      if (allSelected) {
+        const next = new Set(prev)
+        items.forEach(item => next.delete(item.typeId))
+        return next
+      } else {
+        const next = new Set(prev)
+        items.forEach(item => next.add(item.typeId))
+        return next
+      }
+    })
+  }, [])
 
-    const buyText = itemsToCopy.map(item => {
-      const qty = Math.max(1, Math.ceil(item.estimatedDailySales * depletionRestockDays))
+  const handleDepletionClearSelection = useCallback(() => {
+    setDepletionSelectedItems(new Set())
+  }, [])
+
+  const copyDepletionBuyText = useCallback(async () => {
+    // Copy selected items
+    if (depletionSelectedItems.size === 0) return
+
+    const selectedItemsList = depletionPredictions.filter(item => 
+      depletionSelectedItems.has(item.typeId)
+    )
+
+    if (selectedItemsList.length === 0) return
+
+    const buyText = selectedItemsList.map(item => {
+      const qty = Math.max(1, Math.ceil(item.estimatedDailySales * depletionSupplyDays))
       return `${item.name} ${qty}`
     }).join('\n')
 
@@ -661,7 +883,7 @@ export default function MarketSeederPage() {
     } catch (err) {
       console.error('Failed to copy:', err)
     }
-  }, [depletionPredictions, depletionFilters.selectedCategories, depletionIncludeCritical, depletionIncludeWarning, depletionRestockTopN, depletionRestockDays])
+  }, [depletionPredictions, depletionSelectedItems, depletionSupplyDays])
 
   // ============================================================================
   // Capital Efficiency Functions
@@ -896,6 +1118,41 @@ export default function MarketSeederPage() {
   }, [sellOrderData, sellMinQuantity, sellMinIskPerDay, sellCompetitionFilter, sellSortBy])
 
   // ============================================================================
+  // Order History Functions
+  // ============================================================================
+  const fetchOrderHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    setHistoryError(null)
+
+    try {
+      const params = new URLSearchParams({
+        period: historyPeriod,
+        transport_cost: transportCost,
+      })
+      const response = await fetch(`/api/esi/order-history?${params}`)
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to fetch order history")
+      }
+
+      const data: OrderHistoryData = await response.json()
+      setHistoryData(data)
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "Failed to fetch order history")
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [historyPeriod, transportCost])
+
+  // Refetch when period changes
+  const handleHistoryPeriodChange = useCallback((period: OrderHistoryPeriod) => {
+    setHistoryPeriod(period)
+    // Clear data and fetch with new period
+    setHistoryData(null)
+  }, [])
+
+  // ============================================================================
   // Auto-load Effects
   // ============================================================================
   useEffect(() => {
@@ -909,6 +1166,12 @@ export default function MarketSeederPage() {
       fetchWatchlist(false)
     }
   }, [activeMainTab, watchlistInitialized, watchlistLoading, fetchWatchlist])
+
+  useEffect(() => {
+    if (activeMainTab === "essentials" && !essentialsInitialized && !essentialsLoading) {
+      fetchEssentials(false)
+    }
+  }, [activeMainTab, essentialsInitialized, essentialsLoading, fetchEssentials])
 
   // ============================================================================
   // Render
@@ -945,7 +1208,7 @@ export default function MarketSeederPage() {
         {/* Main Tabs */}
         <Tabs value={activeMainTab} onValueChange={(v: string) => setActiveMainTab(v as typeof activeMainTab)} className="space-y-4 md:space-y-6">
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-            <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:max-w-4xl md:grid-cols-5 h-auto">
+            <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:max-w-5xl md:grid-cols-6 h-auto">
               <TabsTrigger value="capital" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5 px-3 md:px-4 whitespace-nowrap">
                 <DollarSign className="size-3.5 md:size-4" />
                 <span className="hidden sm:inline">Capital</span>
@@ -967,6 +1230,16 @@ export default function MarketSeederPage() {
                 {watchlistItems.filter(i => i.needs_restock).length > 0 && (
                   <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
                     {watchlistItems.filter(i => i.needs_restock).length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="essentials" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5 px-3 md:px-4 whitespace-nowrap">
+                <Package className="size-3.5 md:size-4" />
+                <span className="hidden sm:inline">Essentials</span>
+                <span className="sm:hidden">Essen</span>
+                {essentialsItems.filter(i => i.needs_restock && !i.hasSellOrder).length > 0 && (
+                  <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                    {essentialsItems.filter(i => i.needs_restock && !i.hasSellOrder).length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -1052,16 +1325,44 @@ export default function MarketSeederPage() {
               addingItem={addingItem}
               filters={watchlistFilters}
               onFiltersChange={setWatchlistFilters}
-              restockDays={restockDays}
-              setRestockDays={setRestockDays}
-              restockTopN={restockTopN}
-              setRestockTopN={setRestockTopN}
-              includeCritical={includeCritical}
-              setIncludeCritical={setIncludeCritical}
-              includeWarning={includeWarning}
-              setIncludeWarning={setIncludeWarning}
+              selectedItems={watchlistSelectedItems}
+              onToggleSelect={handleWatchlistToggleSelect}
+              onSelectAll={handleWatchlistSelectAll}
+              onClearSelection={handleWatchlistClearSelection}
+              onCopySelected={copyWatchlistBuyText}
               copySuccess={watchlistCopySuccess}
-              onCopyRestock={copyWatchlistBuyText}
+              supplyDays={watchlistSupplyDays}
+              setSupplyDays={setWatchlistSupplyDays}
+              isCustomSupplyDays={watchlistIsCustomSupplyDays}
+              setIsCustomSupplyDays={setWatchlistIsCustomSupplyDays}
+              hubFactorPercent={hubFactorPercent}
+            />
+          </TabsContent>
+
+          {/* Essentials Tab */}
+          <TabsContent value="essentials">
+            <EssentialsTab
+              items={essentialsItems}
+              loading={essentialsLoading}
+              error={essentialsError}
+              checkedAt={essentialsCheckedAt}
+              structureId={structureId}
+              isAdmin={isAdmin}
+              onRefresh={fetchEssentials}
+              onRemoveItem={isAdmin ? removeFromEssentials : undefined}
+              filters={essentialsFilters}
+              onFiltersChange={setEssentialsFilters}
+              selectedItems={essentialsSelectedItems}
+              onToggleSelect={handleEssentialsToggleSelect}
+              onSelectAll={handleEssentialsSelectAll}
+              onClearSelection={handleEssentialsClearSelection}
+              onCopySelected={copyEssentialsBuyText}
+              copySuccess={essentialsCopySuccess}
+              supplyDays={essentialsSupplyDays}
+              setSupplyDays={setEssentialsSupplyDays}
+              isCustomSupplyDays={essentialsIsCustomSupplyDays}
+              setIsCustomSupplyDays={setEssentialsIsCustomSupplyDays}
+              hubFactorPercent={hubFactorPercent}
             />
           </TabsContent>
 
@@ -1078,16 +1379,16 @@ export default function MarketSeederPage() {
               onAnalyze={analyzeDepletion}
               filters={depletionFilters}
               onFiltersChange={setDepletionFilters}
-              restockDays={depletionRestockDays}
-              setRestockDays={setDepletionRestockDays}
-              restockTopN={depletionRestockTopN}
-              setRestockTopN={setDepletionRestockTopN}
-              includeCritical={depletionIncludeCritical}
-              setIncludeCritical={setDepletionIncludeCritical}
-              includeWarning={depletionIncludeWarning}
-              setIncludeWarning={setDepletionIncludeWarning}
+              selectedItems={depletionSelectedItems}
+              onToggleSelect={handleDepletionToggleSelect}
+              onSelectAll={handleDepletionSelectAll}
+              onClearSelection={handleDepletionClearSelection}
+              onCopySelected={copyDepletionBuyText}
               copySuccess={depletionCopySuccess}
-              onCopyRestock={copyDepletionBuyText}
+              supplyDays={depletionSupplyDays}
+              setSupplyDays={setDepletionSupplyDays}
+              isCustomSupplyDays={depletionIsCustomSupplyDays}
+              setIsCustomSupplyDays={setDepletionIsCustomSupplyDays}
               hubFactorPercent={hubFactorPercent}
             />
           </TabsContent>
@@ -1122,6 +1423,12 @@ export default function MarketSeederPage() {
               onSellCopyName={copySellItemName}
               onSellCopyPrice={copySellPrice}
               onSellCopyAll={copySellAll}
+              historyData={historyData}
+              historyLoading={historyLoading}
+              historyError={historyError}
+              historyPeriod={historyPeriod}
+              onHistoryPeriodChange={handleHistoryPeriodChange}
+              onHistoryRefresh={fetchOrderHistory}
               hubFactorPercent={hubFactorPercent}
             />
           </TabsContent>

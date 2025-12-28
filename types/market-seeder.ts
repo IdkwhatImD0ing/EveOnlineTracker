@@ -686,3 +686,56 @@ export interface AnalysisResponse {
   }
 }
 
+// ============================================================================
+// Order History Types
+// ============================================================================
+
+/**
+ * Historical order item aggregated by type
+ * Shows profit performance for completed sell orders
+ */
+export interface HistoricalOrderItem {
+  typeId: number
+  typeName: string
+  categoryName: string | null
+  quantitySold: number
+  orderCount: number
+  avgSellPrice: number
+  totalRevenue: number
+  jitaPrice: number | null
+  estimatedCost: number      // Jita + transport
+  totalProfit: number
+  profitMargin: number       // percentage
+}
+
+/**
+ * Order history API response
+ */
+export interface OrderHistoryData {
+  success: boolean
+  items: HistoricalOrderItem[]
+  summary: {
+    totalOrders: number
+    totalRevenue: number
+    totalProfit: number
+    avgProfitMargin: number
+    charactersQueried: number
+  }
+  period: '3d' | '7d' | '30d'
+  analyzedAt: string
+  config: {
+    transportCostPerM3: number
+  }
+}
+
+/**
+ * Time period options for order history
+ */
+export const ORDER_HISTORY_PERIODS = [
+  { value: '3d', label: '3 Days', days: 3 },
+  { value: '7d', label: '7 Days', days: 7 },
+  { value: '30d', label: '30 Days', days: 30 },
+] as const
+
+export type OrderHistoryPeriod = '3d' | '7d' | '30d'
+

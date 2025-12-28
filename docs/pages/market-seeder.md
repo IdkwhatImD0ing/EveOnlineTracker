@@ -10,11 +10,12 @@ The Market Seeder page helps identify the most profitable items to import from J
 
 ## Features
 
-The page has five main tabs: **Capital**, **Analysis**, **Watchlist**, **Depletion**, and **Market**.
+The page has six main tabs: **Capital**, **Analysis**, **Watchlist**, **Essentials**, **Depletion**, and **Market**.
 
-The **Market** tab contains two sub-tabs:
+The **Market** tab contains three sub-tabs:
 - **Undercut** - Track and respond to competitors undercutting your sell orders
 - **Sell** - Generate optimal sell prices for your 3T7 inventory
+- **History** - Analyze completed orders to find your most profitable items
 
 ---
 
@@ -392,9 +393,11 @@ All settings are saved to localStorage:
 
 ---
 
-## Watchlist Tab
+## Watchlist Tab (Personal)
 
-The Watchlist tab allows you to track specific items and monitor their stock levels and depletion metrics in your alliance structure. The UI matches the Depletion tab but works with your curated list of items instead of all sell orders.
+The Watchlist tab allows you to track specific items that YOU choose and monitor their stock levels and depletion metrics in your alliance structure. This is your personal tracking list - add any items you want to monitor.
+
+The UI matches the Depletion tab but works with your curated list of items instead of all sell orders.
 
 ### Features
 
@@ -443,12 +446,36 @@ Gyrostabilizer II 18
 
 Click **Copy N items** in the dropdown, then paste directly into Eve Online's multibuy feature.
 
+### Table Display
+
+Items are displayed in a sortable table with the following columns:
+
+| Column | Description | Sortable |
+|--------|-------------|----------|
+| Item | Icon + name | Yes |
+| Stock | Current units in structure | Yes |
+| Sales/Day | Estimated daily sales | Yes |
+| Days Left | Days until stockout | Yes |
+| Profit/Day | Daily profit potential | Yes |
+| Status | Urgency badge | Yes |
+
+Click any row to expand and see additional details (category, group, etc.). Click the column headers to sort by that column (ascending/descending toggle).
+
+**Pagination:** Items are paginated with 50 items per page.
+
 ### Sidebar Filters
 
-The Watchlist tab includes a filter sidebar (visible on desktop, collapsible on mobile) with the following options:
+The tab includes a filter sidebar (visible on desktop, collapsible on mobile) with the following options:
 
-**Hide Items with Sell Orders:**
-Toggle to hide items where you already have active sell orders. This helps you focus on items that need action.
+**Numeric Filters:**
+| Filter | Description |
+|--------|-------------|
+| Min Orders/Day | Minimum estimated daily sales (at hub factor %) |
+| Min Profit/Day | Minimum ISK profit per day |
+| Max Jita Cost | Maximum item cost in Jita (leave empty for no limit) |
+
+**Toggle Filters:**
+- **Hide items with sell orders** - Hide items where you already have active sell orders
 
 **Urgency Level Filters:**
 | Filter | Description |
@@ -524,6 +551,68 @@ The watchlist fetches:
 1. **Structure Orders** (`/api/watchlist?structure_id=...`) - Stock levels for watchlist items
 2. **Vale Market History** (via RPC) - Daily volume data for sales estimates
 3. **Jita Prices** (via ESI) - Current Jita prices for profit calculation
+
+---
+
+## Essentials Tab (Nullsec Curated)
+
+The Essentials tab displays a hand-picked list of ~130 essential items for nullsec living in Guristas space (Deklein region). Unlike the personal Watchlist, this list is admin-managed and shared across all users.
+
+### Concept
+
+A focused, hand-curated collection of the most important items:
+- **23 ships**: Ratting (Ishtar, Gila, VNI, Dominix), Mining (ALL barges & exhumers: Venture, Covetor, Retriever, Procurer, Hulk, Mackinaw, Skiff, Porpoise, Orca), T3 Cruisers (Tengu, Legion, Proteus, Loki), Utility (Epithal, Tayra, Astero, Heron), PvP (Sabre, Stiletto)
+- **48 T3 subsystems**: All subsystems for Tengu, Legion, Proteus, and Loki
+- **12 drones**: Kinetic (Wasp II, Vespa II, Hornet II), Thermal (Ogre II, Hammerhead II, Hobgoblin II), Mining, Salvage
+- **~40 modules**: Drone mods, mining equipment (T1 & T2 strip miners, mining laser upgrades, ice harvesters), shield tank, propulsion, tackle, cloaking, deployables
+- **Exploration gear**: Probe launchers, scanner probes
+- **Kinetic ammunition**: Scourge missiles for Guristas NPCs
+- **Essential rigs**: Shield extender rigs, drone rigs
+
+### Key Differences from Watchlist
+
+| Feature | Watchlist | Essentials |
+|---------|-----------|------------|
+| Purpose | Personal tracking | Alliance-wide essentials |
+| Add Items | Users can add any item | Admin only (via script) |
+| Remove Items | Users can remove | Admin only |
+| Database | `watchlist_items` | `essential_items` |
+
+### Features
+
+- Same stock level checking as Watchlist
+- Same depletion metrics (days until stockout, daily profit)
+- Same urgency badges (Critical/Warning/OK)
+- Same "Copy Restock List" feature with dropdown options
+- **No add/search** - items are pre-curated
+- **Admin delete button** - only admins can remove items
+
+### Populating the Essentials List
+
+Run the setup script to populate essentials:
+
+```bash
+npx tsx scripts/add-deklein-nullsec-items.ts
+```
+
+This adds ~130 hand-picked items to the `essential_items` table:
+- 23 ships (ratting, ALL mining barges/exhumers, T3 cruisers, utility, PvP)
+- 48 T3 subsystems (all Tengu/Legion/Proteus/Loki subsystems)
+- 12 drones (kinetic for Guristas, thermal, mining, salvage)
+- ~40 modules (drone mods, T1/T2 mining equipment, shields, propulsion)
+- Exploration gear, kinetic ammo, and essential rigs
+
+### Admin Management
+
+Admins can remove items directly from the UI by clicking the trash icon on each item card. To add new items in bulk, update and re-run the script.
+
+### API Endpoints
+
+| Endpoint | Method | Access | Description |
+|----------|--------|--------|-------------|
+| `/api/essentials` | GET | All users | Fetch essentials with stock levels |
+| `/api/essentials` | POST | Admin | Add item to essentials |
+| `/api/essentials/[typeId]` | DELETE | Admin | Remove item from essentials |
 
 ---
 
@@ -948,6 +1037,142 @@ Each sell order item includes a `characters` array showing which linked characte
 
 ---
 
+### History Sub-Tab
+
+The History sub-tab analyzes your completed sell orders to identify which items made the most profit over different time periods.
+
+#### Concept
+
+Review your sales history to understand which items are most profitable. Uses ESI's order history endpoint to fetch fully sold orders and calculates estimated profit using current Jita prices as cost basis.
+
+#### How It Works
+
+1. Click **Refresh** to fetch your completed sell orders
+2. The system fetches historical orders for all linked characters
+3. Filters to only fully sold orders (`state === 'expired'` AND `volume_remain === 0`)
+4. Groups orders by the selected time period (3 days, 7 days, or 30 days)
+5. Fetches current Jita prices for each item type
+6. Calculates profit: `(sellPrice - jitaPrice - transportCost) × quantitySold`
+7. Aggregates by item type and sorts by total profit
+
+#### Time Periods
+
+| Period | Description |
+|--------|-------------|
+| 3 Days | Orders completed in the last 3 days |
+| 7 Days | Orders completed in the last 7 days (default) |
+| 30 Days | Orders completed in the last 30 days |
+
+**Note:** ESI only provides order history for the last 90 days. Orders older than 90 days are not available.
+
+#### Summary Cards
+
+| Card | Description |
+|------|-------------|
+| Orders Completed | Total number of fully sold orders in the period |
+| Total Revenue | Sum of all sales (price × quantity) |
+| Est. Total Profit | Estimated profit using current Jita prices |
+| Avg Margin | Revenue-weighted average profit margin |
+
+#### Profit by Item List
+
+Each item shows:
+- Item icon and name
+- Number of orders and quantity sold
+- Total revenue from this item
+- Estimated profit (green = positive, red = negative)
+- Profit margin badge (color-coded by margin percentage)
+
+Click an item to expand and see additional details:
+- Average sell price
+- Current Jita price (used as cost estimate)
+- Estimated total cost
+- Item category
+
+#### Sorting Options
+
+| Sort | Description |
+|------|-------------|
+| Sort by Profit | Highest profit items first (default) |
+| Sort by Revenue | Highest revenue items first |
+| Sort by Quantity | Most units sold first |
+| Sort by Margin | Highest profit margin first |
+
+#### Profit Calculation
+
+Profit is estimated using current Jita prices plus transport cost:
+
+```
+costPerUnit = jitaPrice + (itemVolume × transportCostPerM³)
+profitPerUnit = sellPrice - costPerUnit
+totalProfit = profitPerUnit × quantitySold
+profitMargin = (totalProfit / totalCost) × 100
+```
+
+**Important:** This is an estimate only. Actual profit may differ because:
+- Jita prices change over time (current price may differ from purchase price)
+- Actual acquisition cost may vary from Jita sell price
+- Transport costs may differ from the default 450 ISK/m³
+
+#### Requirements
+
+**ESI Scope:** `esi-markets.read_character_orders.v1`
+
+This endpoint reads your character's order history, which requires the market orders scope.
+
+#### Usage Flow
+
+1. Switch to the Market tab, then the History sub-tab
+2. Select a time period (3 days, 7 days, or 30 days)
+3. Click **Refresh** to fetch order history
+4. Review items sorted by profit (highest first)
+5. Use sorting options to analyze by revenue, quantity, or margin
+6. Click items to see detailed breakdown
+
+#### API Endpoint
+
+**GET /api/esi/order-history**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| period | string | No | Time period: '3d', '7d', or '30d' (default: '7d') |
+| transport_cost | number | No | ISK per m³ for cost calculation (default: 450) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "items": [{
+    "typeId": 2048,
+    "typeName": "Damage Control II",
+    "categoryName": "Module",
+    "quantitySold": 150,
+    "orderCount": 5,
+    "avgSellPrice": 520000,
+    "totalRevenue": 78000000,
+    "jitaPrice": 450000,
+    "estimatedCost": 67800000,
+    "totalProfit": 10200000,
+    "profitMargin": 15.04
+  }],
+  "summary": {
+    "totalOrders": 45,
+    "totalRevenue": 500000000,
+    "totalProfit": 75000000,
+    "avgProfitMargin": 15.0,
+    "charactersQueried": 2
+  },
+  "period": "7d",
+  "analyzedAt": "2025-12-28T12:00:00Z",
+  "config": {
+    "transportCostPerM3": 450
+  }
+}
+```
+
+---
+
 ## Component Architecture
 
 The Market Seeder page is built using a modular component architecture for better maintainability.
@@ -956,19 +1181,28 @@ The Market Seeder page is built using a modular component architecture for bette
 
 ```
 components/market-seeder/
-├── filter-sidebar.tsx      # Analysis tab sidebar filters
-├── results-table.tsx       # Analysis results table with sorting/pagination
-├── capital-tab.tsx         # Capital Efficiency dashboard
-├── analysis-tab.tsx        # Market analysis settings and results
-├── watchlist-tab.tsx       # Item watchlist with stock tracking
-├── depletion-tab.tsx       # Stock depletion predictions
-├── market-tab.tsx          # Container for Market sub-tabs
-├── undercut-subtab.tsx     # Undercut tracker
-├── sell-subtab.tsx         # Sell order generator
-├── progress-bar.tsx        # SSE progress indicator
-└── utils.ts                # Shared utilities and constants
+├── stock-tracker/              # Shared stock tracking components
+│   ├── index.ts                # Barrel exports
+│   ├── stock-table.tsx         # Sortable table with 50-item pagination
+│   ├── stock-filter-sidebar.tsx # Unified filter sidebar
+│   ├── stock-item-card.tsx     # Simple card (pre-load state) + types
+│   ├── stock-summary-cards.tsx # Summary stats grid (4 cards)
+│   └── restock-copy-dropdown.tsx # Copy restock list dropdown
+├── filter-sidebar.tsx          # Analysis tab sidebar filters
+├── results-table.tsx           # Analysis results table with sorting/pagination
+├── capital-tab.tsx             # Capital Efficiency dashboard
+├── analysis-tab.tsx            # Market analysis settings and results
+├── watchlist-tab.tsx           # Item watchlist with stock table
+├── essentials-tab.tsx          # Nullsec essentials list
+├── depletion-tab.tsx           # Stock depletion predictions
+├── market-tab.tsx              # Container for Market sub-tabs
+├── undercut-subtab.tsx         # Undercut tracker
+├── sell-subtab.tsx             # Sell order generator
+├── history-subtab.tsx          # Order history profit analysis
+├── progress-bar.tsx            # SSE progress indicator
+└── utils.ts                    # Shared utilities and constants
 
-types/market-seeder.ts      # TypeScript interfaces
+types/market-seeder.ts          # TypeScript interfaces
 ```
 
 ### State Management
@@ -978,7 +1212,19 @@ All state is managed in the parent `page.tsx` file and passed down to tab compon
 - Callbacks for actions (refresh, copy, etc.)
 - Filter/selection state where applicable
 
-### Shared Components
+### Shared Stock Tracker Components
+
+The Watchlist, Essentials, and Depletion tabs share a sortable table UI with unified filters. Shared components in `stock-tracker/` reduce code duplication:
+
+| Component | Purpose |
+|-----------|---------|
+| `StockTable` | Sortable table with columns: Item, Stock, Sales/Day, Days Left, Profit/Day, Status. 50-item pagination with expandable rows |
+| `StockFilterSidebar` | Unified filter sidebar with min orders/day, min profit/day, max Jita cost, urgency levels, categories, hide sell orders, and competition filter |
+| `StockItemCardSimple` | Simplified card for items before stock data is loaded |
+| `StockSummaryCards` | Grid of 4 summary cards (total items, critical, warning, daily profit) |
+| `RestockCopyDropdown` | Dropdown menu for configuring and copying restock lists |
+
+### Other Shared Components
 
 | Component | Purpose |
 |-----------|---------|
@@ -991,10 +1237,66 @@ All state is managed in the parent `page.tsx` file and passed down to tab compon
 The `utils.ts` file exports shared functions and constants:
 - `formatIskShort()` - ISK formatting with K/M/B suffixes
 - `generateBuyText()` - Eve multibuy text generator
+- `generateRestockText()` - Restock text generator for depletion items
+- `generateWatchlistRestockText()` - Restock text generator for watchlist items
 - `getMinOrderQuantity()` - Minimum order quantity logic
+- `getUrgencyLevel()` - Determine urgency from days until stockout
+- `getUrgencyClasses()` - CSS classes for urgency styling
 - `KNOWN_STRUCTURES` - Alliance structure list
 - `SUPPLY_DAYS_PRESETS` - Supply duration options
 - `DEFAULT_STRUCTURE_ID`, `DEFAULT_SUPPLY_DAYS` - Default values
+
+---
+
+---
+
+## Watchlist Scripts
+
+Scripts are available to bulk-populate the essentials and watchlist tables.
+
+### Deklein Nullsec Essentials
+
+The `add-deklein-nullsec-items.ts` script populates the **Essentials tab** with a hand-picked list of ~130 items essential for nullsec living in Guristas space (Deklein region).
+
+**Target Table:** `essential_items` (Essentials tab, admin-managed)
+
+**Usage:**
+
+```bash
+npx tsx scripts/add-deklein-nullsec-items.ts
+```
+
+**Curated Items:**
+
+| Category | Count | Items |
+|----------|-------|-------|
+| Ship | 23 | Ishtar, Gila, VNI, Dominix, ALL barges (Venture, Covetor, Retriever, Procurer), ALL exhumers (Hulk, Mackinaw, Skiff), Porpoise, Orca, T3 cruisers (Tengu, Legion, Proteus, Loki), Epithal, Tayra, Astero, Heron, Sabre, Stiletto |
+| Subsystem | 48 | All Tengu, Legion, Proteus, and Loki subsystems (Core, Defensive, Offensive, Propulsion) |
+| Drone | 12 | Wasp II, Vespa II, Hornet II, Ogre II, Hammerhead II, Hobgoblin II, Mining Drone I/II, Salvage Drone I, Augmented Mining Drone, Warrior II, Acolyte II |
+| Module | 38 | Drone mods, Strip Miner I, Modulated Strip Miner II, Mining Laser Upgrade I/II, Ice Harvester I/II, Shield Extenders, Hardeners, MWDs, Tackle, Cloaking, etc. |
+| Charge | 7 | Scourge missiles (Heavy, Cruise, Fury variants), Nanite Repair Paste, Scanner Probes |
+| Deployable | 2 | Mobile Tractor Unit, Mobile Depot |
+
+**Key Features:**
+
+- **Hand-curated**: ~130 essential items, not a scraped list
+- **Complete mining lineup**: All mining barges, exhumers, and T1/T2 equipment
+- **T3 cruisers + all subsystems**: Tengu (kinetic bonus for Guristas), Legion, Proteus, Loki
+- **Kinetic focus**: Scourge missiles for Guristas NPC damage profile
+- **No capitals**: All subcapital focused
+- **No officer/faction mods**: Only T1/T2 modules that are commonly used
+
+### T2 Drones (Personal Watchlist)
+
+The `add-t2-drones-to-watchlist.ts` script adds all Tech II drones to the **personal watchlist**.
+
+**Target Table:** `watchlist_items` (Watchlist tab, user-managed)
+
+**Usage:**
+
+```bash
+npx tsx scripts/add-t2-drones-to-watchlist.ts
+```
 
 ---
 
