@@ -613,6 +613,8 @@ export interface SellOrderItem {
   quantity: number
   characters: SellOrderItemCharacter[]  // Characters that have this item in inventory
   has_competition: boolean
+  has_existing_order: boolean  // True if user already has a sell order for this item
+  order_characters: SellOrderItemCharacter[]  // Characters that have active sell orders for this item
   jita_price: number
   jita_price_formatted: string
   competitor_price: number | null
@@ -642,14 +644,14 @@ export interface ExistingOrderItem {
  */
 export interface SellOrderData {
   items: SellOrderItem[]
-  items_with_existing_orders: ExistingOrderItem[]
+  items_with_existing_orders: ExistingOrderItem[]  // Backwards compat - derived from items with has_existing_order
   summary: {
     total_items: number
     total_with_competition: number
     total_no_competition: number
     total_isk_per_day: number
     total_isk_per_day_formatted: string
-    filtered_out_existing_orders: number
+    total_with_existing_orders: number  // Count of items with existing sell orders
   }
   timing: {
     total_ms: number

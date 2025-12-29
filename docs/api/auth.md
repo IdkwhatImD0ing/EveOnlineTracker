@@ -313,6 +313,29 @@ Refreshes an EVE SSO access token using a refresh token.
 
 ## Character Management
 
+### Characters Page (`/characters`)
+
+A dedicated page for managing linked EVE Online characters and viewing their permission levels.
+
+**Features:**
+- View all linked characters with their portraits
+- See permission level for each character (Full Access vs Limited Access)
+- Set a character as main
+- Remove alt characters
+- Request full ESI access for characters with limited permissions
+- Add new alt characters
+
+**Permission Levels:**
+
+| Level | Badge | Description |
+|-------|-------|-------------|
+| `full` | Full Access (green) | All 60+ ESI scopes - required for wallet, orders, assets, undercut checking |
+| `minimal` | Limited Access (amber) | Only 4 scopes - basic structure market access only |
+
+Characters start with `minimal` scopes when added. Users can upgrade to `full` via "Request Full Access".
+
+---
+
 ### GET /api/characters
 
 Returns all characters linked to the current user.
@@ -327,11 +350,23 @@ Returns all characters linked to the current user.
       "character_id": 12345678,
       "character_name": "Character Name",
       "is_main": true,
+      "scope_level": "full",
       "created_at": "2025-01-01T00:00:00Z"
     }
   ]
 }
 ```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Internal character UUID |
+| `character_id` | number | EVE character ID |
+| `character_name` | string | Character name |
+| `is_main` | boolean | Whether this is the main character |
+| `scope_level` | string | ESI permission level: `minimal` or `full` |
+| `created_at` | string | ISO timestamp of when character was linked |
 
 ---
 
@@ -405,6 +440,7 @@ Available roles: `public`, `slyce`, `user`, `pro`, `admin`
 | Page                                             | public | slyce | user | pro | admin |
 | ------------------------------------------------ | ------ | ----- | ---- | --- | ----- |
 | Dashboard (`/`)                                  | ✗      | ✓     | ✓    | ✓   | ✓     |
+| Characters (`/characters`)                       | ✗      | ✓     | ✓    | ✓   | ✓     |
 | Public Market Seeding (`/public-market-seeding`) | ✗      | ✓     | ✓    | ✓   | ✓     |
 | Jita Purchase (`/jita-purchase`)                 | ✗      | ✓     | ✓    | ✓   | ✓     |
 | Industry (`/industry`)                           | ✗      | ✗     | ✓    | ✓   | ✓     |
@@ -450,13 +486,15 @@ Access control is centralized in `lib/permissions.ts` which defines `NAV_PERMISS
 - `lib/auth.ts` - Auth utilities and session management
 - `lib/eve-sso.ts` - SSO helper functions
 - `lib/esi-scopes.ts` - ESI scope definitions (MINIMAL_ESI_SCOPES, FULL_ESI_SCOPES)
-- `types/auth.ts` - TypeScript types
+- `types/auth.ts` - TypeScript types (includes ScopeLevel type)
 - `app/api/auth/eve/login/route.ts` - Login route (minimal scopes)
 - `app/api/auth/eve/add-alt/route.ts` - Add alt route (minimal scopes)
 - `app/api/auth/eve/request-full-access/route.ts` - Upgrade to full scopes
 - `app/api/auth/eve/callback/route.ts` - Callback route (handles login, add_alt, full_access modes)
 - `app/api/auth/session/route.ts` - Session route
 - `app/api/auth/logout/route.ts` - Logout route
-- `app/api/characters/route.ts` - Character management
+- `app/api/characters/route.ts` - Character management API
+- `app/(authenticated)/characters/page.tsx` - Characters page UI
 - `components/auth-gate.tsx` - Auth gate component
-- `components/sidebar.tsx` - Sidebar with "Request Full Access" menu item
+- `components/sidebar.tsx` - Sidebar with Characters nav item and "Request Full Access" menu item
+- `migrations/015_character_scope_level.sql` - Migration to add scope_level column

@@ -7,7 +7,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { refreshAccessToken } from '@/lib/eve-sso'
 import { config } from '@/lib/config'
-import { isApprovedRole, type User, type Character, type Session, type CharacterToken, type EveJWTPayload, type UserRole } from '@/types/auth'
+import { isApprovedRole, type User, type Character, type Session, type CharacterToken, type EveJWTPayload, type UserRole, type ScopeLevel } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net/latest'
 
@@ -332,13 +332,16 @@ async function determineNewUserRole(characterId: number): Promise<UserRole> {
 /**
  * Find or create a user based on character login
  * Returns the user and whether they are new
+ * 
+ * @param scopeLevel - The ESI scope level used for authentication (default: 'full' for login)
  */
 export async function findOrCreateUser(
   characterId: number,
   characterName: string,
   refreshToken: string,
   accessToken: string,
-  expiresIn: number
+  expiresIn: number,
+  scopeLevel: ScopeLevel = 'full'
 ): Promise<{ user: User; isNew: boolean }> {
   const supabase = await createClient()
   const expiresAt = new Date(Date.now() + expiresIn * 1000)
@@ -351,7 +354,7 @@ export async function findOrCreateUser(
     .single()
 
   if (existingCharacter) {
-    // Update tokens for existing character
+    // Update tokens for existing character (also update scope_level in case they upgraded)
     await supabase
       .from('characters')
       .update({
@@ -359,6 +362,7 @@ export async function findOrCreateUser(
         access_token: accessToken,
         token_expires_at: expiresAt.toISOString(),
         character_name: characterName, // Update in case name changed
+        scope_level: scopeLevel,
       })
       .eq('character_id', characterId)
 
@@ -397,6 +401,7 @@ export async function findOrCreateUser(
       access_token: accessToken,
       token_expires_at: expiresAt.toISOString(),
       is_main: true,
+      scope_level: scopeLevel,
     })
 
   if (characterError) {
@@ -413,6 +418,8 @@ export async function findOrCreateUser(
 
 /**
  * Add an alt character to an existing user
+ * 
+ * @param scopeLevel - The ESI scope level used for authentication (default: 'minimal' for alts)
  */
 export async function addAltCharacter(
   userId: string,
@@ -420,7 +427,8 @@ export async function addAltCharacter(
   characterName: string,
   refreshToken: string,
   accessToken: string,
-  expiresIn: number
+  expiresIn: number,
+  scopeLevel: ScopeLevel = 'minimal'
 ): Promise<Character> {
   const supabase = await createClient()
   const expiresAt = new Date(Date.now() + expiresIn * 1000)
@@ -434,7 +442,7 @@ export async function addAltCharacter(
 
   if (existingCharacter) {
     if (existingCharacter.user_id === userId) {
-      // Already linked to this user, just update tokens
+      // Already linked to this user, just update tokens (also update scope_level in case they upgraded)
       const { data: updated, error } = await supabase
         .from('characters')
         .update({
@@ -442,6 +450,7 @@ export async function addAltCharacter(
           access_token: accessToken,
           token_expires_at: expiresAt.toISOString(),
           character_name: characterName,
+          scope_level: scopeLevel,
         })
         .eq('character_id', characterId)
         .select()
@@ -465,6 +474,7 @@ export async function addAltCharacter(
       access_token: accessToken,
       token_expires_at: expiresAt.toISOString(),
       is_main: false,
+      scope_level: scopeLevel,
     })
     .select()
     .single()

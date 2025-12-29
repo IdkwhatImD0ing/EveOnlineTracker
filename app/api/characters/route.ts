@@ -38,6 +38,7 @@ export async function GET() {
                 character_id: c.character_id,
                 character_name: c.character_name,
                 is_main: c.is_main,
+                scope_level: c.scope_level,
                 created_at: c.created_at,
             })),
         })

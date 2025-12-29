@@ -40,6 +40,13 @@ export interface User {
     updated_at: string
 }
 
+/**
+ * ESI scope level for a character
+ * - minimal: Basic 4 scopes for structure market access
+ * - full: All 60+ scopes for advanced features
+ */
+export type ScopeLevel = 'minimal' | 'full'
+
 export interface Character {
     id: string
     user_id: string
@@ -49,6 +56,7 @@ export interface Character {
     access_token: string | null
     token_expires_at: string | null
     is_main: boolean
+    scope_level: ScopeLevel
     created_at: string
     updated_at: string
 }

@@ -57,6 +57,12 @@ const allNavItems: NavItem[] = [
     description: "Overview and account info",
   },
   {
+    title: "Characters",
+    href: "/characters",
+    icon: Users,
+    description: "Manage linked characters",
+  },
+  {
     title: "Fit Availability",
     href: "/public-market-seeding",
     icon: Package,

@@ -245,7 +245,7 @@ export function SellSubtab({
       })
   }, [data, minQuantity, minIskPerDay, competitionFilter, sortBy, selectedCharacter])
 
-  // Calculate "do not sell" items
+  // Calculate "do not sell" items (items filtered out from the main list)
   const doNotSellItems = useMemo(() => {
     if (!data) return { existingOrders: [], filteredOut: [] }
 
@@ -267,13 +267,16 @@ export function SellSubtab({
         return { ...item, reason }
       })
 
-    // Filter existing orders by selected character
-    const existingOrders = data.items_with_existing_orders.filter(item => {
-      if (selectedCharacter === "all") return true
-      if (!item.characters) return false
-      const charId = parseInt(selectedCharacter)
-      return item.characters.some(c => c.id === charId)
-    })
+    // Get items with existing orders from the main items list (now includes pricing)
+    // Filter by selected character if one is selected
+    const existingOrders = data.items
+      .filter(item => item.has_existing_order)
+      .filter(item => {
+        if (selectedCharacter === "all") return true
+        if (!item.characters) return false
+        const charId = parseInt(selectedCharacter)
+        return item.characters.some(c => c.id === charId)
+      })
 
     return {
       existingOrders,
@@ -778,6 +781,14 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                             )}
                           </div>
                         )}
+                        {item.has_existing_order && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-blue-500/20 text-blue-600"
+                          >
+                            Has Order
+                          </Badge>
+                        )}
                         <Badge
                           variant="secondary"
                           className={item.has_competition ? "bg-amber-500/20 text-amber-600" : "bg-emerald-500/20 text-emerald-600"}
@@ -905,7 +916,7 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 space-y-4">
-                {/* Existing Orders */}
+                {/* Existing Orders - these items have full pricing info now */}
                 {doNotSellItems.existingOrders.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
@@ -914,7 +925,7 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                     </h4>
                     <div className="space-y-1 max-h-48 overflow-y-auto">
                       {doNotSellItems.existingOrders.map((item) => (
-                        <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-blue-500/5 rounded min-w-0">
+                        <div key={item.type_id} className="flex items-center gap-2 text-sm py-1.5 px-2 bg-blue-500/5 rounded min-w-0">
                           <EveItemIcon typeId={item.type_id} size={32} className="size-5 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <span className="truncate text-xs block">{item.type_name}</span>
@@ -924,7 +935,10 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                               </span>
                             )}
                           </div>
-                          <span className="text-muted-foreground font-mono text-xs shrink-0">{item.quantity.toLocaleString()}</span>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono text-xs block">{item.sell_price_formatted}</span>
+                            <span className="text-[10px] text-muted-foreground">{item.quantity.toLocaleString()} units</span>
+                          </div>
                         </div>
                       ))}
                     </div>

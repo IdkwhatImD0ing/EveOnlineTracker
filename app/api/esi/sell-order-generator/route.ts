@@ -427,37 +427,26 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // Capture items with existing orders before removing them
-          const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number; characters: SellOrderItemCharacter[]; order_characters: SellOrderItemCharacter[] }> = []
-          for (const [typeId, orderCharacters] of myExistingOrdersByType) {
-            const data = assetsByType.get(typeId)
-            itemsWithExistingOrders.push({
-              type_id: typeId,
-              type_name: getTypeName(typeId),
-              quantity: data?.quantity ?? 0,
-              characters: data ? Array.from(data.characters.entries()).map(([id, name]) => ({ id, name })) : [],
-              order_characters: Array.from(orderCharacters.entries()).map(([id, name]) => ({ id, name }))
-            })
-            assetsByType.delete(typeId)
-          }
+          // Note: We no longer remove items with existing orders - they're included with pricing info
+          // The has_existing_order flag indicates if the user already has a sell order
 
           sendSSEEvent(controller, encoder, 'progress', {
             stage: 'orders',
-            message: `Filtered out ${myExistingOrdersByType.size} items with existing orders`,
+            message: `Found ${myExistingOrdersByType.size} items with existing orders (included for reference)`,
             percent: 25
           })
 
           if (assetsByType.size === 0) {
             sendSSEEvent(controller, encoder, 'complete', {
               items: [],
-              items_with_existing_orders: itemsWithExistingOrders,
+              items_with_existing_orders: [],
               summary: {
                 total_items: 0,
                 total_with_competition: 0,
                 total_no_competition: 0,
                 total_isk_per_day: 0,
                 total_isk_per_day_formatted: '0 ISK',
-                filtered_out_existing_orders: myExistingOrdersByType.size,
+                total_with_existing_orders: 0,
                 characters_queried: characterTokens.length,
               },
               timing: { total_ms: Date.now() - startTime }
@@ -564,6 +553,13 @@ export async function GET(request: NextRequest) {
             const profitPerUnit = sellPrice - jitaPrice
             const iskPerDay = estimatedDailySales * profitPerUnit
 
+            // Check if this item has existing sell orders
+            const orderCharactersMap = myExistingOrdersByType.get(typeId)
+            const hasExistingOrder = orderCharactersMap !== undefined
+            const orderCharacters = orderCharactersMap 
+              ? Array.from(orderCharactersMap.entries()).map(([id, name]) => ({ id, name }))
+              : []
+
             items.push({
               type_id: typeId,
               type_name: getTypeName(typeId),
@@ -571,6 +567,8 @@ export async function GET(request: NextRequest) {
               characters: Array.from(data.characters.entries()).map(([id, name]) => ({ id, name })),
 
               has_competition: hasCompetition,
+              has_existing_order: hasExistingOrder,
+              order_characters: orderCharacters,
               jita_price: jitaPrice,
               jita_price_formatted: formatISK(jitaPrice),
               competitor_price: competitorPrice,
@@ -591,12 +589,24 @@ export async function GET(request: NextRequest) {
           const totalIskPerDay = items.reduce((sum, item) => sum + item.isk_per_day, 0)
           const withCompetition = items.filter(i => i.has_competition).length
           const noCompetition = items.filter(i => !i.has_competition).length
+          const withExistingOrders = items.filter(i => i.has_existing_order).length
 
           sendSSEEvent(controller, encoder, 'progress', {
             stage: 'complete',
             message: 'Analysis complete!',
             percent: 100
           })
+
+          // Derive items_with_existing_orders for backwards compatibility
+          const itemsWithExistingOrders = items
+            .filter(item => item.has_existing_order)
+            .map(item => ({
+              type_id: item.type_id,
+              type_name: item.type_name,
+              quantity: item.quantity,
+              characters: item.characters,
+              order_characters: item.order_characters,
+            }))
 
           sendSSEEvent(controller, encoder, 'complete', {
             items,
@@ -607,7 +617,7 @@ export async function GET(request: NextRequest) {
               total_no_competition: noCompetition,
               total_isk_per_day: totalIskPerDay,
               total_isk_per_day_formatted: formatISK(totalIskPerDay),
-              filtered_out_existing_orders: myExistingOrdersByType.size,
+              total_with_existing_orders: withExistingOrders,
               characters_queried: characterTokens.length,
             },
             timing: {
@@ -671,13 +681,14 @@ export async function GET(request: NextRequest) {
     if (assetsByType.size === 0) {
       return NextResponse.json({
         items: [],
+        items_with_existing_orders: [],
         summary: {
           total_items: 0,
           total_with_competition: 0,
           total_no_competition: 0,
           total_isk_per_day: 0,
           total_isk_per_day_formatted: '0 ISK',
-          filtered_out_existing_orders: 0,
+          total_with_existing_orders: 0,
           characters_queried: characterTokens.length,
         },
         timing: { total_ms: Date.now() - startTime }
@@ -705,36 +716,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Capture items with existing orders
-    const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number; characters: SellOrderItemCharacter[]; order_characters: SellOrderItemCharacter[] }> = []
-    for (const [typeId, orderCharacters] of myExistingOrdersByType) {
-      const data = assetsByType.get(typeId)
-      itemsWithExistingOrders.push({
-        type_id: typeId,
-        type_name: getTypeName(typeId),
-        quantity: data?.quantity ?? 0,
-        characters: data ? Array.from(data.characters.entries()).map(([id, name]) => ({ id, name })) : [],
-        order_characters: Array.from(orderCharacters.entries()).map(([id, name]) => ({ id, name }))
-      })
-      assetsByType.delete(typeId)
-    }
-
-    if (assetsByType.size === 0) {
-      return NextResponse.json({
-        items: [],
-        items_with_existing_orders: itemsWithExistingOrders,
-        summary: {
-          total_items: 0,
-          total_with_competition: 0,
-          total_no_competition: 0,
-          total_isk_per_day: 0,
-          total_isk_per_day_formatted: '0 ISK',
-          filtered_out_existing_orders: myExistingOrdersByType.size,
-          characters_queried: characterTokens.length,
-        },
-        timing: { total_ms: Date.now() - startTime }
-      })
-    }
+    // Note: We no longer remove items with existing orders - they're included with pricing info
+    // The has_existing_order flag indicates if the user already has a sell order
 
     // Step 3: Fetch structure orders (use first character's token)
     const structureOrders = await fetchStructureOrders(structureId, characterTokens[0].access_token)
@@ -794,6 +777,13 @@ export async function GET(request: NextRequest) {
       const profitPerUnit = sellPrice - jitaPrice
       const iskPerDay = estimatedDailySales * profitPerUnit
 
+      // Check if this item has existing sell orders
+      const orderCharactersMap = myExistingOrdersByType.get(typeId)
+      const hasExistingOrder = orderCharactersMap !== undefined
+      const orderCharacters = orderCharactersMap 
+        ? Array.from(orderCharactersMap.entries()).map(([id, name]) => ({ id, name }))
+        : []
+
       items.push({
         type_id: typeId,
         type_name: getTypeName(typeId),
@@ -801,6 +791,8 @@ export async function GET(request: NextRequest) {
         characters: Array.from(data.characters.entries()).map(([id, name]) => ({ id, name })),
 
         has_competition: hasCompetition,
+        has_existing_order: hasExistingOrder,
+        order_characters: orderCharacters,
         jita_price: jitaPrice,
         jita_price_formatted: formatISK(jitaPrice),
         competitor_price: competitorPrice,
@@ -821,6 +813,18 @@ export async function GET(request: NextRequest) {
     const totalIskPerDay = items.reduce((sum, item) => sum + item.isk_per_day, 0)
     const withCompetition = items.filter(i => i.has_competition).length
     const noCompetition = items.filter(i => !i.has_competition).length
+    const withExistingOrders = items.filter(i => i.has_existing_order).length
+
+    // Derive items_with_existing_orders for backwards compatibility
+    const itemsWithExistingOrders = items
+      .filter(item => item.has_existing_order)
+      .map(item => ({
+        type_id: item.type_id,
+        type_name: item.type_name,
+        quantity: item.quantity,
+        characters: item.characters,
+        order_characters: item.order_characters,
+      }))
 
     return NextResponse.json({
       items,
@@ -831,7 +835,7 @@ export async function GET(request: NextRequest) {
         total_no_competition: noCompetition,
         total_isk_per_day: totalIskPerDay,
         total_isk_per_day_formatted: formatISK(totalIskPerDay),
-        filtered_out_existing_orders: myExistingOrdersByType.size,
+        total_with_existing_orders: withExistingOrders,
         characters_queried: characterTokens.length,
       },
       timing: {
