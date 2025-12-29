@@ -959,7 +959,7 @@ When multiple characters are linked, a dropdown appears in the header allowing y
 The Sell sub-tab uses a two-column layout on large screens:
 - **Left column (wider)**: Sell orders with pricing and copy buttons
 - **Right column (sticky)**: "Do Not Sell" items - always visible while scrolling
-  - **Has Existing Orders**: Items where the selected character has inventory AND any of your characters already has a sell order for (blue). When "All Characters" is selected, shows all items with existing orders.
+  - **Has Existing Orders**: Items where any of your characters already has a sell order (blue). Shows which character(s) own the order below each item name. When "All Characters" is selected, shows all items with existing orders.
   - **Filtered Out**: Items excluded by current filters (amber) with reason badges
 
 On smaller screens, the layout stacks vertically with sell orders first.
@@ -990,7 +990,70 @@ Each item has two copy buttons:
    - Paste the price when creating your sell order
 6. Re-generate periodically as market conditions change
 
-#### API Endpoint
+#### Check If I Have Sell Orders
+
+A collapsible utility tool to quickly verify which items from your EVE inventory you already have sell orders for in the selected structure.
+
+**How to Use:**
+
+1. Expand the "Check If I Have Sell Orders" section
+2. Copy items from your EVE inventory (using Ctrl+A, Ctrl+C in the inventory window)
+3. Paste into the text area (supports tab-separated EVE format)
+4. Click **Check Orders**
+
+**Results:**
+
+| Category | Description |
+|----------|-------------|
+| I Have Orders | Items where you (any linked character) already have a sell order in the structure |
+| No Orders Yet | Items you can create new sell orders for |
+| Not Found | Item names that couldn't be matched to known items |
+
+**Key Behavior:**
+
+- Only checks **your characters' orders**, not other sellers' orders
+- Filters by the selected structure ID
+- Shows your lowest listed price, total volume, and **which character(s)** have the orders for items you have orders for
+
+**API Endpoint:** `POST /api/esi/check-orders`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| structure_id | string | No | Structure ID to filter by (default: 3T7-M8 Keepstar) |
+| item_names | string[] | Yes | Array of item names to check (max 500) |
+
+**Response:**
+
+```json
+{
+  "structure_id": "1051567430261",
+  "with_orders": [
+    {
+      "name": "Damage Control II",
+      "type_id": 2048,
+      "lowest_price": 500000,
+      "lowest_price_formatted": "500.00K ISK",
+      "total_volume": 150,
+      "characters": [
+        { "id": 123456789, "name": "Main Character" },
+        { "id": 987654321, "name": "Alt Character" }
+      ]
+    }
+  ],
+  "without_orders": ["Gyrostabilizer II", "Ballistic Control System II"],
+  "not_found": ["Unknown Item Name"],
+  "summary": {
+    "total_checked": 10,
+    "with_orders_count": 1,
+    "without_orders_count": 2,
+    "not_found_count": 1
+  }
+}
+```
+
+---
+
+#### Sell Order Generator API
 
 **GET /api/esi/sell-order-generator**
 

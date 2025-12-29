@@ -279,7 +279,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Rate limiting
-  const rateLimitResult = await checkRateLimit(session.user_id)
+  const rateLimitResult = await checkRateLimit(session.user_id, session.user.role)
   if (!rateLimitResult.success) {
     return createRateLimitResponse(rateLimitResult)
   }
@@ -407,13 +407,19 @@ export async function GET(request: NextRequest) {
             percent: 20
           })
 
-          const myExistingOrderTypes = new Set<number>()
+          // Track which characters have sell orders for each type
+          const myExistingOrdersByType = new Map<number, Map<number, string>>()
           for (const token of characterTokens) {
             try {
               const orders = await fetchCharacterOrders(token.character_id, token.access_token)
               for (const order of orders) {
                 if (!order.is_buy_order && order.location_id.toString() === structureId) {
-                  myExistingOrderTypes.add(order.type_id)
+                  const existing = myExistingOrdersByType.get(order.type_id)
+                  if (existing) {
+                    existing.set(token.character_id, token.character_name)
+                  } else {
+                    myExistingOrdersByType.set(order.type_id, new Map([[token.character_id, token.character_name]]))
+                  }
                 }
               }
             } catch (error) {
@@ -422,23 +428,22 @@ export async function GET(request: NextRequest) {
           }
 
           // Capture items with existing orders before removing them
-          const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number; characters: SellOrderItemCharacter[] }> = []
-          for (const typeId of myExistingOrderTypes) {
+          const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number; characters: SellOrderItemCharacter[]; order_characters: SellOrderItemCharacter[] }> = []
+          for (const [typeId, orderCharacters] of myExistingOrdersByType) {
             const data = assetsByType.get(typeId)
-            if (data !== undefined) {
-              itemsWithExistingOrders.push({
-                type_id: typeId,
-                type_name: getTypeName(typeId),
-                quantity: data.quantity,
-                characters: Array.from(data.characters.entries()).map(([id, name]) => ({ id, name }))
-              })
-            }
+            itemsWithExistingOrders.push({
+              type_id: typeId,
+              type_name: getTypeName(typeId),
+              quantity: data?.quantity ?? 0,
+              characters: data ? Array.from(data.characters.entries()).map(([id, name]) => ({ id, name })) : [],
+              order_characters: Array.from(orderCharacters.entries()).map(([id, name]) => ({ id, name }))
+            })
             assetsByType.delete(typeId)
           }
 
           sendSSEEvent(controller, encoder, 'progress', {
             stage: 'orders',
-            message: `Filtered out ${myExistingOrderTypes.size} items with existing orders`,
+            message: `Filtered out ${myExistingOrdersByType.size} items with existing orders`,
             percent: 25
           })
 
@@ -452,7 +457,7 @@ export async function GET(request: NextRequest) {
                 total_no_competition: 0,
                 total_isk_per_day: 0,
                 total_isk_per_day_formatted: '0 ISK',
-                filtered_out_existing_orders: myExistingOrderTypes.size,
+                filtered_out_existing_orders: myExistingOrdersByType.size,
                 characters_queried: characterTokens.length,
               },
               timing: { total_ms: Date.now() - startTime }
@@ -602,7 +607,7 @@ export async function GET(request: NextRequest) {
               total_no_competition: noCompetition,
               total_isk_per_day: totalIskPerDay,
               total_isk_per_day_formatted: formatISK(totalIskPerDay),
-              filtered_out_existing_orders: myExistingOrderTypes.size,
+              filtered_out_existing_orders: myExistingOrdersByType.size,
               characters_queried: characterTokens.length,
             },
             timing: {
@@ -680,13 +685,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Step 2: Fetch existing sell orders from all characters
-    const myExistingOrderTypes = new Set<number>()
+    // Track which characters have sell orders for each type
+    const myExistingOrdersByType = new Map<number, Map<number, string>>()
     for (const token of characterTokens) {
       try {
         const orders = await fetchCharacterOrders(token.character_id, token.access_token)
         for (const order of orders) {
           if (!order.is_buy_order && order.location_id.toString() === structureId) {
-            myExistingOrderTypes.add(order.type_id)
+            const existing = myExistingOrdersByType.get(order.type_id)
+            if (existing) {
+              existing.set(token.character_id, token.character_name)
+            } else {
+              myExistingOrdersByType.set(order.type_id, new Map([[token.character_id, token.character_name]]))
+            }
           }
         }
       } catch (error) {
@@ -695,17 +706,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Capture items with existing orders
-    const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number; characters: SellOrderItemCharacter[] }> = []
-    for (const typeId of myExistingOrderTypes) {
+    const itemsWithExistingOrders: Array<{ type_id: number; type_name: string; quantity: number; characters: SellOrderItemCharacter[]; order_characters: SellOrderItemCharacter[] }> = []
+    for (const [typeId, orderCharacters] of myExistingOrdersByType) {
       const data = assetsByType.get(typeId)
-      if (data !== undefined) {
-        itemsWithExistingOrders.push({
-          type_id: typeId,
-          type_name: getTypeName(typeId),
-          quantity: data.quantity,
-          characters: Array.from(data.characters.entries()).map(([id, name]) => ({ id, name }))
-        })
-      }
+      itemsWithExistingOrders.push({
+        type_id: typeId,
+        type_name: getTypeName(typeId),
+        quantity: data?.quantity ?? 0,
+        characters: data ? Array.from(data.characters.entries()).map(([id, name]) => ({ id, name })) : [],
+        order_characters: Array.from(orderCharacters.entries()).map(([id, name]) => ({ id, name }))
+      })
       assetsByType.delete(typeId)
     }
 
@@ -719,7 +729,7 @@ export async function GET(request: NextRequest) {
           total_no_competition: 0,
           total_isk_per_day: 0,
           total_isk_per_day_formatted: '0 ISK',
-          filtered_out_existing_orders: myExistingOrderTypes.size,
+          filtered_out_existing_orders: myExistingOrdersByType.size,
           characters_queried: characterTokens.length,
         },
         timing: { total_ms: Date.now() - startTime }
@@ -821,7 +831,7 @@ export async function GET(request: NextRequest) {
         total_no_competition: noCompetition,
         total_isk_per_day: totalIskPerDay,
         total_isk_per_day_formatted: formatISK(totalIskPerDay),
-        filtered_out_existing_orders: myExistingOrderTypes.size,
+        filtered_out_existing_orders: myExistingOrdersByType.size,
         characters_queried: characterTokens.length,
       },
       timing: {

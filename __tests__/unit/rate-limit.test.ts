@@ -109,6 +109,48 @@ describe('lib/rate-limit', () => {
       const pipeline = mockKv.pipeline()
       expect(pipeline.expire).toHaveBeenCalled()
     })
+
+    it('should bypass rate limiting for admin users', async () => {
+      mockKv.__setRequestCount(100) // Way over the limit
+
+      const result = await checkRateLimit('user-123', 'admin')
+
+      expect(result.success).toBe(true)
+      expect(result.limit).toBe(Infinity)
+      expect(result.remaining).toBe(Infinity)
+      expect(result.reset).toBe(0)
+    })
+
+    it('should not bypass rate limiting for non-admin roles', async () => {
+      mockKv.__setRequestCount(15) // Over the limit
+
+      // Test with 'slyce' role
+      const slyceResult = await checkRateLimit('user-123', 'slyce')
+      expect(slyceResult.success).toBe(false)
+
+      // Test with 'user' role
+      mockKv.__setRequestCount(15)
+      const userResult = await checkRateLimit('user-123', 'user')
+      expect(userResult.success).toBe(false)
+
+      // Test with 'pro' role
+      mockKv.__setRequestCount(15)
+      const proResult = await checkRateLimit('user-123', 'pro')
+      expect(proResult.success).toBe(false)
+
+      // Test with 'public' role
+      mockKv.__setRequestCount(15)
+      const publicResult = await checkRateLimit('user-123', 'public')
+      expect(publicResult.success).toBe(false)
+    })
+
+    it('should apply rate limiting when role is undefined', async () => {
+      mockKv.__setRequestCount(15) // Over the limit
+
+      const result = await checkRateLimit('user-123')
+
+      expect(result.success).toBe(false)
+    })
   })
 
   describe('createRateLimitHeaders', () => {

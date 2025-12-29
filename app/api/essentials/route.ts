@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Rate limiting
-  const rateLimitResult = await checkRateLimit(session.user.id)
+  const rateLimitResult = await checkRateLimit(session.user.id, session.user.role)
   if (!rateLimitResult.success) {
     return createRateLimitResponse(rateLimitResult)
   }
@@ -374,7 +374,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limiting
-    const rateLimitResult = await checkRateLimit(session.user.id)
+    const rateLimitResult = await checkRateLimit(session.user.id, session.user.role)
     if (!rateLimitResult.success) {
       return createRateLimitResponse(rateLimitResult)
     }

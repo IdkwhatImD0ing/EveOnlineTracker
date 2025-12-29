@@ -44,12 +44,18 @@ import { EveItemIcon } from "@/components/eve-item-icon"
 import { ProgressBar } from "./progress-bar"
 
 // Types for the item checker feature
+interface CheckerCharacterInfo {
+  id: number
+  name: string
+}
+
 interface CheckerOrderInfo {
   name: string
   type_id: number
   lowest_price: number
   lowest_price_formatted: string
   total_volume: number
+  characters: CheckerCharacterInfo[]
 }
 
 interface CheckerResults {
@@ -374,10 +380,10 @@ export function SellSubtab({
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Search className="size-4" />
-                  Check Items for Sell Orders
+                  Check If I Have Sell Orders
                   {checkerResults && (
                     <Badge variant="secondary" className="ml-2">
-                      {checkerResults.with_orders.length} with orders, {checkerResults.without_orders.length} without
+                      {checkerResults.with_orders.length} listed, {checkerResults.without_orders.length} unlisted
                     </Badge>
                   )}
                 </CardTitle>
@@ -448,11 +454,11 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
               {/* Results */}
               {checkerResults && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  {/* Has Orders */}
+                  {/* Has My Orders */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium flex items-center gap-2">
                       <ShoppingCart className="size-4 text-emerald-500" />
-                      Has Orders ({checkerResults.with_orders.length})
+                      I Have Orders ({checkerResults.with_orders.length})
                     </h4>
                     {checkerResults.with_orders.length > 0 ? (
                       <div className="space-y-1 max-h-64 overflow-y-auto">
@@ -462,7 +468,14 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                             className="flex items-center gap-2 text-sm py-1.5 px-2 bg-emerald-500/10 border border-emerald-500/20 rounded"
                           >
                             <EveItemIcon typeId={item.type_id} size={32} className="size-5 shrink-0" />
-                            <span className="flex-1 truncate text-xs">{item.name}</span>
+                            <div className="flex-1 min-w-0">
+                              <span className="truncate text-xs block">{item.name}</span>
+                              {item.characters && item.characters.length > 0 && (
+                                <span className="text-[10px] text-muted-foreground truncate block">
+                                  {item.characters.map(c => c.name).join(', ')}
+                                </span>
+                              )}
+                            </div>
                             <span className="text-muted-foreground font-mono text-xs shrink-0">
                               {item.lowest_price_formatted}
                             </span>
@@ -470,7 +483,7 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No items have existing orders</p>
+                      <p className="text-sm text-muted-foreground">You have no orders for these items</p>
                     )}
                   </div>
 
@@ -478,7 +491,7 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium flex items-center gap-2">
                       <Check className="size-4 text-blue-500" />
-                      No Orders - Can Sell ({checkerResults.without_orders.length})
+                      No Orders Yet ({checkerResults.without_orders.length})
                     </h4>
                     {checkerResults.without_orders.length > 0 ? (
                       <div className="space-y-1 max-h-64 overflow-y-auto">
@@ -489,13 +502,13 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                           >
                             <span className="flex-1 truncate text-xs">{name}</span>
                             <Badge variant="secondary" className="text-[10px] bg-blue-500/20 text-blue-600">
-                              Available
+                              Can Sell
                             </Badge>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">All items already have orders</p>
+                      <p className="text-sm text-muted-foreground">You already have orders for all items</p>
                     )}
                   </div>
 
@@ -903,7 +916,14 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                       {doNotSellItems.existingOrders.map((item) => (
                         <div key={item.type_id} className="flex items-center gap-2 text-sm py-1 px-2 bg-blue-500/5 rounded min-w-0">
                           <EveItemIcon typeId={item.type_id} size={32} className="size-5 shrink-0" />
-                          <span className="flex-1 truncate text-xs">{item.type_name}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="truncate text-xs block">{item.type_name}</span>
+                            {item.order_characters && item.order_characters.length > 0 && (
+                              <span className="text-[10px] text-muted-foreground truncate block">
+                                {item.order_characters.map(c => c.name).join(', ')}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-muted-foreground font-mono text-xs shrink-0">{item.quantity.toLocaleString()}</span>
                         </div>
                       ))}

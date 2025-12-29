@@ -31,7 +31,7 @@ export async function POST(
         }
 
         // Rate limiting
-        const rateLimitResult = await checkRateLimit(session.user_id)
+        const rateLimitResult = await checkRateLimit(session.user_id, session.user.role)
         if (!rateLimitResult.success) {
             return createRateLimitResponse(rateLimitResult)
         }
