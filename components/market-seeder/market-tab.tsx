@@ -2,21 +2,24 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Minus, ShoppingCart } from "lucide-react"
+import { Minus, ShoppingCart, TrendingUp } from "lucide-react"
 import {
   type UndercutItem,
   type UndercutData,
   type SellOrderItem,
   type SellOrderData,
   type ProgressState,
+  type OrderHistoryData,
+  type OrderHistoryPeriod,
 } from "@/types/market-seeder"
 import { UndercutSubtab } from "./undercut-subtab"
 import { SellSubtab } from "./sell-subtab"
+import { HistorySubtab } from "./history-subtab"
 
 interface MarketTabProps {
   // Sub-tab state
-  activeSubTab: "undercut" | "sell"
-  setActiveSubTab: (tab: "undercut" | "sell") => void
+  activeSubTab: "undercut" | "sell" | "history"
+  setActiveSubTab: (tab: "undercut" | "sell" | "history") => void
 
   // Undercut data
   undercutData: UndercutData | null
@@ -51,6 +54,14 @@ interface MarketTabProps {
   onSellCopyPrice: (item: SellOrderItem) => void
   onSellCopyAll: () => void
 
+  // History data
+  historyData: OrderHistoryData | null
+  historyLoading: boolean
+  historyError: string | null
+  historyPeriod: OrderHistoryPeriod
+  onHistoryPeriodChange: (period: OrderHistoryPeriod) => void
+  onHistoryRefresh: () => void
+
   // Hub factor display
   hubFactorPercent?: string  // e.g. "5%" - for display in labels
 }
@@ -83,12 +94,18 @@ export function MarketTab({
   onSellCopyName,
   onSellCopyPrice,
   onSellCopyAll,
+  historyData,
+  historyLoading,
+  historyError,
+  historyPeriod,
+  onHistoryPeriodChange,
+  onHistoryRefresh,
   hubFactorPercent = "5%",
 }: MarketTabProps) {
   return (
     <div className="space-y-4 md:space-y-6">
-      <Tabs value={activeSubTab} onValueChange={(v: string) => setActiveSubTab(v as "undercut" | "sell")} className="space-y-4 md:space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2 h-auto">
+      <Tabs value={activeSubTab} onValueChange={(v: string) => setActiveSubTab(v as "undercut" | "sell" | "history")} className="space-y-4 md:space-y-6">
+        <TabsList className="grid w-full max-w-lg grid-cols-3 h-auto">
           <TabsTrigger value="undercut" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5">
             <Minus className="size-3.5 md:size-4" />
             Undercut
@@ -104,6 +121,15 @@ export function MarketTab({
             {sellOrderData && sellOrderData.summary.total_items > 0 && (
               <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
                 {sellOrderData.summary.total_items}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5">
+            <TrendingUp className="size-3.5 md:size-4" />
+            History
+            {historyData && historyData.summary.totalOrders > 0 && (
+              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                {historyData.summary.totalOrders}
               </Badge>
             )}
           </TabsTrigger>
@@ -142,6 +168,17 @@ export function MarketTab({
             onCopyPrice={onSellCopyPrice}
             onCopyAll={onSellCopyAll}
             hubFactorPercent={hubFactorPercent}
+          />
+        </TabsContent>
+
+        <TabsContent value="history">
+          <HistorySubtab
+            data={historyData}
+            loading={historyLoading}
+            error={historyError}
+            period={historyPeriod}
+            onPeriodChange={onHistoryPeriodChange}
+            onRefresh={onHistoryRefresh}
           />
         </TabsContent>
       </Tabs>

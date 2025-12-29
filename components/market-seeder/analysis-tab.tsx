@@ -32,10 +32,6 @@ interface AnalysisTabProps {
   setIsCustomStructure: (value: boolean) => void
   transportCost: string
   setTransportCost: (value: string) => void
-  minProfit: string
-  setMinProfit: (value: string) => void
-  minVolume: string
-  setMinVolume: (value: string) => void
 
   // Analysis state
   isLoading: boolean
@@ -66,9 +62,6 @@ interface AnalysisTabProps {
   // Hub factor display
   hubFactorPercent?: string  // e.g. "5%" - for display in labels
   hubFactor?: number  // Actual hub factor value (default: 0.05)
-
-  // Volume region display
-  volumeRegionShortName?: string  // e.g. "Vale", "Deklein", "Jita" - for display in labels
 }
 
 export function AnalysisTab({
@@ -78,10 +71,6 @@ export function AnalysisTab({
   setIsCustomStructure,
   transportCost,
   setTransportCost,
-  minProfit,
-  setMinProfit,
-  minVolume,
-  setMinVolume,
   isLoading,
   error,
   result,
@@ -102,7 +91,6 @@ export function AnalysisTab({
   setIsCustomSupplyDays,
   hubFactorPercent = "5%",
   hubFactor = 0.05,
-  volumeRegionShortName = "Vale",
 }: AnalysisTabProps) {
   return (
     <div className="space-y-6">
@@ -113,7 +101,7 @@ export function AnalysisTab({
           <CardDescription>Configure your target structure and search parameters</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="structureId">Structure</Label>
               <Select
@@ -157,24 +145,6 @@ export function AnalysisTab({
                 type="number"
                 value={transportCost}
                 onChange={(e) => setTransportCost(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="minProfit">Min Profit/Unit (ISK)</Label>
-              <Input
-                id="minProfit"
-                type="number"
-                value={minProfit}
-                onChange={(e) => setMinProfit(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="minVolume">Min {volumeRegionShortName} Vol/Day</Label>
-              <Input
-                id="minVolume"
-                type="number"
-                value={minVolume}
-                onChange={(e) => setMinVolume(e.target.value)}
               />
             </div>
           </div>

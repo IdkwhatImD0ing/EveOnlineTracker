@@ -4304,9 +4304,9 @@
   },
   "1076": {
     "blueprintTypeId": 1076,
-    "blueprintName": "Survey Scanner I Blueprint",
+    "blueprintName": "Mining Survey Chipset I Blueprint",
     "productTypeId": 444,
-    "productName": "Survey Scanner I",
+    "productName": "Mining Survey Chipset I",
     "activityId": 1,
     "time": 1800,
     "materials": [
@@ -9464,9 +9464,9 @@
   },
   "2334": {
     "blueprintTypeId": 2334,
-    "blueprintName": "Survey Scanner II Blueprint",
+    "blueprintName": "Mining Survey Chipset II Blueprint",
     "productTypeId": 2333,
-    "productName": "Survey Scanner II",
+    "productName": "Mining Survey Chipset II",
     "activityId": 1,
     "time": 4680,
     "materials": [
@@ -40482,9 +40482,9 @@
   },
   "20610": {
     "blueprintTypeId": 20610,
-    "blueprintName": "'Cactus' Modified Kinetic Shield Amplifier Blueprint",
+    "blueprintName": "'Cactus' Kinetic Shield Amplifier Blueprint",
     "productTypeId": 20609,
-    "productName": "'Cactus' Modified Kinetic Shield Amplifier",
+    "productName": "'Cactus' Kinetic Shield Amplifier",
     "activityId": 1,
     "time": 1800,
     "materials": [
@@ -49894,19 +49894,19 @@
     "productTypeId": 23757,
     "productName": "Archon",
     "activityId": 1,
-    "time": 2000000,
+    "time": 1800000,
     "materials": [
       {
-        "typeId": 21009,
-        "quantity": 5
+        "typeId": 57474,
+        "quantity": 1
       },
       {
-        "typeId": 21013,
-        "quantity": 7
+        "typeId": 57487,
+        "quantity": 1
       },
       {
-        "typeId": 21017,
-        "quantity": 10
+        "typeId": 57488,
+        "quantity": 1
       },
       {
         "typeId": 21019,
@@ -49918,6 +49918,22 @@
       },
       {
         "typeId": 21023,
+        "quantity": 3
+      },
+      {
+        "typeId": 21035,
+        "quantity": 3
+      },
+      {
+        "typeId": 24560,
+        "quantity": 3
+      },
+      {
+        "typeId": 21009,
+        "quantity": 4
+      },
+      {
+        "typeId": 21013,
         "quantity": 4
       },
       {
@@ -49925,48 +49941,32 @@
         "quantity": 4
       },
       {
-        "typeId": 21029,
-        "quantity": 30
-      },
-      {
-        "typeId": 21035,
-        "quantity": 5
-      },
-      {
         "typeId": 21037,
-        "quantity": 5
-      },
-      {
-        "typeId": 24558,
-        "quantity": 10
-      },
-      {
-        "typeId": 24560,
         "quantity": 4
       },
       {
+        "typeId": 21017,
+        "quantity": 6
+      },
+      {
+        "typeId": 24558,
+        "quantity": 6
+      },
+      {
+        "typeId": 21029,
+        "quantity": 12
+      },
+      {
         "typeId": 57470,
-        "quantity": 32
-      },
-      {
-        "typeId": 57474,
-        "quantity": 2
-      },
-      {
-        "typeId": 57478,
-        "quantity": 400
+        "quantity": 12
       },
       {
         "typeId": 57486,
         "quantity": 200
       },
       {
-        "typeId": 57487,
-        "quantity": 1
-      },
-      {
-        "typeId": 57488,
-        "quantity": 1
+        "typeId": 57478,
+        "quantity": 400
       }
     ],
     "producedQuantity": 1
@@ -52012,19 +52012,19 @@
     "productTypeId": 23911,
     "productName": "Thanatos",
     "activityId": 1,
-    "time": 2000000,
+    "time": 1800000,
     "materials": [
       {
-        "typeId": 21009,
-        "quantity": 5
+        "typeId": 57476,
+        "quantity": 1
       },
       {
-        "typeId": 21013,
-        "quantity": 7
+        "typeId": 57487,
+        "quantity": 1
       },
       {
-        "typeId": 21017,
-        "quantity": 10
+        "typeId": 57488,
+        "quantity": 1
       },
       {
         "typeId": 21019,
@@ -52036,6 +52036,22 @@
       },
       {
         "typeId": 21023,
+        "quantity": 3
+      },
+      {
+        "typeId": 21035,
+        "quantity": 3
+      },
+      {
+        "typeId": 24560,
+        "quantity": 3
+      },
+      {
+        "typeId": 21009,
+        "quantity": 4
+      },
+      {
+        "typeId": 21013,
         "quantity": 4
       },
       {
@@ -52043,48 +52059,32 @@
         "quantity": 4
       },
       {
-        "typeId": 21029,
-        "quantity": 30
-      },
-      {
-        "typeId": 21035,
-        "quantity": 5
-      },
-      {
         "typeId": 21037,
-        "quantity": 5
-      },
-      {
-        "typeId": 24558,
-        "quantity": 10
-      },
-      {
-        "typeId": 24560,
         "quantity": 4
       },
       {
+        "typeId": 21017,
+        "quantity": 6
+      },
+      {
+        "typeId": 24558,
+        "quantity": 6
+      },
+      {
+        "typeId": 21029,
+        "quantity": 12
+      },
+      {
         "typeId": 57472,
-        "quantity": 32
-      },
-      {
-        "typeId": 57476,
-        "quantity": 2
-      },
-      {
-        "typeId": 57478,
-        "quantity": 400
+        "quantity": 12
       },
       {
         "typeId": 57486,
         "quantity": 200
       },
       {
-        "typeId": 57487,
-        "quantity": 1
-      },
-      {
-        "typeId": 57488,
-        "quantity": 1
+        "typeId": 57478,
+        "quantity": 400
       }
     ],
     "producedQuantity": 1
@@ -52178,19 +52178,27 @@
     "productTypeId": 23915,
     "productName": "Chimera",
     "activityId": 1,
-    "time": 2000000,
+    "time": 1800000,
     "materials": [
       {
-        "typeId": 21009,
-        "quantity": 5
+        "typeId": 57475,
+        "quantity": 1
+      },
+      {
+        "typeId": 57487,
+        "quantity": 1
+      },
+      {
+        "typeId": 57488,
+        "quantity": 1
       },
       {
         "typeId": 21013,
-        "quantity": 5
+        "quantity": 3
       },
       {
         "typeId": 21017,
-        "quantity": 4
+        "quantity": 3
       },
       {
         "typeId": 21019,
@@ -52201,56 +52209,48 @@
         "quantity": 3
       },
       {
-        "typeId": 21023,
-        "quantity": 10
+        "typeId": 24560,
+        "quantity": 3
+      },
+      {
+        "typeId": 21009,
+        "quantity": 4
       },
       {
         "typeId": 21025,
         "quantity": 4
       },
       {
-        "typeId": 21029,
-        "quantity": 30
-      },
-      {
         "typeId": 21035,
-        "quantity": 7
-      },
-      {
-        "typeId": 21037,
-        "quantity": 5
-      },
-      {
-        "typeId": 24558,
-        "quantity": 10
-      },
-      {
-        "typeId": 24560,
         "quantity": 4
       },
       {
+        "typeId": 21037,
+        "quantity": 4
+      },
+      {
+        "typeId": 21023,
+        "quantity": 6
+      },
+      {
+        "typeId": 24558,
+        "quantity": 6
+      },
+      {
+        "typeId": 21029,
+        "quantity": 12
+      },
+      {
         "typeId": 57471,
-        "quantity": 32
-      },
-      {
-        "typeId": 57475,
-        "quantity": 2
-      },
-      {
-        "typeId": 57478,
-        "quantity": 400
+        "quantity": 12
       },
       {
         "typeId": 57486,
         "quantity": 200
       },
       {
-        "typeId": 57487,
-        "quantity": 1
-      },
-      {
-        "typeId": 57488,
-        "quantity": 1
+        "typeId": 57478,
+        "quantity": 400
       }
     ],
     "producedQuantity": 1
@@ -52882,19 +52882,27 @@
     "productTypeId": 24483,
     "productName": "Nidhoggur",
     "activityId": 1,
-    "time": 2000000,
+    "time": 1800000,
     "materials": [
       {
-        "typeId": 21009,
-        "quantity": 5
+        "typeId": 57477,
+        "quantity": 1
+      },
+      {
+        "typeId": 57487,
+        "quantity": 1
+      },
+      {
+        "typeId": 57488,
+        "quantity": 1
       },
       {
         "typeId": 21013,
-        "quantity": 5
+        "quantity": 3
       },
       {
         "typeId": 21017,
-        "quantity": 4
+        "quantity": 3
       },
       {
         "typeId": 21019,
@@ -52905,56 +52913,48 @@
         "quantity": 3
       },
       {
-        "typeId": 21023,
-        "quantity": 10
+        "typeId": 24560,
+        "quantity": 3
+      },
+      {
+        "typeId": 21009,
+        "quantity": 4
       },
       {
         "typeId": 21025,
         "quantity": 4
       },
       {
-        "typeId": 21029,
-        "quantity": 30
-      },
-      {
         "typeId": 21035,
-        "quantity": 7
-      },
-      {
-        "typeId": 21037,
-        "quantity": 5
-      },
-      {
-        "typeId": 24558,
-        "quantity": 10
-      },
-      {
-        "typeId": 24560,
         "quantity": 4
       },
       {
+        "typeId": 21037,
+        "quantity": 4
+      },
+      {
+        "typeId": 21023,
+        "quantity": 6
+      },
+      {
+        "typeId": 24558,
+        "quantity": 6
+      },
+      {
+        "typeId": 21029,
+        "quantity": 12
+      },
+      {
         "typeId": 57473,
-        "quantity": 32
-      },
-      {
-        "typeId": 57477,
-        "quantity": 2
-      },
-      {
-        "typeId": 57478,
-        "quantity": 400
+        "quantity": 12
       },
       {
         "typeId": 57486,
         "quantity": 200
       },
       {
-        "typeId": 57487,
-        "quantity": 1
-      },
-      {
-        "typeId": 57488,
-        "quantity": 1
+        "typeId": 57478,
+        "quantity": 400
       }
     ],
     "producedQuantity": 1
@@ -65925,7 +65925,7 @@
     "blueprintTypeId": 28386,
     "blueprintName": "Compressed Crimson Arkonor Blueprint",
     "productTypeId": 28385,
-    "productName": "Batch Compressed Crimson Arkonor",
+    "productName": "Batch Compressed Arkonor II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -65940,7 +65940,7 @@
     "blueprintTypeId": 28448,
     "blueprintName": "Compressed Prime Arkonor Blueprint",
     "productTypeId": 28387,
-    "productName": "Batch Compressed Prime Arkonor",
+    "productName": "Batch Compressed Arkonor III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -65970,7 +65970,7 @@
     "blueprintTypeId": 28450,
     "blueprintName": "Compressed Monoclinic Bistot Blueprint",
     "productTypeId": 28389,
-    "productName": "Batch Compressed Monoclinic Bistot",
+    "productName": "Batch Compressed Bistot III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -65985,7 +65985,7 @@
     "blueprintTypeId": 28451,
     "blueprintName": "Compressed Triclinic Bistot Blueprint",
     "productTypeId": 28390,
-    "productName": "Batch Compressed Triclinic Bistot",
+    "productName": "Batch Compressed Bistot II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66015,7 +66015,7 @@
     "blueprintTypeId": 28453,
     "blueprintName": "Compressed Crystalline Crokite Blueprint",
     "productTypeId": 28392,
-    "productName": "Batch Compressed Crystalline Crokite",
+    "productName": "Batch Compressed Crokite III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66030,7 +66030,7 @@
     "blueprintTypeId": 28454,
     "blueprintName": "Compressed Sharp Crokite Blueprint",
     "productTypeId": 28393,
-    "productName": "Batch Compressed Sharp Crokite",
+    "productName": "Batch Compressed Crokite IV-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66060,7 +66060,7 @@
     "blueprintTypeId": 28456,
     "blueprintName": "Compressed Obsidian Ochre Blueprint",
     "productTypeId": 28395,
-    "productName": "Batch Compressed Obsidian Ochre",
+    "productName": "Batch Compressed Dark Ochre III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66075,7 +66075,7 @@
     "blueprintTypeId": 28457,
     "blueprintName": "Compressed Onyx Ochre Blueprint",
     "productTypeId": 28396,
-    "productName": "Batch Compressed Onyx Ochre",
+    "productName": "Batch Compressed Dark Ochre II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66105,7 +66105,7 @@
     "blueprintTypeId": 28459,
     "blueprintName": "Compressed Iridescent Gneiss Blueprint",
     "productTypeId": 28398,
-    "productName": "Batch Compressed Iridescent Gneiss",
+    "productName": "Batch Compressed Gneiss II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66120,7 +66120,7 @@
     "blueprintTypeId": 28460,
     "blueprintName": "Compressed Prismatic Gneiss Blueprint",
     "productTypeId": 28399,
-    "productName": "Batch Compressed Prismatic Gneiss",
+    "productName": "Batch Compressed Gneiss III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66150,7 +66150,7 @@
     "blueprintTypeId": 28462,
     "blueprintName": "Compressed Glazed Hedbergite Blueprint",
     "productTypeId": 28400,
-    "productName": "Batch Compressed Glazed Hedbergite",
+    "productName": "Batch Compressed Hedbergite III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66165,7 +66165,7 @@
     "blueprintTypeId": 28463,
     "blueprintName": "Compressed Vitric Hedbergite Blueprint",
     "productTypeId": 28402,
-    "productName": "Batch Compressed Vitric Hedbergite",
+    "productName": "Batch Compressed Hedbergite II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66195,7 +66195,7 @@
     "blueprintTypeId": 28465,
     "blueprintName": "Compressed Radiant Hemorphite Blueprint",
     "productTypeId": 28404,
-    "productName": "Batch Compressed Radiant Hemorphite",
+    "productName": "Batch Compressed Hemorphite III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66210,7 +66210,7 @@
     "blueprintTypeId": 28466,
     "blueprintName": "Compressed Vivid Hemorphite Blueprint",
     "productTypeId": 28405,
-    "productName": "Batch Compressed Vivid Hemorphite",
+    "productName": "Batch Compressed Hemorphite II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66240,7 +66240,7 @@
     "blueprintTypeId": 28468,
     "blueprintName": "Compressed Pristine Jaspet Blueprint",
     "productTypeId": 28407,
-    "productName": "Batch Compressed Pristine Jaspet",
+    "productName": "Batch Compressed Jaspet III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66255,7 +66255,7 @@
     "blueprintTypeId": 28469,
     "blueprintName": "Compressed Pure Jaspet Blueprint",
     "productTypeId": 28408,
-    "productName": "Batch Compressed Pure Jaspet",
+    "productName": "Batch Compressed Jaspet II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66285,7 +66285,7 @@
     "blueprintTypeId": 28471,
     "blueprintName": "Compressed Fiery Kernite Blueprint",
     "productTypeId": 28409,
-    "productName": "Batch Compressed Fiery Kernite",
+    "productName": "Batch Compressed Kernite III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66300,7 +66300,7 @@
     "blueprintTypeId": 28472,
     "blueprintName": "Compressed Luminous Kernite Blueprint",
     "productTypeId": 28411,
-    "productName": "Batch Compressed Luminous Kernite",
+    "productName": "Batch Compressed Kernite II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66315,7 +66315,7 @@
     "blueprintTypeId": 28473,
     "blueprintName": "Compressed Magma Mercoxit Blueprint",
     "productTypeId": 28412,
-    "productName": "Batch Compressed Magma Mercoxit",
+    "productName": "Batch Compressed Mercoxit II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66345,7 +66345,7 @@
     "blueprintTypeId": 28475,
     "blueprintName": "Compressed Vitreous Mercoxit Blueprint",
     "productTypeId": 28414,
-    "productName": "Batch Compressed Vitreous Mercoxit",
+    "productName": "Batch Compressed Mercoxit III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66375,7 +66375,7 @@
     "blueprintTypeId": 28477,
     "blueprintName": "Compressed Golden Omber Blueprint",
     "productTypeId": 28415,
-    "productName": "Batch Compressed Golden Omber",
+    "productName": "Batch Compressed Omber III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66390,7 +66390,7 @@
     "blueprintTypeId": 28478,
     "blueprintName": "Compressed Silvery Omber Blueprint",
     "productTypeId": 28417,
-    "productName": "Batch Compressed Silvery Omber",
+    "productName": "Batch Compressed Omber II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66405,7 +66405,7 @@
     "blueprintTypeId": 28479,
     "blueprintName": "Compressed Azure Plagioclase Blueprint",
     "productTypeId": 28421,
-    "productName": "Batch Compressed Azure Plagioclase",
+    "productName": "Batch Compressed Plagioclase II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66435,7 +66435,7 @@
     "blueprintTypeId": 28481,
     "blueprintName": "Compressed Rich Plagioclase Blueprint",
     "productTypeId": 28423,
-    "productName": "Batch Compressed Rich Plagioclase",
+    "productName": "Batch Compressed Plagioclase III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66465,7 +66465,7 @@
     "blueprintTypeId": 28483,
     "blueprintName": "Compressed Solid Pyroxeres Blueprint",
     "productTypeId": 28425,
-    "productName": "Batch Compressed Solid Pyroxeres",
+    "productName": "Batch Compressed Pyroxeres II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66480,7 +66480,7 @@
     "blueprintTypeId": 28484,
     "blueprintName": "Compressed Viscous Pyroxeres Blueprint",
     "productTypeId": 28426,
-    "productName": "Batch Compressed Viscous Pyroxeres",
+    "productName": "Batch Compressed Pyroxeres III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66495,7 +66495,7 @@
     "blueprintTypeId": 28485,
     "blueprintName": "Compressed Condensed Scordite Blueprint",
     "productTypeId": 28427,
-    "productName": "Batch Compressed Condensed Scordite",
+    "productName": "Batch Compressed Scordite II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66510,7 +66510,7 @@
     "blueprintTypeId": 28486,
     "blueprintName": "Compressed Massive Scordite Blueprint",
     "productTypeId": 28428,
-    "productName": "Batch Compressed Massive Scordite",
+    "productName": "Batch Compressed Scordite III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66540,7 +66540,7 @@
     "blueprintTypeId": 28488,
     "blueprintName": "Compressed Bright Spodumain Blueprint",
     "productTypeId": 28418,
-    "productName": "Batch Compressed Bright Spodumain",
+    "productName": "Batch Compressed Spodumain II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66555,7 +66555,7 @@
     "blueprintTypeId": 28489,
     "blueprintName": "Compressed Gleaming Spodumain Blueprint",
     "productTypeId": 28419,
-    "productName": "Batch Compressed Gleaming Spodumain",
+    "productName": "Batch Compressed Spodumain III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66585,7 +66585,7 @@
     "blueprintTypeId": 28491,
     "blueprintName": "Compressed Concentrated Veldspar Blueprint",
     "productTypeId": 28430,
-    "productName": "Batch Compressed Concentrated Veldspar",
+    "productName": "Batch Compressed Veldspar II-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66600,7 +66600,7 @@
     "blueprintTypeId": 28492,
     "blueprintName": "Compressed Dense Veldspar Blueprint",
     "productTypeId": 28431,
-    "productName": "Batch Compressed Dense Veldspar",
+    "productName": "Batch Compressed Veldspar III-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66675,7 +66675,7 @@
     "blueprintTypeId": 28497,
     "blueprintName": "Compressed Enriched Clear Icicle Blueprint",
     "productTypeId": 28436,
-    "productName": "Compressed Enriched Clear Icicle",
+    "productName": "Compressed Clear Icicle IV-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66750,7 +66750,7 @@
     "blueprintTypeId": 28502,
     "blueprintName": "Compressed Pristine White Glaze Blueprint",
     "productTypeId": 28441,
-    "productName": "Compressed Pristine White Glaze",
+    "productName": "Compressed White Glaze IV-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66765,7 +66765,7 @@
     "blueprintTypeId": 28503,
     "blueprintName": "Compressed Smooth Glacial Mass Blueprint",
     "productTypeId": 28442,
-    "productName": "Compressed Smooth Glacial Mass",
+    "productName": "Compressed Glacial Mass IV-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -66780,7 +66780,7 @@
     "blueprintTypeId": 28504,
     "blueprintName": "Compressed Thick Blue Ice Blueprint",
     "productTypeId": 28443,
-    "productName": "Compressed Thick Blue Ice",
+    "productName": "Compressed Blue Ice IV-Grade",
     "activityId": 1,
     "time": 600,
     "materials": [
@@ -88419,20 +88419,16 @@
     "time": 6000,
     "materials": [
       {
-        "typeId": 34,
-        "quantity": 22400
+        "typeId": 36,
+        "quantity": 1750
       },
       {
         "typeId": 35,
         "quantity": 4200
       },
       {
-        "typeId": 36,
-        "quantity": 1750
-      },
-      {
-        "typeId": 37,
-        "quantity": 350
+        "typeId": 34,
+        "quantity": 22400
       }
     ],
     "producedQuantity": 1
@@ -131822,7 +131818,7 @@
   },
   "46209": {
     "blueprintTypeId": 46209,
-    "blueprintName": "Fulleride Reaction Formula",
+    "blueprintName": "Fullerides Reaction Formula",
     "productTypeId": 16679,
     "productName": "Fullerides",
     "activityId": 11,
@@ -151447,7 +151443,7 @@
       },
       {
         "typeId": 83467,
-        "quantity": 40
+        "quantity": 30
       },
       {
         "typeId": 39,
@@ -151600,7 +151596,7 @@
       },
       {
         "typeId": 83469,
-        "quantity": 40
+        "quantity": 30
       },
       {
         "typeId": 39,
@@ -151633,7 +151629,7 @@
     "blueprintTypeId": 79175,
     "blueprintName": "Consortium Vorton Tuning System Blueprint",
     "productTypeId": 78740,
-    "productName": "Consortium Vorton Tuning system",
+    "productName": "Consortium Vorton Tuning System",
     "activityId": 1,
     "time": 900,
     "materials": [
@@ -161583,6 +161579,810 @@
       {
         "typeId": 34,
         "quantity": 1750000
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "89485": {
+    "blueprintTypeId": 89485,
+    "blueprintName": "Pioneer Blueprint",
+    "productTypeId": 89240,
+    "productName": "Pioneer",
+    "activityId": 1,
+    "time": 9000,
+    "materials": [
+      {
+        "typeId": 37,
+        "quantity": 4000
+      },
+      {
+        "typeId": 36,
+        "quantity": 20000
+      },
+      {
+        "typeId": 35,
+        "quantity": 60000
+      },
+      {
+        "typeId": 34,
+        "quantity": 320000
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "89632": {
+    "blueprintTypeId": 89632,
+    "blueprintName": "Expedition Command Burst I Blueprint",
+    "productTypeId": 89608,
+    "productName": "Expedition Command Burst I",
+    "activityId": 1,
+    "time": 3600,
+    "materials": [
+      {
+        "typeId": 2346,
+        "quantity": 3
+      },
+      {
+        "typeId": 40,
+        "quantity": 22
+      },
+      {
+        "typeId": 38,
+        "quantity": 56
+      },
+      {
+        "typeId": 37,
+        "quantity": 111
+      },
+      {
+        "typeId": 34,
+        "quantity": 949
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "89633": {
+    "blueprintTypeId": 89633,
+    "blueprintName": "Expedition Command Burst II Blueprint",
+    "productTypeId": 89615,
+    "productName": "Expedition Command Burst II",
+    "activityId": 1,
+    "time": 9360,
+    "materials": [
+      {
+        "typeId": 11483,
+        "quantity": 1
+      },
+      {
+        "typeId": 89608,
+        "quantity": 1
+      },
+      {
+        "typeId": 11541,
+        "quantity": 4
+      },
+      {
+        "typeId": 11399,
+        "quantity": 5
+      },
+      {
+        "typeId": 11539,
+        "quantity": 8
+      },
+      {
+        "typeId": 9840,
+        "quantity": 12
+      },
+      {
+        "typeId": 16682,
+        "quantity": 17
+      },
+      {
+        "typeId": 16681,
+        "quantity": 33
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "89634": {
+    "blueprintTypeId": 89634,
+    "blueprintName": "Expedition Strength Charge Blueprint",
+    "productTypeId": 89612,
+    "productName": "Expedition Strength Charge",
+    "activityId": 1,
+    "time": 5000,
+    "materials": [
+      {
+        "typeId": 34,
+        "quantity": 500
+      },
+      {
+        "typeId": 37,
+        "quantity": 500
+      },
+      {
+        "typeId": 16272,
+        "quantity": 500
+      }
+    ],
+    "producedQuantity": 500
+  },
+  "89635": {
+    "blueprintTypeId": 89635,
+    "blueprintName": "Expedition Reach Charge Blueprint",
+    "productTypeId": 89613,
+    "productName": "Expedition Reach Charge",
+    "activityId": 1,
+    "time": 5000,
+    "materials": [
+      {
+        "typeId": 34,
+        "quantity": 500
+      },
+      {
+        "typeId": 37,
+        "quantity": 500
+      },
+      {
+        "typeId": 16272,
+        "quantity": 500
+      }
+    ],
+    "producedQuantity": 500
+  },
+  "89636": {
+    "blueprintTypeId": 89636,
+    "blueprintName": "Expedition Pinpointing Charge Blueprint",
+    "productTypeId": 89614,
+    "productName": "Expedition Pinpointing Charge",
+    "activityId": 1,
+    "time": 5000,
+    "materials": [
+      {
+        "typeId": 34,
+        "quantity": 500
+      },
+      {
+        "typeId": 37,
+        "quantity": 500
+      },
+      {
+        "typeId": 16272,
+        "quantity": 500
+      }
+    ],
+    "producedQuantity": 500
+  },
+  "89637": {
+    "blueprintTypeId": 89637,
+    "blueprintName": "Odysseus Blueprint",
+    "productTypeId": 89607,
+    "productName": "Odysseus",
+    "activityId": 1,
+    "time": 300000,
+    "materials": [
+      {
+        "typeId": 57479,
+        "quantity": 1
+      },
+      {
+        "typeId": 57486,
+        "quantity": 250
+      },
+      {
+        "typeId": 83473,
+        "quantity": 250
+      },
+      {
+        "typeId": 57478,
+        "quantity": 500
+      },
+      {
+        "typeId": 40,
+        "quantity": 8000
+      },
+      {
+        "typeId": 39,
+        "quantity": 16000
+      },
+      {
+        "typeId": 38,
+        "quantity": 60000
+      },
+      {
+        "typeId": 37,
+        "quantity": 600000
+      },
+      {
+        "typeId": 36,
+        "quantity": 1200000
+      },
+      {
+        "typeId": 35,
+        "quantity": 6000000
+      },
+      {
+        "typeId": 34,
+        "quantity": 16000000
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "89652": {
+    "blueprintTypeId": 89652,
+    "blueprintName": "Outrider Blueprint",
+    "productTypeId": 89649,
+    "productName": "Outrider",
+    "activityId": 1,
+    "time": 180000,
+    "materials": [
+      {
+        "typeId": 89240,
+        "quantity": 1
+      },
+      {
+        "typeId": 11478,
+        "quantity": 10
+      },
+      {
+        "typeId": 11399,
+        "quantity": 16
+      },
+      {
+        "typeId": 11547,
+        "quantity": 17
+      },
+      {
+        "typeId": 3828,
+        "quantity": 25
+      },
+      {
+        "typeId": 11556,
+        "quantity": 43
+      },
+      {
+        "typeId": 11531,
+        "quantity": 62
+      },
+      {
+        "typeId": 11535,
+        "quantity": 75
+      },
+      {
+        "typeId": 11553,
+        "quantity": 160
+      },
+      {
+        "typeId": 11541,
+        "quantity": 360
+      },
+      {
+        "typeId": 11545,
+        "quantity": 1640
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "89675": {
+    "blueprintTypeId": 89675,
+    "blueprintName": "Pioneer Consortium Issue Blueprint",
+    "productTypeId": 89647,
+    "productName": "Pioneer Consortium Issue",
+    "activityId": 1,
+    "time": 9000,
+    "materials": [
+      {
+        "typeId": 57486,
+        "quantity": 5
+      },
+      {
+        "typeId": 40,
+        "quantity": 10
+      },
+      {
+        "typeId": 57478,
+        "quantity": 10
+      },
+      {
+        "typeId": 39,
+        "quantity": 20
+      },
+      {
+        "typeId": 38,
+        "quantity": 30
+      },
+      {
+        "typeId": 37,
+        "quantity": 4000
+      },
+      {
+        "typeId": 36,
+        "quantity": 20000
+      },
+      {
+        "typeId": 35,
+        "quantity": 60000
+      },
+      {
+        "typeId": 34,
+        "quantity": 320000
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "89676": {
+    "blueprintTypeId": 89676,
+    "blueprintName": "Venture Consortium Issue Blueprint",
+    "productTypeId": 89648,
+    "productName": "Venture Consortium Issue",
+    "activityId": 1,
+    "time": 6000,
+    "materials": [
+      {
+        "typeId": 57486,
+        "quantity": 5
+      },
+      {
+        "typeId": 40,
+        "quantity": 10
+      },
+      {
+        "typeId": 57478,
+        "quantity": 10
+      },
+      {
+        "typeId": 39,
+        "quantity": 20
+      },
+      {
+        "typeId": 38,
+        "quantity": 30
+      },
+      {
+        "typeId": 37,
+        "quantity": 350
+      },
+      {
+        "typeId": 36,
+        "quantity": 1750
+      },
+      {
+        "typeId": 35,
+        "quantity": 4200
+      },
+      {
+        "typeId": 34,
+        "quantity": 22400
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "90039": {
+    "blueprintTypeId": 90039,
+    "blueprintName": "Mobile Phase Anchor Blueprint",
+    "productTypeId": 90037,
+    "productName": "Mobile Phase Anchor",
+    "activityId": 1,
+    "time": 12000,
+    "materials": [
+      {
+        "typeId": 2870,
+        "quantity": 1
+      },
+      {
+        "typeId": 2872,
+        "quantity": 1
+      },
+      {
+        "typeId": 85316,
+        "quantity": 1
+      },
+      {
+        "typeId": 9834,
+        "quantity": 11
+      },
+      {
+        "typeId": 40,
+        "quantity": 13
+      },
+      {
+        "typeId": 39,
+        "quantity": 17
+      },
+      {
+        "typeId": 38,
+        "quantity": 19
+      },
+      {
+        "typeId": 37,
+        "quantity": 307
+      },
+      {
+        "typeId": 36,
+        "quantity": 743
+      },
+      {
+        "typeId": 35,
+        "quantity": 4241
+      },
+      {
+        "typeId": 34,
+        "quantity": 19993
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "90054": {
+    "blueprintTypeId": 90054,
+    "blueprintName": "Erratic Ore Mining Crystal Type A I Blueprint",
+    "productTypeId": 90045,
+    "productName": "Erratic Ore Mining Crystal Type A I",
+    "activityId": 1,
+    "time": 300,
+    "materials": [
+      {
+        "typeId": 38,
+        "quantity": 500
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "90055": {
+    "blueprintTypeId": 90055,
+    "blueprintName": "Erratic Ore Mining Crystal Type B I Blueprint",
+    "productTypeId": 90046,
+    "productName": "Erratic Ore Mining Crystal Type B I",
+    "activityId": 1,
+    "time": 300,
+    "materials": [
+      {
+        "typeId": 38,
+        "quantity": 625
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "90056": {
+    "blueprintTypeId": 90056,
+    "blueprintName": "Erratic Ore Mining Crystal Type C I Blueprint",
+    "productTypeId": 90048,
+    "productName": "Erratic Ore Mining Crystal Type C I",
+    "activityId": 1,
+    "time": 300,
+    "materials": [
+      {
+        "typeId": 38,
+        "quantity": 750
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "90057": {
+    "blueprintTypeId": 90057,
+    "blueprintName": "Erratic Ore Mining Crystal Type A II Blueprint",
+    "productTypeId": 90047,
+    "productName": "Erratic Ore Mining Crystal Type A II",
+    "activityId": 1,
+    "time": 480,
+    "materials": [
+      {
+        "typeId": 11483,
+        "quantity": 1
+      },
+      {
+        "typeId": 90045,
+        "quantity": 1
+      },
+      {
+        "typeId": 16682,
+        "quantity": 30
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "90058": {
+    "blueprintTypeId": 90058,
+    "blueprintName": "Erratic Ore Mining Crystal Type B II Blueprint",
+    "productTypeId": 90050,
+    "productName": "Erratic Ore Mining Crystal Type B II",
+    "activityId": 1,
+    "time": 480,
+    "materials": [
+      {
+        "typeId": 11483,
+        "quantity": 1
+      },
+      {
+        "typeId": 90046,
+        "quantity": 1
+      },
+      {
+        "typeId": 16682,
+        "quantity": 38
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "90059": {
+    "blueprintTypeId": 90059,
+    "blueprintName": "Erratic Ore Mining Crystal Type C II Blueprint",
+    "productTypeId": 90049,
+    "productName": "Erratic Ore Mining Crystal Type C II",
+    "activityId": 1,
+    "time": 480,
+    "materials": [
+      {
+        "typeId": 11483,
+        "quantity": 1
+      },
+      {
+        "typeId": 90048,
+        "quantity": 1
+      },
+      {
+        "typeId": 16682,
+        "quantity": 45
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "90274": {
+    "blueprintTypeId": 90274,
+    "blueprintName": "Unrefined Tritanium Formula",
+    "productTypeId": 90283,
+    "productName": "Unrefined Tritanium",
+    "activityId": 11,
+    "time": 3600,
+    "materials": [
+      {
+        "typeId": 16634,
+        "quantity": 100
+      },
+      {
+        "typeId": 90307,
+        "quantity": 100
+      }
+    ],
+    "producedQuantity": 100
+  },
+  "90275": {
+    "blueprintTypeId": 90275,
+    "blueprintName": "Unrefined Pyerite Formula",
+    "productTypeId": 90284,
+    "productName": "Unrefined Pyerite",
+    "activityId": 11,
+    "time": 3600,
+    "materials": [
+      {
+        "typeId": 90307,
+        "quantity": 100
+      },
+      {
+        "typeId": 16634,
+        "quantity": 250
+      }
+    ],
+    "producedQuantity": 100
+  },
+  "90276": {
+    "blueprintTypeId": 90276,
+    "blueprintName": "Unrefined Mexallon Formula",
+    "productTypeId": 90286,
+    "productName": "Unrefined Mexallon",
+    "activityId": 11,
+    "time": 3600,
+    "materials": [
+      {
+        "typeId": 90307,
+        "quantity": 100
+      },
+      {
+        "typeId": 16634,
+        "quantity": 300
+      }
+    ],
+    "producedQuantity": 100
+  },
+  "90277": {
+    "blueprintTypeId": 90277,
+    "blueprintName": "Unrefined Isogen Formula",
+    "productTypeId": 90289,
+    "productName": "Unrefined Isogen",
+    "activityId": 11,
+    "time": 3600,
+    "materials": [
+      {
+        "typeId": 90307,
+        "quantity": 100
+      },
+      {
+        "typeId": 16634,
+        "quantity": 1000
+      }
+    ],
+    "producedQuantity": 100
+  },
+  "90278": {
+    "blueprintTypeId": 90278,
+    "blueprintName": "Unrefined Nocxium Formula",
+    "productTypeId": 90292,
+    "productName": "Unrefined Nocxium",
+    "activityId": 11,
+    "time": 3600,
+    "materials": [
+      {
+        "typeId": 90307,
+        "quantity": 100
+      },
+      {
+        "typeId": 16634,
+        "quantity": 600
+      }
+    ],
+    "producedQuantity": 100
+  },
+  "90279": {
+    "blueprintTypeId": 90279,
+    "blueprintName": "Unrefined Zydrine Formula",
+    "productTypeId": 90294,
+    "productName": "Unrefined Zydrine",
+    "activityId": 11,
+    "time": 3600,
+    "materials": [
+      {
+        "typeId": 90307,
+        "quantity": 100
+      },
+      {
+        "typeId": 16634,
+        "quantity": 1000
+      }
+    ],
+    "producedQuantity": 100
+  },
+  "90281": {
+    "blueprintTypeId": 90281,
+    "blueprintName": "Unrefined Megacyte Formula",
+    "productTypeId": 90296,
+    "productName": "Unrefined Megacyte",
+    "activityId": 11,
+    "time": 3600,
+    "materials": [
+      {
+        "typeId": 90307,
+        "quantity": 100
+      },
+      {
+        "typeId": 16634,
+        "quantity": 1000
+      }
+    ],
+    "producedQuantity": 100
+  },
+  "90282": {
+    "blueprintTypeId": 90282,
+    "blueprintName": "Unrefined Morphite Formula",
+    "productTypeId": 90298,
+    "productName": "Unrefined Morphite",
+    "activityId": 11,
+    "time": 3600,
+    "materials": [
+      {
+        "typeId": 90307,
+        "quantity": 100
+      },
+      {
+        "typeId": 16634,
+        "quantity": 3000
+      }
+    ],
+    "producedQuantity": 100
+  },
+  "90476": {
+    "blueprintTypeId": 90476,
+    "blueprintName": "Integrated Sensor Array Blueprint",
+    "productTypeId": 90475,
+    "productName": "Integrated Sensor Array",
+    "activityId": 1,
+    "time": 54000,
+    "materials": [
+      {
+        "typeId": 40,
+        "quantity": 1166
+      },
+      {
+        "typeId": 39,
+        "quantity": 2334
+      },
+      {
+        "typeId": 38,
+        "quantity": 7823
+      },
+      {
+        "typeId": 37,
+        "quantity": 26033
+      },
+      {
+        "typeId": 36,
+        "quantity": 154957
+      },
+      {
+        "typeId": 35,
+        "quantity": 418117
+      },
+      {
+        "typeId": 34,
+        "quantity": 1717883
+      }
+    ],
+    "producedQuantity": 1
+  },
+  "90734": {
+    "blueprintTypeId": 90734,
+    "blueprintName": "Mining Laser Efficiency Charge Blueprint",
+    "productTypeId": 90733,
+    "productName": "Mining Laser Efficiency Charge",
+    "activityId": 1,
+    "time": 5000,
+    "materials": [
+      {
+        "typeId": 34,
+        "quantity": 500
+      },
+      {
+        "typeId": 37,
+        "quantity": 500
+      },
+      {
+        "typeId": 16272,
+        "quantity": 500
+      }
+    ],
+    "producedQuantity": 500
+  },
+  "91175": {
+    "blueprintTypeId": 91175,
+    "blueprintName": "Perseverance Blueprint",
+    "productTypeId": 91174,
+    "productName": "Perseverance",
+    "activityId": 1,
+    "time": 9000,
+    "materials": [
+      {
+        "typeId": 57486,
+        "quantity": 5
+      },
+      {
+        "typeId": 40,
+        "quantity": 10
+      },
+      {
+        "typeId": 57478,
+        "quantity": 10
+      },
+      {
+        "typeId": 39,
+        "quantity": 20
+      },
+      {
+        "typeId": 38,
+        "quantity": 30
+      },
+      {
+        "typeId": 37,
+        "quantity": 4000
+      },
+      {
+        "typeId": 36,
+        "quantity": 20000
+      },
+      {
+        "typeId": 35,
+        "quantity": 60000
+      },
+      {
+        "typeId": 34,
+        "quantity": 320000
       }
     ],
     "producedQuantity": 1

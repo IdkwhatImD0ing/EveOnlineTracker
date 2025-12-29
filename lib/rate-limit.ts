@@ -5,6 +5,7 @@
 
 import { kv } from '@vercel/kv'
 import { NextResponse } from 'next/server'
+import { isAdminRole, type UserRole } from '@/types/auth'
 
 // Rate limit configuration
 const RATE_LIMIT_WINDOW = 60 // 1 minute in seconds
@@ -22,9 +23,20 @@ interface RateLimitResult {
  * Uses sliding window counter stored in Vercel KV
  * 
  * @param userId - The user ID to check rate limit for
+ * @param role - Optional user role. Admin users bypass rate limiting entirely.
  * @returns RateLimitResult with success status and metadata
  */
-export async function checkRateLimit(userId: string): Promise<RateLimitResult> {
+export async function checkRateLimit(userId: string, role?: UserRole): Promise<RateLimitResult> {
+  // Admins bypass rate limiting entirely
+  if (role && isAdminRole(role)) {
+    return {
+      success: true,
+      limit: Infinity,
+      remaining: Infinity,
+      reset: 0,
+    }
+  }
+
   const now = Math.floor(Date.now() / 1000)
   const windowStart = now - RATE_LIMIT_WINDOW
   const key = `rate_limit:${userId}`

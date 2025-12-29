@@ -156,7 +156,7 @@
     "categoryId": 7
   },
   "49": {
-    "name": "Survey Scanner",
+    "name": "Mining Survey Chipset",
     "categoryId": 7
   },
   "52": {
@@ -376,7 +376,7 @@
     "categoryId": 9
   },
   "129": {
-    "name": "Survey Scanner Blueprint",
+    "name": "Mining Survey Chipset Blueprint",
     "categoryId": 9
   },
   "130": {
@@ -6154,6 +6154,94 @@
   "4900": {
     "name": "Stability Telemetry",
     "categoryId": 17
+  },
+  "4902": {
+    "name": "Expedition Command Ship",
+    "categoryId": 6
+  },
+  "4905": {
+    "name": "Expedition Command Burst Charges",
+    "categoryId": 8
+  },
+  "4906": {
+    "name": "Expedition Command Ship Blueprint",
+    "categoryId": 9
+  },
+  "4909": {
+    "name": "Vanguard Entities",
+    "categoryId": 11
+  },
+  "4913": {
+    "name": "Mobile Phase Anchor",
+    "categoryId": 22
+  },
+  "4914": {
+    "name": "Mobile Phase Anchor Blueprint",
+    "categoryId": 9
+  },
+  "4915": {
+    "name": "Prismaticite",
+    "categoryId": 4
+  },
+  "4916": {
+    "name": "Phased Asteroid",
+    "categoryId": 2152
+  },
+  "4917": {
+    "name": "♦ Industrial Command Ship",
+    "categoryId": 11
+  },
+  "4918": {
+    "name": "Phased Asteroid",
+    "categoryId": 2
+  },
+  "4924": {
+    "name": "Erratic Ore Formula",
+    "categoryId": 9
+  },
+  "4930": {
+    "name": "Managed Asteroid Belt",
+    "categoryId": 2
+  },
+  "4932": {
+    "name": "Unrefined Mineral",
+    "categoryId": 4
+  },
+  "4935": {
+    "name": "Ice Belt",
+    "categoryId": 2
+  },
+  "4936": {
+    "name": "Phased Asteroid Field",
+    "categoryId": 2
+  },
+  "4937": {
+    "name": "Rare Asteroid Field",
+    "categoryId": 2
+  },
+  "4938": {
+    "name": "Ore Deposit",
+    "categoryId": 2
+  },
+  "4941": {
+    "name": "QA Phased Asteroids",
+    "categoryId": 2152
+  },
+  "4945": {
+    "name": "Irregular Expedition Command Ship",
+    "categoryId": 11
+  },
+  "4949": {
+    "name": "InterBus Yoiul LADs",
+    "categoryId": 11
+  },
+  "4972": {
+    "name": "Verity Cryo Tech",
+    "categoryId": 17
+  },
+  "4975": {
+    "name": "Irregular Capital Industrial Ship",
+    "categoryId": 11
   },
   "350858": {
     "name": "Infantry Weapons",

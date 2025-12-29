@@ -194,7 +194,8 @@ CREATE TABLE projects (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  updated_at timestamptz DEFAULT now(),
+  completed boolean NOT NULL DEFAULT false
 );
 ```
 
@@ -204,6 +205,7 @@ CREATE TABLE projects (
 | name       | text        | NOT NULL           | Project name/title    |
 | created_at | timestamptz | DEFAULT now()      | Creation timestamp    |
 | updated_at | timestamptz | DEFAULT now()      | Last update timestamp |
+| completed  | boolean     | NOT NULL, DEFAULT false | Whether project is marked as complete |
 
 **Trigger:** `updated_at` is automatically updated on row modification.
 
@@ -411,6 +413,41 @@ CREATE INDEX idx_watchlist_items_type_id ON watchlist_items(type_id);
 
 ---
 
+### essential_items
+
+Stores pre-curated essential items for nullsec market seeding (admin-managed, shared across all users).
+
+```sql
+CREATE TABLE essential_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type_id bigint NOT NULL UNIQUE,
+  item_name text NOT NULL,
+  group_name text,
+  category_name text,
+  volume numeric,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_essential_items_type_id ON essential_items(type_id);
+CREATE INDEX idx_essential_items_category ON essential_items(category_name);
+```
+
+| Column        | Type        | Constraints        | Description                            |
+| ------------- | ----------- | ------------------ | -------------------------------------- |
+| id            | uuid        | PK, auto-generated | Unique identifier                      |
+| type_id       | bigint      | NOT NULL, UNIQUE   | EVE item type ID                       |
+| item_name     | text        | NOT NULL           | Display name of the item               |
+| group_name    | text        | nullable           | Item group (e.g., "Combat Drone")      |
+| category_name | text        | nullable           | Item category (e.g., "Drone", "Ship")  |
+| volume        | numeric     | nullable           | Volume per unit in m³                  |
+| created_at    | timestamptz | DEFAULT now()      | When item was added                    |
+
+**Purpose:** Stores a curated list of ~2,700 items essential for nullsec living. Unlike `watchlist_items` (personal), this is shared across all users and admin-managed.
+
+**Population:** Run `npx tsx scripts/add-deklein-nullsec-items.ts` to populate with items optimized for Guristas space.
+
+---
+
 ### alliance_fits
 
 Stores alliance ship fittings parsed from EFT format.
@@ -542,6 +579,7 @@ export interface Project {
   name: string
   created_at: string
   updated_at: string
+  completed: boolean
 }
 
 export interface RawMaterial {
@@ -997,7 +1035,21 @@ CREATE TRIGGER update_alliance_fits_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 ```
 
+### Migration 013: Add Project Completed Status
+
+```sql
+-- migrations/013_add_project_completed.sql
+-- Add completed status to projects table
+
+ALTER TABLE projects
+ADD COLUMN completed boolean NOT NULL DEFAULT false;
+
+CREATE INDEX idx_projects_completed ON projects(completed);
+```
+
 ---
+
+## Notes
 
 ## Notes
 

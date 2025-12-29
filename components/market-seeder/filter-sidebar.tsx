@@ -13,6 +13,8 @@ export interface FilterState {
   minOrdersPerDay: number | null  // null = no limit (uses configurable hub factor)
   minProfitPerDay: number | null  // null = no limit (ISK profit per day at hub)
   noCompetitionOnly: boolean
+  hideInInventory: boolean  // Hide items user has in their inventory
+  hideWithSellOrders: boolean  // Hide items user has active sell orders for
   selectedCategories: Set<string>
 }
 
@@ -42,6 +44,8 @@ const DEFAULT_FILTERS: FilterState = {
   minOrdersPerDay: null,  // No limit by default
   minProfitPerDay: null,  // No limit by default
   noCompetitionOnly: false,
+  hideInInventory: false,
+  hideWithSellOrders: false,
   selectedCategories: new Set([
     "Module", "Ship", "Charge", "Booster",
     "Drone", "Fighter", "Implant", "Deployable", "Subsystem"
@@ -82,6 +86,14 @@ export function FilterSidebar({
     onFiltersChange({ ...filters, noCompetitionOnly: checked })
   }
 
+  const handleHideInInventoryChange = (checked: boolean) => {
+    onFiltersChange({ ...filters, hideInInventory: checked })
+  }
+
+  const handleHideWithSellOrdersChange = (checked: boolean) => {
+    onFiltersChange({ ...filters, hideWithSellOrders: checked })
+  }
+
   const handleCategoryChange = (categoryId: string, checked: boolean) => {
     const newCategories = new Set(filters.selectedCategories)
     if (checked) {
@@ -99,6 +111,8 @@ export function FilterSidebar({
       minOrdersPerDay: DEFAULT_FILTERS.minOrdersPerDay,
       minProfitPerDay: DEFAULT_FILTERS.minProfitPerDay,
       noCompetitionOnly: DEFAULT_FILTERS.noCompetitionOnly,
+      hideInInventory: DEFAULT_FILTERS.hideInInventory,
+      hideWithSellOrders: DEFAULT_FILTERS.hideWithSellOrders,
       selectedCategories: new Set(DEFAULT_FILTERS.selectedCategories),
     })
   }
@@ -109,6 +123,8 @@ export function FilterSidebar({
     filters.minOrdersPerDay !== DEFAULT_FILTERS.minOrdersPerDay ||
     filters.minProfitPerDay !== DEFAULT_FILTERS.minProfitPerDay ||
     filters.noCompetitionOnly !== DEFAULT_FILTERS.noCompetitionOnly ||
+    filters.hideInInventory !== DEFAULT_FILTERS.hideInInventory ||
+    filters.hideWithSellOrders !== DEFAULT_FILTERS.hideWithSellOrders ||
     filters.selectedCategories.size !== DEFAULT_FILTERS.selectedCategories.size
 
   return (
@@ -213,6 +229,40 @@ export function FilterSidebar({
             className="text-sm cursor-pointer leading-none"
           >
             No competition only
+          </Label>
+        </div>
+
+        {/* Hide In Inventory Toggle */}
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="hideInInventory"
+            checked={filters.hideInInventory}
+            onCheckedChange={(checked) =>
+              handleHideInInventoryChange(checked === true)
+            }
+          />
+          <Label
+            htmlFor="hideInInventory"
+            className="text-sm cursor-pointer leading-none"
+          >
+            None in inventory
+          </Label>
+        </div>
+
+        {/* Hide With Sell Orders Toggle */}
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="hideWithSellOrders"
+            checked={filters.hideWithSellOrders}
+            onCheckedChange={(checked) =>
+              handleHideWithSellOrdersChange(checked === true)
+            }
+          />
+          <Label
+            htmlFor="hideWithSellOrders"
+            className="text-sm cursor-pointer leading-none"
+          >
+            No sell orders (mine)
           </Label>
         </div>
 

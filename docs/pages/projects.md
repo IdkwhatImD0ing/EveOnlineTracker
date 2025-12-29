@@ -6,6 +6,7 @@ Documentation for the project creation and detail pages.
 
 | Route | File | Purpose |
 |-------|------|---------|
+| `/projects` | `app/projects/page.tsx` | List all projects |
 | `/projects/new` | `app/projects/new/page.tsx` | Create new project |
 | `/projects/[id]` | `app/projects/[id]/page.tsx` | Project detail view |
 
@@ -115,12 +116,13 @@ View and manage a manufacturing project:
 - Add additional costs
 - View price summaries
 - Use Buy Mode for optimized material lists
+- Mark projects as complete
 
 ### Layout
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│  ← Project Name                                [Build All] [Delete]│
+│  ← Project Name              [Mark Complete] [Build All] [Delete]│
 │    Created Jan 15, 2024                                            │
 ├────────────────────────────────────────────────────────────────────┤
 │  Raw Materials                                         [Copy ▼]    │
@@ -197,6 +199,11 @@ View and manage a manufacturing project:
 - Formatted and full value display
 - Copy button
 
+**Project Completion:**
+- "Mark as Complete" button in header (when project is active)
+- "Mark as Active" button in header (when project is completed)
+- Completed projects appear in a separate collapsible section on the projects list page
+
 ### State
 
 ```typescript
@@ -204,6 +211,7 @@ const [project, setProject] = useState<ProjectWithDetails | null>(null)
 const [isLoading, setIsLoading] = useState(true)
 const [error, setError] = useState("")
 const [isDeleting, setIsDeleting] = useState(false)
+const [isCompleting, setIsCompleting] = useState(false)
 const [showBuyRecommendations, setShowBuyRecommendations] = useState(false)
 ```
 
@@ -227,6 +235,7 @@ const adjustedRawMaterials = useMemo(() => {
 | Endpoint | When | Purpose |
 |----------|------|---------|
 | `GET /api/projects/[id]` | On mount | Load project data |
+| `PATCH /api/projects/[id]/complete` | Mark complete/active button click | Toggle completion status |
 | `PATCH /api/projects/[id]/items/[itemId]` | Checkbox/progress change | Update item |
 | `POST /api/projects/[id]/costs` | Add cost form submit | Add additional cost |
 | `DELETE /api/projects/[id]/costs?costId=` | Delete cost click | Remove cost |
@@ -260,8 +269,93 @@ Format: `Item Name\t123456` (tab-separated, one per line)
 
 ---
 
+## Projects List Page
+
+### Route
+
+`/projects` — `app/projects/page.tsx`
+
+### Purpose
+
+Display all projects in a grid layout, with active and completed projects separated into different sections.
+
+### Layout
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  Projects                                    [New Project]         │
+│    Track your manufacturing projects and materials                  │
+├────────────────────────────────────────────────────────────────────┤
+│  🔍 [Search projects...]                                          │
+├────────────────────────────────────────────────────────────────────┤
+│  Active Projects                                                   │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐            │
+│  │ Project 1    │ │ Project 2    │ │ Project 3    │            │
+│  │ Jan 15, 2024 │ │ Jan 14, 2024 │ │ Jan 13, 2024 │            │
+│  └──────────────┘ └──────────────┘ └──────────────┘            │
+├────────────────────────────────────────────────────────────────────┤
+│  ▼ Completed Projects (2)                                          │
+│  ┌──────────────┐ ┌──────────────┐                              │
+│  │ ✓ Project 4  │ │ ✓ Project 5  │                              │
+│  │ Jan 10, 2024 │ │ Jan 8, 2024   │                              │
+│  └──────────────┘ └──────────────┘                              │
+├────────────────────────────────────────────────────────────────────┤
+│  5 of 5 projects (3 active, 2 completed)                        │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### Features
+
+**Project Display:**
+- Active projects shown in main grid section
+- Completed projects shown in collapsible section below
+- Each project card shows name and creation date
+- Click any card to navigate to project detail page
+
+**Search:**
+- Search bar filters projects by name
+- Works across both active and completed sections
+- Shows count of matching projects
+
+**Completed Projects Section:**
+- Collapsible section (collapsed by default)
+- Shows count of completed projects in header
+- Completed projects have visual indicator (checkmark icon)
+- Slightly muted styling to distinguish from active projects
+- Click header to expand/collapse
+
+**Summary:**
+- Shows total count of projects
+- Displays breakdown of active vs completed projects
+
+### State
+
+```typescript
+const [projects, setProjects] = useState<Project[]>([])
+const [isLoading, setIsLoading] = useState(true)
+const [searchQuery, setSearchQuery] = useState("")
+const [isCompletedOpen, setIsCompletedOpen] = useState(false)
+```
+
+### API Calls
+
+| Endpoint | When | Purpose |
+|----------|------|---------|
+| `GET /api/projects` | On mount | Load all projects |
+
+### Project Separation
+
+Projects are automatically separated into:
+- **Active Projects**: `projects.filter(p => !p.completed)`
+- **Completed Projects**: `projects.filter(p => p.completed)`
+
+Both arrays are filtered by search query independently, allowing users to search across all projects regardless of completion status.
+
+---
+
 ## Related Files
 
+- `app/projects/page.tsx` — Projects list page
 - `app/projects/new/page.tsx` — New project form
 - `app/projects/[id]/page.tsx` — Project detail view
 - `components/item-list.tsx` — Item list component
@@ -269,5 +363,6 @@ Format: `Item Name\t123456` (tab-separated, one per line)
 - `components/price-summary.tsx` — Price totals
 - `components/additional-costs.tsx` — Cost management
 - `components/total-cost.tsx` — Total display
+- `components/ui/collapsible.tsx` — Collapsible component for completed section
 - `types/database.ts` — Type definitions
 

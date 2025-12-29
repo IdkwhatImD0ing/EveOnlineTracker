@@ -7,6 +7,8 @@ export interface Project {
   name: string
   created_at: string
   updated_at: string
+  completed: boolean
+  progress?: number  // 0-100 percentage
 }
 
 export interface RawMaterial {

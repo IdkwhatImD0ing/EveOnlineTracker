@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Rate limiting
-  const rateLimitResult = await checkRateLimit(session.user.id)
+  const rateLimitResult = await checkRateLimit(session.user.id, session.user.role)
   if (!rateLimitResult.success) {
     return createRateLimitResponse(rateLimitResult)
   }
@@ -249,8 +249,10 @@ export async function GET(request: NextRequest) {
           : null  // Only null when there's truly no sales data
 
       const jitaBuyPrice = jitaPrice?.lowestSellPrice ?? null
-      const profitPerUnit = lowestPrice && jitaBuyPrice
-        ? lowestPrice - jitaBuyPrice
+      // Use current sell price if available, otherwise use regional avg price as target
+      const targetSellPrice = lowestPrice ?? regionStats?.avgPrice ?? null
+      const profitPerUnit = targetSellPrice && jitaBuyPrice
+        ? targetSellPrice - jitaBuyPrice
         : 0
       const dailyProfit = estimatedDailySales * Math.max(0, profitPerUnit)
 
@@ -374,7 +376,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limiting
-    const rateLimitResult = await checkRateLimit(session.user.id)
+    const rateLimitResult = await checkRateLimit(session.user.id, session.user.role)
     if (!rateLimitResult.success) {
       return createRateLimitResponse(rateLimitResult)
     }

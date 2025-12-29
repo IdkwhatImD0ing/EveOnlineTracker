@@ -49,6 +49,9 @@ export interface ProfitAnalysis {
   trendDirection: "up" | "down" | "stable"
   compositeScore: number
   compositeScoreFormatted: string
+  // User ownership (optional - populated when user data is available)
+  userHasInInventory?: boolean    // True if any linked character has this item in their hangar
+  userHasSellOrder?: boolean      // True if any linked character has an active sell order for this item
 }
 
 export type SortColumn =

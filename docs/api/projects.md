@@ -511,6 +511,75 @@ curl -X POST "http://localhost:3000/api/projects/from-calculation" \
 
 ---
 
+### PATCH /api/projects/[id]/complete
+
+Toggle a project's completion status.
+
+**Authentication:** Required (user role or higher)
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | uuid | Project ID |
+
+**Request Body:**
+
+```json
+{
+  "completed": true
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| completed | boolean | Yes | Whether the project should be marked as complete |
+
+**Example Request:**
+
+*Mark project as complete:*
+```bash
+curl -X PATCH "http://localhost:3000/api/projects/550e8400.../complete" \
+  -H "Content-Type: application/json" \
+  -d '{"completed": true}'
+```
+
+*Mark project as active:*
+```bash
+curl -X PATCH "http://localhost:3000/api/projects/550e8400.../complete" \
+  -H "Content-Type: application/json" \
+  -d '{"completed": false}'
+```
+
+**Success Response (200):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Chimera Build",
+  "created_at": "2024-01-15T10:30:00.000Z",
+  "updated_at": "2024-01-15T16:00:00.000Z",
+  "completed": true
+}
+```
+
+**Error Responses:**
+
+*Invalid completed value (400):*
+```json
+{
+  "error": "completed field must be a boolean"
+}
+```
+
+*Project not found (404):*
+```json
+{
+  "error": "Project not found"
+}
+```
+
+---
+
 ## Data Models
 
 ### Project
@@ -520,6 +589,7 @@ interface Project {
   name: string         // Project name
   created_at: string   // ISO timestamp
   updated_at: string   // ISO timestamp
+  completed: boolean   // Whether project is marked as complete
 }
 ```
 
@@ -577,6 +647,7 @@ interface AdditionalCost {
 
 - `app/api/projects/route.ts` - List/create projects
 - `app/api/projects/[id]/route.ts` - Get/delete project
+- `app/api/projects/[id]/complete/route.ts` - Toggle completion status
 - `app/api/projects/[id]/costs/route.ts` - Manage costs
 - `app/api/projects/[id]/items/[itemId]/route.ts` - Update items
 - `app/api/projects/from-calculation/route.ts` - Create from calculator
