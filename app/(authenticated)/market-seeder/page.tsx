@@ -601,8 +601,13 @@ export default function MarketSeederPage() {
   }, [structureId, volumeRegionId, hubFactor])
 
   const copyDepletionBuyText = useCallback(async () => {
-    // Apply all filters: category, competition, and hide owned items
+    // Apply all filters: category, competition, hide owned items, and urgency
     const filteredPredictions = depletionPredictions.filter(p => {
+      // Urgency filter
+      const urgency = p.currentStock === 0 ? 'critical'
+        : p.daysUntilStockout === null ? 'none'
+        : p.daysUntilStockout < 3 ? 'warning' : 'ok'
+      if (!depletionFilters.selectedUrgency.has(urgency)) return false
       // Category filter
       if (p.categoryName && !depletionFilters.selectedCategories.has(p.categoryName)) return false
       // Competition filter
@@ -638,7 +643,7 @@ export default function MarketSeederPage() {
     } catch (err) {
       console.error('Failed to copy:', err)
     }
-  }, [depletionPredictions, depletionFilters.selectedCategories, depletionIncludeCritical, depletionIncludeWarning, depletionRestockTopN, depletionRestockDays])
+  }, [depletionPredictions, depletionFilters, depletionIncludeCritical, depletionIncludeWarning, depletionRestockTopN, depletionRestockDays])
 
   // ============================================================================
   // Capital Efficiency Functions
