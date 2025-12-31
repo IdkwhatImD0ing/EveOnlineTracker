@@ -15,6 +15,7 @@ import {
 import { UndercutSubtab } from "./undercut-subtab"
 import { SellSubtab } from "./sell-subtab"
 import { HistorySubtab } from "./history-subtab"
+import { type HistoryFilterState } from "./history-filter-sidebar"
 
 interface MarketTabProps {
   // Sub-tab state
@@ -61,6 +62,8 @@ interface MarketTabProps {
   historyPeriod: OrderHistoryPeriod
   onHistoryPeriodChange: (period: OrderHistoryPeriod) => void
   onHistoryRefresh: () => void
+  historyFilters: HistoryFilterState
+  onHistoryFiltersChange: (filters: HistoryFilterState) => void
 
   // Hub factor display
   hubFactorPercent?: string  // e.g. "5%" - for display in labels
@@ -100,6 +103,8 @@ export function MarketTab({
   historyPeriod,
   onHistoryPeriodChange,
   onHistoryRefresh,
+  historyFilters,
+  onHistoryFiltersChange,
   hubFactorPercent = "5%",
 }: MarketTabProps) {
   return (
@@ -179,6 +184,8 @@ export function MarketTab({
             period={historyPeriod}
             onPeriodChange={onHistoryPeriodChange}
             onRefresh={onHistoryRefresh}
+            filters={historyFilters}
+            onFiltersChange={onHistoryFiltersChange}
           />
         </TabsContent>
       </Tabs>

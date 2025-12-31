@@ -24,6 +24,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
+  Filter,
 } from "lucide-react"
 import {
   type OrderHistoryData,
@@ -32,6 +33,7 @@ import {
   ORDER_HISTORY_PERIODS,
 } from "@/types/market-seeder"
 import { EveItemIcon } from "@/components/eve-item-icon"
+import { HistoryFilterSidebar, type HistoryFilterState } from "./history-filter-sidebar"
 
 interface HistorySubtabProps {
   data: OrderHistoryData | null
@@ -40,6 +42,8 @@ interface HistorySubtabProps {
   period: OrderHistoryPeriod
   onPeriodChange: (period: OrderHistoryPeriod) => void
   onRefresh: () => void
+  filters: HistoryFilterState
+  onFiltersChange: (filters: HistoryFilterState) => void
 }
 
 type SortKey = "totalProfit" | "totalRevenue" | "quantitySold" | "profitMargin"
@@ -65,21 +69,50 @@ export function HistorySubtab({
   period,
   onPeriodChange,
   onRefresh,
+  filters,
+  onFiltersChange,
 }: HistorySubtabProps) {
   const [sortBy, setSortBy] = useState<SortKey>("totalProfit")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
+  const [showFilters, setShowFilters] = useState(false)
 
-  // Sort items
-  const sortedItems = useMemo(() => {
+  // Filter and sort items
+  const filteredItems = useMemo(() => {
     if (!data) return []
-    const items = [...data.items]
+    return data.items.filter(item => {
+      // Category filter
+      if (item.categoryName && !filters.selectedCategories.has(item.categoryName)) {
+        return false
+      }
+      // Profit status filter
+      if (filters.profitStatus === 'profitable' && item.totalProfit <= 0) {
+        return false
+      }
+      if (filters.profitStatus === 'loss' && item.totalProfit >= 0) {
+        return false
+      }
+      // Min margin filter
+      if (filters.minMargin !== null && item.profitMargin < filters.minMargin) {
+        return false
+      }
+      // Min quantity filter
+      if (filters.minQuantitySold !== null && item.quantitySold < filters.minQuantitySold) {
+        return false
+      }
+      return true
+    })
+  }, [data, filters])
+
+  // Sort filtered items
+  const sortedItems = useMemo(() => {
+    const items = [...filteredItems]
     items.sort((a, b) => {
       const multiplier = sortDirection === "desc" ? -1 : 1
       return (a[sortBy] - b[sortBy]) * multiplier
     })
     return items
-  }, [data, sortBy, sortDirection])
+  }, [filteredItems, sortBy, sortDirection])
 
   // Toggle sort
   const handleSort = (key: SortKey) => {
@@ -145,6 +178,15 @@ export function HistorySubtab({
                   ))}
                 </TabsList>
               </Tabs>
+              {/* Mobile filter toggle */}
+              <Button
+                variant="outline"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="size-4" />
+              </Button>
               <Button
                 onClick={onRefresh}
                 disabled={loading}
@@ -166,6 +208,18 @@ export function HistorySubtab({
           </div>
         </CardHeader>
       </Card>
+
+      {/* Mobile filter sidebar */}
+      {showFilters && (
+        <div className="lg:hidden">
+          <HistoryFilterSidebar
+            filters={filters}
+            onFiltersChange={onFiltersChange}
+            totalItems={data?.items.length ?? 0}
+            filteredCount={filteredItems.length}
+          />
+        </div>
+      )}
 
       {/* Error display */}
       {error && (
@@ -235,108 +289,123 @@ export function HistorySubtab({
         </div>
       )}
 
-      {/* Items List */}
-      {data && data.items.length > 0 && (
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">
-                Profit by Item ({data.items.length} items)
-              </CardTitle>
-              <Select value={sortBy} onValueChange={(v) => handleSort(v as SortKey)}>
-                <SelectTrigger className="w-[180px]">
-                  <ArrowUpDown className="size-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="totalProfit">Sort by Profit</SelectItem>
-                  <SelectItem value="totalRevenue">Sort by Revenue</SelectItem>
-                  <SelectItem value="quantitySold">Sort by Quantity</SelectItem>
-                  <SelectItem value="profitMargin">Sort by Margin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {sortedItems.map((item) => {
-                const isExpanded = expandedItems.has(item.typeId)
-                
-                return (
-                  <div
-                    key={item.typeId}
-                    className={`rounded-lg border transition-colors ${
-                      item.totalProfit > 0 
-                        ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10" 
-                        : item.totalProfit < 0 
-                          ? "border-red-500/30 bg-red-500/5 hover:bg-red-500/10"
-                          : "border-border hover:bg-muted/50"
-                    }`}
-                  >
-                    {/* Main row */}
-                    <button
-                      onClick={() => toggleExpand(item.typeId)}
-                      className="w-full p-4 flex items-center gap-4 text-left"
-                    >
-                      <EveItemIcon typeId={item.typeId} size={32} className="size-8 rounded" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{item.typeName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.orderCount} order{item.orderCount !== 1 ? "s" : ""} • {item.quantitySold.toLocaleString()} sold
-                        </p>
-                      </div>
-                      <div className="hidden sm:block text-right">
-                        <p className="text-sm text-muted-foreground">Revenue</p>
-                        <p className="font-medium">{formatISK(item.totalRevenue)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Profit</p>
-                        <p className={`font-bold ${getProfitColor(item.totalProfit)}`}>
-                          {formatISK(item.totalProfit)}
-                        </p>
-                      </div>
-                      <Badge variant="secondary" className={getMarginBadgeClass(item.profitMargin)}>
-                        {item.profitMargin.toFixed(1)}%
-                      </Badge>
-                      {isExpanded ? (
-                        <ChevronUp className="size-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="size-4 text-muted-foreground" />
-                      )}
-                    </button>
-
-                    {/* Expanded details */}
-                    {isExpanded && (
-                      <div className="px-4 pb-4 pt-0 border-t border-border/50 mt-0">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Avg Sell Price</p>
-                            <p className="font-medium">{formatISK(item.avgSellPrice)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Est. Jita Price</p>
-                            <p className="font-medium">
-                              {item.jitaPrice ? formatISK(item.jitaPrice) : "—"}
+      {/* Main content with sidebar */}
+      <div className="flex gap-6">
+        {/* Items List */}
+        <div className="flex-1 min-w-0">
+          {data && data.items.length > 0 && (
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">
+                    Profit by Item ({filteredItems.length} of {data.items.length} items)
+                  </CardTitle>
+                  <Select value={sortBy} onValueChange={(v) => handleSort(v as SortKey)}>
+                    <SelectTrigger className="w-[180px]">
+                      <ArrowUpDown className="size-4 mr-2" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="totalProfit">Sort by Profit</SelectItem>
+                      <SelectItem value="totalRevenue">Sort by Revenue</SelectItem>
+                      <SelectItem value="quantitySold">Sort by Quantity</SelectItem>
+                      <SelectItem value="profitMargin">Sort by Margin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {sortedItems.map((item) => {
+                    const isExpanded = expandedItems.has(item.typeId)
+                    
+                    return (
+                      <div
+                        key={item.typeId}
+                        className={`rounded-lg border transition-colors ${
+                          item.totalProfit > 0 
+                            ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10" 
+                            : item.totalProfit < 0 
+                              ? "border-red-500/30 bg-red-500/5 hover:bg-red-500/10"
+                              : "border-border hover:bg-muted/50"
+                        }`}
+                      >
+                        {/* Main row */}
+                        <button
+                          onClick={() => toggleExpand(item.typeId)}
+                          className="w-full p-4 flex items-center gap-4 text-left"
+                        >
+                          <EveItemIcon typeId={item.typeId} size={32} className="size-8 rounded" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{item.typeName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.orderCount} order{item.orderCount !== 1 ? "s" : ""} • {item.quantitySold.toLocaleString()} sold
                             </p>
                           </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Est. Total Cost</p>
-                            <p className="font-medium">{formatISK(item.estimatedCost)}</p>
+                          <div className="hidden sm:block text-right">
+                            <p className="text-sm text-muted-foreground">Revenue</p>
+                            <p className="font-medium">{formatISK(item.totalRevenue)}</p>
                           </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Category</p>
-                            <p className="font-medium">{item.categoryName ?? "Unknown"}</p>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Profit</p>
+                            <p className={`font-bold ${getProfitColor(item.totalProfit)}`}>
+                              {formatISK(item.totalProfit)}
+                            </p>
                           </div>
-                        </div>
+                          <Badge variant="secondary" className={getMarginBadgeClass(item.profitMargin)}>
+                            {item.profitMargin.toFixed(1)}%
+                          </Badge>
+                          {isExpanded ? (
+                            <ChevronUp className="size-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="size-4 text-muted-foreground" />
+                          )}
+                        </button>
+
+                        {/* Expanded details */}
+                        {isExpanded && (
+                          <div className="px-4 pb-4 pt-0 border-t border-border/50 mt-0">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
+                              <div>
+                                <p className="text-xs text-muted-foreground">Avg Sell Price</p>
+                                <p className="font-medium">{formatISK(item.avgSellPrice)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Est. Jita Price</p>
+                                <p className="font-medium">
+                                  {item.jitaPrice ? formatISK(item.jitaPrice) : "—"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Est. Total Cost</p>
+                                <p className="font-medium">{formatISK(item.estimatedCost)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Category</p>
+                                <p className="font-medium">{item.categoryName ?? "Unknown"}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Desktop filter sidebar */}
+        <div className="hidden lg:block w-72 shrink-0">
+          <HistoryFilterSidebar
+            filters={filters}
+            onFiltersChange={onFiltersChange}
+            totalItems={data?.items.length ?? 0}
+            filteredCount={filteredItems.length}
+          />
+        </div>
+      </div>
 
       {/* Empty state - no data yet */}
       {!data && !loading && !error && (
@@ -364,6 +433,16 @@ export function HistorySubtab({
           <AlertDescription>
             No completed sell orders found in the last {ORDER_HISTORY_PERIODS.find(p => p.value === period)?.label.toLowerCase()}.
             Orders must be fully sold (expired with 0 remaining) to appear here.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Empty state - all filtered out */}
+      {data && data.items.length > 0 && filteredItems.length === 0 && (
+        <Alert>
+          <AlertCircle className="size-4" />
+          <AlertDescription>
+            No items match your current filters. Try adjusting the filter criteria.
           </AlertDescription>
         </Alert>
       )}

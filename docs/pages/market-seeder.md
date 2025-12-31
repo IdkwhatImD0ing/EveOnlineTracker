@@ -780,8 +780,34 @@ Quickly identify when competitors have undercut your sell orders and get the exa
 3. Filters to orders in the selected structure (3T7-M8 Keepstar by default)
 4. Compares against all structure sell orders
 5. For each item where a competitor has a lower price, calculates the 1-tick undercut price
+6. **Profitability check**: Items are split into "profitable" and "not worth undercutting" based on whether the undercut price would still yield profit
 
 **Self-Undercut Filtering:** Orders are excluded from the "Being Undercut" list if another of your linked characters already holds the lowest price for that item type. This prevents showing actionable alerts when you're already winning the price war with another account.
+
+#### Profitability Filter
+
+Items where competitors have priced below your cost basis are moved to a separate "Not Worth Undercutting" sidebar. This prevents you from undercutting into a loss.
+
+**Minimum Profitable Price Formula:**
+
+```
+min_profitable_price = jita_sell_price × 1.1 + (volume_m³ × 500 ISK/m³)
+```
+
+Where:
+- `jita_sell_price` = Current lowest sell price in Jita
+- `1.1` = 10% markup to ensure profit
+- `500 ISK/m³` = Shipping cost per cubic meter
+
+**Example:**
+- Item: Damage Control II (Jita: 450,000 ISK, Volume: 5 m³)
+- Min profitable price = 450,000 × 1.1 + (5 × 500) = 497,500 ISK
+- If competitors are selling below 497,500 ISK, the item appears in "Not Worth Undercutting"
+
+Items in the sidebar show:
+- Item name and character
+- Competitor's lowest price (what you'd need to beat)
+- Minimum profitable price (your cost floor)
 
 #### Tick Size Rules
 
@@ -811,13 +837,22 @@ The summary cards and item lists update to reflect only the selected character's
 
 | Card | Description |
 |------|-------------|
-| Being Undercut | Number of items where competitors have lower prices |
+| Action Needed | Number of profitable items where competitors have lower prices |
+| Below Cost | Number of items where competitor price is below your cost basis |
 | Lowest Price | Number of items where you have the lowest price |
 | Your Orders | Total sell orders you have in the structure |
 
+#### Side-by-Side Layout
+
+The Undercut sub-tab uses a two-column layout on large screens:
+- **Left column (wider)**: Actionable undercut items and safe items
+- **Right column (sticky)**: "Not Worth Undercutting" items - always visible while scrolling
+
+On smaller screens, the layout stacks vertically.
+
 #### Undercut Items List
 
-Items being undercut are shown with red highlighting:
+Items being undercut (where undercutting is profitable) are shown with red highlighting:
 - Item icon and name
 - **Character name** - Shows which account owns this order
 - Your current price
@@ -877,7 +912,13 @@ Items where you have the lowest price are shown with green highlighting:
     "your_price": 500000,
     "competitor_price": 495000,
     "undercut_price": 494900,
-    "undercut_price_eve": "494,900.00"
+    "undercut_price_eve": "494,900.00",
+    "jita_price": 450000,
+    "jita_price_formatted": "450.00K ISK",
+    "volume": 5,
+    "min_profitable_price": 497500,
+    "min_profitable_price_formatted": "497.50K ISK",
+    "is_profitable": false
   }],
   "safe_items": [{
     "type_id": 2046,
@@ -888,6 +929,8 @@ Items where you have the lowest price are shown with green highlighting:
   }],
   "summary": {
     "undercut_count": 5,
+    "profitable_undercut_count": 3,
+    "unprofitable_undercut_count": 2,
     "safe_count": 12,
     "total_orders_in_structure": 17
   }

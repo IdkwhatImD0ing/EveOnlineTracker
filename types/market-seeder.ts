@@ -555,6 +555,13 @@ export interface UndercutItem {
   // Character info - which account owns this order
   character_id: number
   character_name: string
+  // Profitability fields
+  jita_price: number | null
+  jita_price_formatted: string | null
+  volume: number  // m³
+  min_profitable_price: number | null  // jita_price * 1.1 + (volume * 500)
+  min_profitable_price_formatted: string | null
+  is_profitable: boolean  // undercut_price >= min_profitable_price
 }
 
 /**
@@ -582,6 +589,8 @@ export interface UndercutData {
   safe_items: SafeItem[]
   summary: {
     undercut_count: number
+    profitable_undercut_count: number
+    unprofitable_undercut_count: number
     safe_count: number
     total_orders_in_structure: number
     structure_id: string

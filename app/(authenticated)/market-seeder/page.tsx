@@ -25,6 +25,7 @@ import {
   type OrderHistoryData,
   type OrderHistoryPeriod,
 } from "@/types/market-seeder"
+import { type HistoryFilterState } from "@/components/market-seeder/history-filter-sidebar"
 import { type ProfitAnalysis } from "@/components/market-seeder/results-table"
 import { type FilterState, DEFAULT_FILTERS } from "@/components/market-seeder/filter-sidebar"
 import { type StockFilterState, DEFAULT_STOCK_FILTERS, type StockItemData } from "@/components/market-seeder/stock-tracker"
@@ -222,6 +223,15 @@ export default function MarketSeederPage() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyPeriod, setHistoryPeriod] = useState<OrderHistoryPeriod>('7d')
+  const [historyFilters, setHistoryFilters] = useState<HistoryFilterState>({
+    selectedCategories: new Set([
+      "Module", "Ship", "Charge", "Booster",
+      "Drone", "Fighter", "Implant", "Deployable", "Subsystem"
+    ]),
+    profitStatus: 'all',
+    minMargin: null,
+    minQuantitySold: null,
+  })
 
   // ============================================================================
   // Settings Persistence
@@ -1429,6 +1439,8 @@ export default function MarketSeederPage() {
               historyPeriod={historyPeriod}
               onHistoryPeriodChange={handleHistoryPeriodChange}
               onHistoryRefresh={fetchOrderHistory}
+              historyFilters={historyFilters}
+              onHistoryFiltersChange={setHistoryFilters}
               hubFactorPercent={hubFactorPercent}
             />
           </TabsContent>

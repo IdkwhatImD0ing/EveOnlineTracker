@@ -5,6 +5,7 @@ import {
   DEFAULT_HUB_FACTOR,
   DEFAULT_VOLUME_REGION_ID,
   VOLUME_REGIONS,
+  REGION_IDS,
   type RegionId
 } from '@/types/market-seeder'
 import { getValidAccessToken, getSessionWithCharacters } from '@/lib/auth'
@@ -12,6 +13,9 @@ import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 import { isAdminRole } from '@/types/auth'
 
 const ESI_BASE = 'https://esi.evetech.net'
+
+// Shipping cost per m³ for profitability calculation
+const SHIPPING_COST_PER_M3 = 500
 
 interface CharacterOrder {
   duration: number
@@ -75,6 +79,13 @@ interface UndercutItem {
   // Character info
   character_id: number
   character_name: string
+  // Profitability fields
+  jita_price: number | null
+  jita_price_formatted: string | null
+  volume: number  // m³
+  min_profitable_price: number | null  // jita_price * 1.1 + (volume * 500)
+  min_profitable_price_formatted: string | null
+  is_profitable: boolean  // competitor_price >= min_profitable_price
 }
 
 interface SafeItem {
@@ -105,6 +116,67 @@ const typeData = invTypes as Record<string, InvType>
 function getTypeName(typeId: number): string {
   const item = typeData[typeId.toString()]
   return item?.name || `Unknown (${typeId})`
+}
+
+function getTypeVolume(typeId: number): number {
+  const item = typeData[typeId.toString()]
+  return item?.volume || 0
+}
+
+/**
+ * Fetch current Jita sell prices for cost basis calculation
+ */
+async function fetchJitaPrices(typeIds: number[]): Promise<Map<number, number>> {
+  const prices = new Map<number, number>()
+  const CONCURRENT = 20
+
+  for (let i = 0; i < typeIds.length; i += CONCURRENT) {
+    const batch = typeIds.slice(i, i + CONCURRENT)
+
+    const promises = batch.map(async (typeId) => {
+      try {
+        const response = await fetch(
+          `${ESI_BASE}/markets/${REGION_IDS.THE_FORGE}/orders/?type_id=${typeId}&order_type=sell`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'X-Compatibility-Date': '2025-11-06',
+            }
+          }
+        )
+
+        if (!response.ok) return null
+
+        const orders: { price: number }[] = await response.json()
+        if (orders.length === 0) return null
+
+        const lowestPrice = Math.min(...orders.map(o => o.price))
+        return { typeId, price: lowestPrice }
+      } catch {
+        return null
+      }
+    })
+
+    const results = await Promise.all(promises)
+    for (const r of results) {
+      if (r) prices.set(r.typeId, r.price)
+    }
+
+    // Small delay between batches
+    if (i + CONCURRENT < typeIds.length) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+  }
+
+  return prices
+}
+
+/**
+ * Calculate minimum profitable price
+ * Formula: jita_price * 1.1 + (volume * 500 ISK/m³)
+ */
+function calculateMinProfitablePrice(jitaPrice: number, volume: number): number {
+  return jitaPrice * 1.1 + (volume * SHIPPING_COST_PER_M3)
 }
 
 /**
@@ -395,26 +467,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Step 6: Fetch regional market data for undercut items
+    // Step 6: Fetch regional market data and Jita prices for undercut items
     const undercutTypeIds = [...new Set(preliminaryUndercuts.map(u => u.type_id))]
     const regionVolumes = new Map<number, number>()
+    let jitaPrices = new Map<number, number>()
 
     if (undercutTypeIds.length > 0) {
+      // Fetch regional volumes and Jita prices in parallel
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
-        p_type_ids: undercutTypeIds,
-        p_region_id: volumeRegionId,
-        p_days_back: 30
-      })
+      const [regionResult, jitaPricesResult] = await Promise.all([
+        supabase.rpc('get_market_seeder_statistics', {
+          p_type_ids: undercutTypeIds,
+          p_region_id: volumeRegionId,
+          p_days_back: 30
+        }),
+        fetchJitaPrices(undercutTypeIds)
+      ])
 
-      if (!error && data && Array.isArray(data)) {
-        for (const row of data as { type_id: number; avg_daily_volume: number }[]) {
+      if (!regionResult.error && regionResult.data && Array.isArray(regionResult.data)) {
+        for (const row of regionResult.data as { type_id: number; avg_daily_volume: number }[]) {
           regionVolumes.set(row.type_id, row.avg_daily_volume || 0)
         }
       }
+
+      jitaPrices = jitaPricesResult
     }
 
-    // Step 7: Build final undercut items with days_to_lowest
+    // Step 7: Build final undercut items with days_to_lowest and profitability
     const undercutItems: UndercutItem[] = preliminaryUndercuts.map(prelim => {
       const valeDailyVolume = regionVolumes.get(prelim.type_id) || 0
       const estimatedDailySales = valeDailyVolume * hubFactor
@@ -424,6 +503,21 @@ export async function GET(request: NextRequest) {
 
       const undercutPrice = calculateUndercutPrice(prelim.competitor_price)
       const priceDiff = prelim.your_price - prelim.competitor_price
+
+      // Get Jita price and volume for profitability calculation
+      const jitaPrice = jitaPrices.get(prelim.type_id) ?? null
+      const volume = getTypeVolume(prelim.type_id)
+      
+      // Calculate minimum profitable price: jita * 1.1 + shipping
+      const minProfitablePrice = jitaPrice !== null
+        ? calculateMinProfitablePrice(jitaPrice, volume)
+        : null
+      
+      // Determine if undercutting is profitable
+      // An item is profitable if the undercut price >= minimum profitable price
+      const isProfitable = minProfitablePrice !== null
+        ? undercutPrice >= minProfitablePrice
+        : true  // Assume profitable if we can't calculate (no Jita price)
 
       return {
         type_id: prelim.type_id,
@@ -448,6 +542,13 @@ export async function GET(request: NextRequest) {
         days_to_lowest: daysToLowest,
         character_id: prelim.character_id,
         character_name: prelim.character_name,
+        // Profitability fields
+        jita_price: jitaPrice,
+        jita_price_formatted: jitaPrice !== null ? formatISK(jitaPrice) : null,
+        volume: volume,
+        min_profitable_price: minProfitablePrice,
+        min_profitable_price_formatted: minProfitablePrice !== null ? formatISK(minProfitablePrice) : null,
+        is_profitable: isProfitable,
       }
     })
 
@@ -462,11 +563,17 @@ export async function GET(request: NextRequest) {
     // Sort safe items by volume remaining (most first)
     safeItems.sort((a, b) => b.your_volume_remain - a.your_volume_remain)
 
+    // Calculate profitable/unprofitable counts
+    const profitableUndercutCount = undercutItems.filter(i => i.is_profitable).length
+    const unprofitableUndercutCount = undercutItems.filter(i => !i.is_profitable).length
+
     return NextResponse.json({
       undercut_items: undercutItems,
       safe_items: safeItems,
       summary: {
         undercut_count: undercutItems.length,
+        profitable_undercut_count: profitableUndercutCount,
+        unprofitable_undercut_count: unprofitableUndercutCount,
         safe_count: safeItems.length,
         total_orders_in_structure: myStructureOrders.length,
         structure_id: structureId,
