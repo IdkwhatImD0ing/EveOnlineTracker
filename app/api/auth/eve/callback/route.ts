@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         const supabase = await createClient()
         const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
 
-        // Update the character's tokens
+        // Update the character's tokens and scope_level to 'full'
         const { data: character, error } = await supabase
           .from('characters')
           .update({
@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
             access_token: tokens.access_token,
             token_expires_at: expiresAt.toISOString(),
             character_name: characterName, // Update in case name changed
+            scope_level: 'full',
           })
           .eq('character_id', characterId)
           .eq('user_id', currentUserId)
@@ -150,13 +151,14 @@ export async function POST(request: NextRequest) {
         )
       }
     } else {
-      // Normal login flow
+      // Normal login flow - uses minimal scopes (users can upgrade later)
       const { user, isNew } = await findOrCreateUser(
         characterId,
         characterName,
         tokens.refresh_token,
         tokens.access_token,
-        tokens.expires_in
+        tokens.expires_in,
+        'minimal' // Login uses minimal scopes; users can request full access later
       )
 
       // Set session cookie

@@ -189,9 +189,10 @@ When using Vercel Cron, set `CRON_SECRET` as an environment variable and Vercel 
 
 All protected API endpoints implement rate limiting using Vercel KV (Redis). The limits are:
 
-- **10 requests per minute per user**
+- **30 requests per minute per user** (sliding window)
 - Rate limiting is based on the authenticated user's ID
 - Uses a sliding window counter algorithm
+- **Admin users are exempt from rate limiting**
 
 ### Rate Limit Headers
 
@@ -199,7 +200,7 @@ All responses from rate-limited endpoints include the following headers:
 
 | Header | Description |
 |--------|-------------|
-| `X-RateLimit-Limit` | Maximum requests allowed per window (10) |
+| `X-RateLimit-Limit` | Maximum requests allowed per window (30) |
 | `X-RateLimit-Remaining` | Remaining requests in current window |
 | `X-RateLimit-Reset` | Unix timestamp when the window resets |
 

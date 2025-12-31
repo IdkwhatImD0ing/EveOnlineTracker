@@ -170,7 +170,7 @@ async function createCronJob(jobDef: JobDefinition, retries = 3): Promise<{ succ
 
       if (response.status === 429) {
         // Rate limited - wait longer and retry
-        const waitTime = attempt * 5000 // 5s, 10s, 15s
+        const waitTime = attempt * 10000 // 10s, 20s, 30s
         console.log(`    Rate limited, waiting ${waitTime / 1000}s before retry ${attempt}/${retries}...`)
         await sleep(waitTime)
         continue
@@ -194,26 +194,44 @@ async function createCronJob(jobDef: JobDefinition, retries = 3): Promise<{ succ
   return { success: false, error: 'Max retries exceeded' }
 }
 
-async function listExistingJobs(): Promise<{ jobId: number; title: string; url: string }[]> {
-  try {
-    const response = await fetch(`${API_BASE}/jobs`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${CRONJOB_API_KEY}`,
-      },
-    })
+async function listExistingJobs(retries = 5): Promise<{ jobId: number; title: string; url: string }[] | null> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE}/jobs`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${CRONJOB_API_KEY}`,
+        },
+      })
 
-    if (!response.ok) {
-      console.error('Failed to list existing jobs:', response.status)
-      return []
+      if (response.status === 429) {
+        // Rate limited - wait and retry
+        const waitTime = attempt * 10000 // 10s, 20s, 30s, 40s, 50s
+        console.log(`  Rate limited, waiting ${waitTime / 1000}s before retry ${attempt}/${retries}...`)
+        await sleep(waitTime)
+        continue
+      }
+
+      if (!response.ok) {
+        console.error('Failed to list existing jobs:', response.status)
+        return null
+      }
+
+      const data = await response.json()
+      return data.jobs || []
+    } catch (error) {
+      if (attempt === retries) {
+        console.error('Error listing jobs after all retries:', error)
+        return null
+      }
+      const waitTime = attempt * 10000
+      console.log(`  Error occurred, waiting ${waitTime / 1000}s before retry ${attempt}/${retries}...`)
+      await sleep(waitTime)
     }
-
-    const data = await response.json()
-    return data.jobs || []
-  } catch (error) {
-    console.error('Error listing jobs:', error)
-    return []
   }
+  
+  console.error('Failed to list existing jobs after max retries')
+  return null
 }
 
 async function deleteJob(jobId: number): Promise<boolean> {
@@ -244,7 +262,18 @@ async function main() {
   // List existing jobs
   console.log('Fetching existing jobs...')
   const existingJobs = await listExistingJobs()
+  
+  // Exit if listing failed - don't proceed with incorrect data
+  if (existingJobs === null) {
+    console.error('\nERROR: Could not fetch existing jobs. Aborting to prevent duplicate job creation.')
+    console.error('Please wait a few minutes for rate limit to reset and try again.')
+    process.exit(1)
+  }
+  
   console.log(`Found ${existingJobs.length} existing jobs\n`)
+  
+  // Wait after listing to avoid rate limiting
+  await sleep(2000)
 
   // Build set of existing job titles for quick lookup
   const existingTitles = new Set(existingJobs.map((job: { title: string }) => job.title))
@@ -268,7 +297,7 @@ async function main() {
     for (const job of marketHistoryJobs) {
       const deleted = await deleteJob(job.jobId)
       console.log(`  ${deleted ? '✓' : '✗'} Deleted job ${job.jobId}: ${job.title}`)
-      await sleep(1000) // Rate limit deletes too
+      await sleep(3000) // Rate limit deletes too
     }
     console.log('')
     existingTitles.clear() // Clear since we deleted them
@@ -308,8 +337,8 @@ async function main() {
       failCount++
     }
 
-    // Rate limiting - cron-job.org has strict limits, wait 2 seconds between requests
-    await sleep(2000)
+    // Rate limiting - cron-job.org has strict limits, wait 5 seconds between requests
+    await sleep(5000)
   }
 
   console.log('\n=== Summary ===')

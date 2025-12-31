@@ -286,7 +286,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<PurchaseC
   }
   
   // Rate limiting
-  const rateLimitResult = await checkRateLimit(session.user_id)
+  const rateLimitResult = await checkRateLimit(session.user_id, session.user.role)
   if (!rateLimitResult.success) {
     return createRateLimitResponse(rateLimitResult) as NextResponse<{ error: string }>
   }

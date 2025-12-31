@@ -951,11 +951,13 @@ Quickly create sell orders for items in your 3T7 hangar with optimal pricing. It
 
 1. Click **Generate Sell Orders** to analyze your inventory
 2. The system fetches your character assets in 3T7
-3. Fetches your existing sell orders and filters out items you already have orders for
+3. Fetches your existing sell orders to identify items you already have orders for
 4. Checks structure orders to determine competition status
 5. Fetches Jita prices as cost basis
-6. Calculates optimal sell price for each item
+6. Calculates optimal sell price for ALL items (including those with existing orders)
 7. Displays results sorted by ISK/day (highest first)
+
+**Note:** Items with existing sell orders are included in the main list with full pricing data. A "Has Order" badge indicates items where you already have an active sell order. This is informational only - you can see what price you should be at even for items you're already selling.
 
 #### Pricing Logic
 
@@ -987,6 +989,7 @@ Each item shows:
 - Item icon and name
 - Quantity in inventory
 - **Character ownership** - Which character(s) have the item (with portraits for multi-character items)
+- **Has Order badge** (blue) - Shown when you already have a sell order for this item (informational)
 - Competition badge (green = no competition, amber = competition)
 - **Sell Price** - The optimal price to list at
 - **Jita Price** - Current Jita price for reference
@@ -1000,9 +1003,9 @@ When multiple characters are linked, a dropdown appears in the header allowing y
 #### Side-by-Side Layout
 
 The Sell sub-tab uses a two-column layout on large screens:
-- **Left column (wider)**: Sell orders with pricing and copy buttons
+- **Left column (wider)**: Sell orders with pricing and copy buttons (includes all items, even those with existing orders)
 - **Right column (sticky)**: "Do Not Sell" items - always visible while scrolling
-  - **Has Existing Orders**: Items where the selected character has inventory AND any of your characters already has a sell order for (blue). When "All Characters" is selected, shows all items with existing orders.
+  - **Has Existing Orders**: Quick reference showing items where you already have sell orders. Displays the optimal sell price and quantity for each item. Shows which character(s) own the order.
   - **Filtered Out**: Items excluded by current filters (amber) with reason badges
 
 On smaller screens, the layout stacks vertically with sell orders first.
@@ -1033,7 +1036,70 @@ Each item has two copy buttons:
    - Paste the price when creating your sell order
 6. Re-generate periodically as market conditions change
 
-#### API Endpoint
+#### Check If I Have Sell Orders
+
+A collapsible utility tool to quickly verify which items from your EVE inventory you already have sell orders for in the selected structure.
+
+**How to Use:**
+
+1. Expand the "Check If I Have Sell Orders" section
+2. Copy items from your EVE inventory (using Ctrl+A, Ctrl+C in the inventory window)
+3. Paste into the text area (supports tab-separated EVE format)
+4. Click **Check Orders**
+
+**Results:**
+
+| Category | Description |
+|----------|-------------|
+| I Have Orders | Items where you (any linked character) already have a sell order in the structure |
+| No Orders Yet | Items you can create new sell orders for |
+| Not Found | Item names that couldn't be matched to known items |
+
+**Key Behavior:**
+
+- Only checks **your characters' orders**, not other sellers' orders
+- Filters by the selected structure ID
+- Shows your lowest listed price, total volume, and **which character(s)** have the orders for items you have orders for
+
+**API Endpoint:** `POST /api/esi/check-orders`
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| structure_id | string | No | Structure ID to filter by (default: 3T7-M8 Keepstar) |
+| item_names | string[] | Yes | Array of item names to check (max 500) |
+
+**Response:**
+
+```json
+{
+  "structure_id": "1051567430261",
+  "with_orders": [
+    {
+      "name": "Damage Control II",
+      "type_id": 2048,
+      "lowest_price": 500000,
+      "lowest_price_formatted": "500.00K ISK",
+      "total_volume": 150,
+      "characters": [
+        { "id": 123456789, "name": "Main Character" },
+        { "id": 987654321, "name": "Alt Character" }
+      ]
+    }
+  ],
+  "without_orders": ["Gyrostabilizer II", "Ballistic Control System II"],
+  "not_found": ["Unknown Item Name"],
+  "summary": {
+    "total_checked": 10,
+    "with_orders_count": 1,
+    "without_orders_count": 2,
+    "not_found_count": 1
+  }
+}
+```
+
+---
+
+#### Sell Order Generator API
 
 **GET /api/esi/sell-order-generator**
 
@@ -1053,6 +1119,10 @@ Each item has two copy buttons:
       { "id": 123456789, "name": "Main Character" }
     ],
     "has_competition": false,
+    "has_existing_order": true,
+    "order_characters": [
+      { "id": 123456789, "name": "Main Character" }
+    ],
     "jita_price": 450000,
     "jita_price_formatted": "450.00K ISK",
     "sell_price": 1800000,
@@ -1063,20 +1133,28 @@ Each item has two copy buttons:
     "isk_per_day": 225000000,
     "isk_per_day_formatted": "225.00M ISK"
   }],
+  "items_with_existing_orders": [],
   "summary": {
     "total_items": 45,
     "total_with_competition": 12,
     "total_no_competition": 33,
     "total_isk_per_day": 500000000,
     "total_isk_per_day_formatted": "500.00M ISK",
-    "filtered_out_existing_orders": 23
+    "total_with_existing_orders": 23
   }
 }
 ```
 
 **Character Ownership:**
 
-Each sell order item includes a `characters` array showing which linked characters have the item in their inventory. When multiple characters have the same item, all are listed. The UI displays character portraits and allows filtering by character using the dropdown in the header.
+Each sell order item includes:
+- `characters` array - which linked characters have the item in their inventory
+- `has_existing_order` boolean - whether the user already has a sell order for this item
+- `order_characters` array - which characters have active sell orders for this item
+
+When multiple characters have the same item, all are listed. The UI displays character portraits and allows filtering by character using the dropdown in the header.
+
+**Note:** All items are included in the main `items` array with full pricing, even those with existing orders. The `items_with_existing_orders` array is maintained for backwards compatibility but can be derived from items where `has_existing_order === true`.
 
 ---
 

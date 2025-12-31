@@ -13,11 +13,19 @@ interface InvType {
   volume: number
 }
 
-interface MarketOrder {
+interface CharacterOrder {
   is_buy_order: boolean
   price: number
   type_id: number
   volume_remain: number
+  location_id: number
+  character_id: number
+  character_name: string
+}
+
+interface CharacterInfo {
+  id: number
+  name: string
 }
 
 interface OrderInfo {
@@ -26,6 +34,7 @@ interface OrderInfo {
   lowest_price: number
   lowest_price_formatted: string
   total_volume: number
+  characters: CharacterInfo[]
 }
 
 const typeData = invTypes as Record<string, InvType>
@@ -52,15 +61,16 @@ function formatISK(value: number): string {
 /**
  * POST /api/esi/check-orders
  * 
- * Checks which items from a list have sell orders in a structure.
+ * Checks which items from a list the user has sell orders for.
+ * Only checks the user's own characters' orders, not other sellers.
  * 
  * Request body:
- *   - structure_id (optional): Structure ID to check (default: 3T7-M8 Keepstar)
+ *   - structure_id (optional): Structure ID to filter orders by (default: 3T7-M8 Keepstar)
  *   - item_names: Array of item names to check
  * 
  * Response:
- *   - with_orders: Items that have sell orders (with price/volume info)
- *   - without_orders: Item names that don't have sell orders
+ *   - with_orders: Items that the user has sell orders for (with price/volume info)
+ *   - without_orders: Item names that the user doesn't have sell orders for
  */
 export async function POST(request: NextRequest) {
   // Get authenticated user from session
@@ -81,7 +91,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Rate limiting
-  const rateLimitResult = await checkRateLimit(session.user_id)
+  const rateLimitResult = await checkRateLimit(session.user_id, session.user.role)
   if (!rateLimitResult.success) {
     return createRateLimitResponse(rateLimitResult)
   }
@@ -124,49 +134,54 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const accessToken = characterTokens[0].access_token
-
   try {
-    // Fetch all sell orders from the structure
-    let allOrders: MarketOrder[] = []
-    let page = 1
-    let totalPages = 1
+    // Fetch orders for all linked characters
+    const allUserOrders: CharacterOrder[] = []
 
-    do {
-      const response = await fetch(
-        `${ESI_BASE}/markets/structures/${structure_id}/?page=${page}`,
-        {
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-            'X-Compatibility-Date': '2025-11-06',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        const error = await response.text()
-        return NextResponse.json(
-          { error: `ESI Error: ${response.status}`, details: error },
-          { status: response.status }
+    const orderResults = await Promise.allSettled(
+      characterTokens.map(async (token) => {
+        const response = await fetch(
+          `${ESI_BASE}/characters/${token.character_id}/orders/`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${token.access_token}`,
+              'X-Compatibility-Date': '2025-11-06',
+            },
+          }
         )
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch orders for ${token.character_name}`)
+        }
+
+        const orders: Omit<CharacterOrder, 'character_id' | 'character_name'>[] = await response.json()
+        // Add character info to each order
+        return orders.map(order => ({
+          ...order,
+          character_id: token.character_id,
+          character_name: token.character_name,
+        }))
+      })
+    )
+
+    // Aggregate orders from all characters
+    for (const result of orderResults) {
+      if (result.status === 'fulfilled') {
+        allUserOrders.push(...result.value)
       }
+    }
 
-      const xPages = response.headers.get('X-Pages')
-      if (xPages) {
-        totalPages = parseInt(xPages, 10)
-      }
+    // Filter to only sell orders in the specified structure and build a map of type_id -> order info
+    const ordersByTypeId = new Map<number, { lowestPrice: number; totalVolume: number; characters: Map<number, string> }>()
+    const structureIdNum = parseInt(structure_id, 10)
 
-      const orders: MarketOrder[] = await response.json()
-      allOrders = allOrders.concat(orders)
-      page++
-    } while (page <= totalPages)
-
-    // Filter to only sell orders and build a map of type_id -> order info
-    const ordersByTypeId = new Map<number, { lowestPrice: number; totalVolume: number }>()
-
-    for (const order of allOrders) {
+    for (const order of allUserOrders) {
+      // Skip buy orders
       if (order.is_buy_order) continue
+      
+      // Filter by structure if specified
+      if (order.location_id !== structureIdNum) continue
 
       const existing = ordersByTypeId.get(order.type_id)
       if (existing) {
@@ -174,10 +189,14 @@ export async function POST(request: NextRequest) {
           existing.lowestPrice = order.price
         }
         existing.totalVolume += order.volume_remain
+        existing.characters.set(order.character_id, order.character_name)
       } else {
+        const characters = new Map<number, string>()
+        characters.set(order.character_id, order.character_name)
         ordersByTypeId.set(order.type_id, {
           lowestPrice: order.price,
           totalVolume: order.volume_remain,
+          characters,
         })
       }
     }
@@ -203,12 +222,17 @@ export async function POST(request: NextRequest) {
       const orderInfo = ordersByTypeId.get(typeId)
 
       if (orderInfo) {
+        // Convert character map to array
+        const characters: CharacterInfo[] = Array.from(orderInfo.characters.entries()).map(
+          ([id, name]) => ({ id, name })
+        )
         withOrders.push({
           name: trimmedName,
           type_id: typeId,
           lowest_price: orderInfo.lowestPrice,
           lowest_price_formatted: formatISK(orderInfo.lowestPrice),
           total_volume: orderInfo.totalVolume,
+          characters,
         })
       } else {
         withoutOrders.push(trimmedName)

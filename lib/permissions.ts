@@ -38,6 +38,7 @@ export const NAV_PERMISSIONS: Record<string, UserRole> = {
   '/': 'slyce',
   '/public-market-seeding': 'slyce',
   '/jita-purchase': 'slyce',
+  '/characters': 'slyce',
   
   // user+ access (excludes slyce)
   '/industry': 'user',
