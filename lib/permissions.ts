@@ -84,6 +84,7 @@ export const API_PERMISSIONS: Record<string, UserRole> = {
   '/api/esi/undercut-check': 'admin',
   '/api/esi/check-orders': 'admin',
   '/api/esi/sell-order-generator': 'admin',
+  '/api/esi/generate-sell-orders-from-names': 'admin',
   '/api/esi/keepstar-3t7': 'admin',
   '/api/esi/capital-efficiency': 'admin',
   '/api/esi/ui/*': 'admin',

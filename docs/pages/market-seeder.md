@@ -952,13 +952,13 @@ Quickly identify when competitors have undercut your sell orders and get the exa
 3. Filters to orders in the selected structure (3T7-M8 Keepstar by default)
 4. Compares against all structure sell orders
 5. For each item where a competitor has a lower price, calculates the 1-tick undercut price
-6. **Profitability check**: Items are split into "profitable" and "not worth undercutting" based on whether the undercut price would still yield profit
+6. **Profitability check**: Items where undercutting would result in a loss are marked with a "Not Worth It" badge
 
 **Self-Undercut Filtering:** Orders are excluded from the "Being Undercut" list if another of your linked characters already holds the lowest price for that item type. This prevents showing actionable alerts when you're already winning the price war with another account.
 
-#### Profitability Filter
+#### Profitability Indicator
 
-Items where competitors have priced below your cost basis are moved to a separate "Not Worth Undercutting" sidebar. This prevents you from undercutting into a loss.
+Items where competitors have priced below your cost basis are shown in the main table with an amber "Not Worth It" badge and a disabled copy button. This prevents you from undercutting into a loss while still showing you the full picture.
 
 **Minimum Profitable Price Formula:**
 
@@ -974,12 +974,13 @@ Where:
 **Example:**
 - Item: Damage Control II (Jita: 450,000 ISK, Volume: 5 m³)
 - Min profitable price = 450,000 × 1.1 + (5 × 500) = 497,500 ISK
-- If competitors are selling below 497,500 ISK, the item appears in "Not Worth Undercutting"
+- If competitors are selling below 497,500 ISK, the item shows a "Not Worth It" badge
 
-Items in the sidebar show:
-- Item name and character
-- Competitor's lowest price (what you'd need to beat)
-- Minimum profitable price (your cost floor)
+Items not worth undercutting show:
+- Amber border and background (instead of red)
+- "Not Worth It" badge
+- Minimum profitable price (your cost floor) instead of days to lowest
+- Disabled copy button with tooltip explaining why
 
 #### Tick Size Rules
 
@@ -1014,25 +1015,27 @@ The summary cards and item lists update to reflect only the selected character's
 | Lowest Price | Number of items where you have the lowest price |
 | Your Orders | Total sell orders you have in the structure |
 
-#### Side-by-Side Layout
-
-The Undercut sub-tab uses a two-column layout on large screens:
-- **Left column (wider)**: Actionable undercut items and safe items
-- **Right column (sticky)**: "Not Worth Undercutting" items - always visible while scrolling
-
-On smaller screens, the layout stacks vertically.
-
 #### Undercut Items List
 
-Items being undercut (where undercutting is profitable) are shown with red highlighting:
+All items being undercut are shown in a single list with visual indicators:
+
+**Profitable items** (red highlighting):
 - Item icon and name
 - **Character name** - Shows which account owns this order
 - Your current price
 - Competitor's lower price
-- Price difference
+- Jita sell price (for reference)
+- Estimated daily sales
+- Days to lowest
 - **Copy button** with the undercut price in EVE-pasteable format
 
-Click the copy button to:
+**Not worth undercutting** (amber highlighting):
+- Same information as above, plus:
+- **"Not Worth It" badge** - Indicates undercutting would result in a loss
+- Shows minimum profitable price instead of days to lowest
+- **Disabled copy button** - Cannot undercut into a loss
+
+Click the copy button (on profitable items) to:
 1. Copy the undercut price to your clipboard
 2. Automatically open the market details window for that item in the EVE client of the character who owns the order
 
@@ -1058,8 +1061,8 @@ Items where you have the lowest price are shown with green highlighting:
 1. Select Structure in the Analysis tab (3T7-M8 Keepstar is default)
 2. Switch to the Market tab, then the Undercut sub-tab
 3. Click **Check Undercuts**
-4. Review items being undercut (red section)
-5. Click the copy button next to each undercut price (this also opens the market window in that character's EVE client)
+4. Review items being undercut - profitable items have red borders, unprofitable items have amber borders with "Not Worth It" badge
+5. For profitable items, click the copy button to copy the undercut price (this also opens the market window in that character's EVE client)
 6. In EVE, modify your order and paste the new price
 7. Re-check periodically to stay competitive
 
@@ -1223,16 +1226,20 @@ Each item has two copy buttons:
    - Paste the price when creating your sell order
 6. Re-generate periodically as market conditions change
 
-#### Check If I Have Sell Orders
+#### Paste Supplies & Generate Sell Orders
 
-A collapsible utility tool to quickly verify which items from your EVE inventory you already have sell orders for in the selected structure.
+A collapsible utility tool that lets you paste items from your EVE inventory to:
+1. Check which items you already have sell orders for
+2. **Generate optimal sell prices** for all pasted items (same pricing as "Generate Sell Orders" button)
+
+This is useful when you have items in Jita or in transit and want to know the sell prices before they arrive at your structure.
 
 **How to Use:**
 
-1. Expand the "Check If I Have Sell Orders" section
+1. Expand the "Paste Supplies & Generate Sell Orders" section
 2. Copy items from your EVE inventory (using Ctrl+A, Ctrl+C in the inventory window)
 3. Paste into the text area (supports tab-separated EVE format)
-4. Click **Check Orders**
+4. Click **Generate Sell Orders**
 
 **Results:**
 
@@ -1241,14 +1248,31 @@ A collapsible utility tool to quickly verify which items from your EVE inventory
 | I Have Orders | Items where you (any linked character) already have a sell order in the structure |
 | No Orders Yet | Items you can create new sell orders for |
 | Not Found | Item names that couldn't be matched to known items |
+| **Generated Sell Orders** | All matched items with optimal sell prices, competition status, and ISK/day estimates |
+
+**Generated Sell Orders Section:**
+
+After clicking "Generate Sell Orders", you'll see a list of all pasted items with:
+- **Sell Price** - Optimal price to list at (tiered markup for no competition, 1-tick undercut for competition)
+- **Jita Price** - Current Jita price for reference
+- **Competition badge** - Whether there are existing sell orders for this item
+- **Has Order badge** - Whether you already have a sell order for this item
+- **ISK/Day** - Estimated daily profit based on regional volume
+- **Copy buttons** - Copy item name or price directly
 
 **Key Behavior:**
 
 - Only checks **your characters' orders**, not other sellers' orders
 - Filters by the selected structure ID
 - Shows your lowest listed price, total volume, and **which character(s)** have the orders for items you have orders for
+- Uses the same pricing logic as the main "Generate Sell Orders" button
 
-**API Endpoint:** `POST /api/esi/check-orders`
+**API Endpoints:**
+
+1. `POST /api/esi/check-orders` - Checks existing orders
+2. `POST /api/esi/generate-sell-orders-from-names` - Generates sell prices from item names
+
+**Check Orders API:** `POST /api/esi/check-orders`
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -1283,6 +1307,65 @@ A collapsible utility tool to quickly verify which items from your EVE inventory
   }
 }
 ```
+
+---
+
+#### Generate Sell Orders From Names API
+
+**POST /api/esi/generate-sell-orders-from-names**
+
+Generates optimal sell prices for items specified by name. Uses the same pricing logic as the sell-order-generator but works with item names instead of fetching from character inventory.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| structure_id | string | No | Structure ID (default: 3T7-M8 Keepstar) |
+| item_names | string[] | Yes | Array of item names to generate prices for (max 500) |
+| hub_factor | number | No | Hub factor for volume estimation (default: 0.05) |
+| volume_region_id | number | No | Region ID for volume data (default: Vale) |
+
+**Response:**
+
+```json
+{
+  "items": [{
+    "type_id": 2048,
+    "type_name": "Damage Control II",
+    "quantity": 0,
+    "characters": [],
+    "has_competition": false,
+    "has_existing_order": true,
+    "order_characters": [
+      { "id": 123456789, "name": "Main Character" }
+    ],
+    "jita_price": 450000,
+    "jita_price_formatted": "450.00K ISK",
+    "competitor_price": null,
+    "competitor_price_formatted": null,
+    "sell_price": 1800000,
+    "sell_price_formatted": "1.80M ISK",
+    "sell_price_eve": "1,800,000.00",
+    "vale_daily_volume": 2500,
+    "estimated_daily_sales": 125,
+    "isk_per_day": 168750000,
+    "isk_per_day_formatted": "168.75M ISK"
+  }],
+  "not_found": ["Unknown Item Name"],
+  "summary": {
+    "total_items": 45,
+    "total_with_competition": 12,
+    "total_no_competition": 33,
+    "total_isk_per_day": 500000000,
+    "total_isk_per_day_formatted": "500.00M ISK",
+    "total_with_existing_orders": 23
+  }
+}
+```
+
+**Key Differences from Sell Order Generator:**
+- Takes item names as input (not inventory-based)
+- `quantity` is always 0 (not from inventory)
+- `characters` is always empty (not from inventory)
+- Returns `not_found` array for unrecognized item names
 
 ---
 

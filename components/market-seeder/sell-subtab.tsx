@@ -64,6 +64,41 @@ interface CheckerResults {
   not_found: string[]
 }
 
+// Types for pasted sell orders
+interface PastedSellOrderItem {
+  type_id: number
+  type_name: string
+  quantity: number
+  characters: CheckerCharacterInfo[]
+  has_competition: boolean
+  has_existing_order: boolean
+  order_characters: CheckerCharacterInfo[]
+  jita_price: number
+  jita_price_formatted: string
+  competitor_price: number | null
+  competitor_price_formatted: string | null
+  sell_price: number
+  sell_price_formatted: string
+  sell_price_eve: string
+  vale_daily_volume: number
+  estimated_daily_sales: number
+  isk_per_day: number
+  isk_per_day_formatted: string
+}
+
+interface PastedSellOrdersData {
+  items: PastedSellOrderItem[]
+  not_found: string[]
+  summary: {
+    total_items: number
+    total_with_competition: number
+    total_no_competition: number
+    total_isk_per_day: number
+    total_isk_per_day_formatted: string
+    total_with_existing_orders: number
+  }
+}
+
 // Helper to calculate margin percentage
 function calculateMargin(sellPrice: number, jitaPrice: number): number {
   if (jitaPrice <= 0) return 0
@@ -112,6 +147,11 @@ export function SellSubtab({
   const [checkerError, setCheckerError] = useState<string | null>(null)
   const [checkerResults, setCheckerResults] = useState<CheckerResults | null>(null)
 
+  // Pasted sell orders state
+  const [pastedSellOrders, setPastedSellOrders] = useState<PastedSellOrdersData | null>(null)
+  const [pastedCopiedNameId, setPastedCopiedNameId] = useState<number | null>(null)
+  const [pastedCopiedPriceId, setPastedCopiedPriceId] = useState<number | null>(null)
+
   // Parse item names from EVE inventory export format
   // Format: "Item Name\t123\tGroup\t\tSlot\t5 m3\t1,234.56 ISK"
   const parseItemNames = (text: string): string[] => {
@@ -134,7 +174,7 @@ export function SellSubtab({
     return names
   }
 
-  // Handle checking items
+  // Handle checking items and generating sell orders
   const handleCheckItems = async () => {
     const itemNames = parseItemNames(checkerInput)
 
@@ -146,30 +186,62 @@ export function SellSubtab({
     setCheckerLoading(true)
     setCheckerError(null)
     setCheckerResults(null)
+    setPastedSellOrders(null)
 
     try {
-      const response = await fetch('/api/esi/check-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item_names: itemNames }),
-      })
+      // Call both endpoints in parallel
+      const [checkResponse, sellOrdersResponse] = await Promise.all([
+        fetch('/api/esi/check-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_names: itemNames }),
+        }),
+        fetch('/api/esi/generate-sell-orders-from-names', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_names: itemNames }),
+        }),
+      ])
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to check orders')
+      // Handle check-orders response
+      if (!checkResponse.ok) {
+        const errData = await checkResponse.json()
+        throw new Error(errData.error || 'Failed to check orders')
       }
 
-      const data = await response.json()
+      const checkData = await checkResponse.json()
       setCheckerResults({
-        with_orders: data.with_orders,
-        without_orders: data.without_orders,
-        not_found: data.not_found,
+        with_orders: checkData.with_orders,
+        without_orders: checkData.without_orders,
+        not_found: checkData.not_found,
       })
+
+      // Handle sell-orders response
+      if (sellOrdersResponse.ok) {
+        const sellData = await sellOrdersResponse.json()
+        setPastedSellOrders(sellData)
+      } else {
+        // Log error but don't fail the whole operation
+        console.error('Failed to generate sell orders from names')
+      }
     } catch (err) {
       setCheckerError(err instanceof Error ? err.message : 'Failed to check orders')
     } finally {
       setCheckerLoading(false)
     }
+  }
+
+  // Copy functions for pasted sell orders
+  const copyPastedItemName = (item: PastedSellOrderItem) => {
+    navigator.clipboard.writeText(item.type_name)
+    setPastedCopiedNameId(item.type_id)
+    setTimeout(() => setPastedCopiedNameId(null), 2000)
+  }
+
+  const copyPastedItemPrice = (item: PastedSellOrderItem) => {
+    navigator.clipboard.writeText(item.sell_price_eve)
+    setPastedCopiedPriceId(item.type_id)
+    setTimeout(() => setPastedCopiedPriceId(null), 2000)
   }
 
   // Extract unique characters from data (both sellable items and items with existing orders)
@@ -352,10 +424,15 @@ export function SellSubtab({
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Search className="size-4" />
-                  Check If I Have Sell Orders
+                  Paste Supplies &amp; Generate Sell Orders
                   {checkerResults && (
                     <Badge variant="secondary" className="ml-2">
                       {checkerResults.with_orders.length} listed, {checkerResults.without_orders.length} unlisted
+                    </Badge>
+                  )}
+                  {pastedSellOrders && pastedSellOrders.items.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 bg-blue-500/20 text-blue-600">
+                      {pastedSellOrders.items.length} prices
                     </Badge>
                   )}
                 </CardTitle>
@@ -371,7 +448,7 @@ export function SellSubtab({
             <CardContent className="pt-0 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="checker-input">
-                  Paste items from EVE inventory (tab-separated format)
+                  Paste items from EVE inventory to check orders &amp; generate optimal sell prices
                 </Label>
                 <Textarea
                   id="checker-input"
@@ -392,21 +469,22 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                   {checkerLoading ? (
                     <>
                       <Loader2 className="size-4 animate-spin mr-2" />
-                      Checking...
+                      Generating...
                     </>
                   ) : (
                     <>
-                      <Search className="size-4 mr-2" />
-                      Check Orders
+                      <DollarSign className="size-4 mr-2" />
+                      Generate Sell Orders
                     </>
                   )}
                 </Button>
-                {checkerResults && (
+                {(checkerResults || pastedSellOrders) && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
                       setCheckerResults(null)
+                      setPastedSellOrders(null)
                       setCheckerInput("")
                     }}
                   >
@@ -500,6 +578,109 @@ Zeugma Integrated Analyzer		Data Miners		Medium	5 m3	530,611,313.87 ISK"
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Generated Sell Orders for Pasted Items */}
+              {pastedSellOrders && pastedSellOrders.items.length > 0 && (
+                <div className="mt-6 pt-6 border-t">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <DollarSign className="size-4 text-blue-500" />
+                      Generated Sell Orders ({pastedSellOrders.items.length} items)
+                    </h4>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Check className="size-3 text-emerald-500" />
+                        {pastedSellOrders.summary.total_no_competition} no competition
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <AlertTriangle className="size-3 text-amber-500" />
+                        {pastedSellOrders.summary.total_with_competition} with competition
+                      </span>
+                      <span className="flex items-center gap-1 font-medium text-blue-500">
+                        {pastedSellOrders.summary.total_isk_per_day_formatted}/day
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                    {pastedSellOrders.items.map((item) => {
+                      const margin = calculateMargin(item.sell_price, item.jita_price)
+                      const isLowMargin = margin < LOW_MARGIN_THRESHOLD
+
+                      return (
+                        <div
+                          key={item.type_id}
+                          className={`p-3 rounded-lg border transition-colors ${isLowMargin
+                            ? "border-orange-500/30 bg-orange-500/5"
+                            : item.has_competition
+                              ? "border-amber-500/30 bg-amber-500/5"
+                              : "border-emerald-500/30 bg-emerald-500/5"
+                            }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <EveItemIcon typeId={item.type_id} size={32} className="size-8 rounded shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-sm truncate">{item.type_name}</p>
+                                {isLowMargin && (
+                                  <Badge variant="secondary" className="text-[10px] bg-orange-500/20 text-orange-600 shrink-0">
+                                    {margin.toFixed(0)}%
+                                  </Badge>
+                                )}
+                                {item.has_existing_order && (
+                                  <Badge variant="secondary" className="text-[10px] bg-blue-500/20 text-blue-600 shrink-0">
+                                    Has Order
+                                  </Badge>
+                                )}
+                                <Badge
+                                  variant="secondary"
+                                  className={`text-[10px] shrink-0 ${item.has_competition ? "bg-amber-500/20 text-amber-600" : "bg-emerald-500/20 text-emerald-600"}`}
+                                >
+                                  {item.has_competition ? "Competition" : "No Competition"}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                                <span>Sell: <span className="text-foreground font-medium">{item.sell_price_formatted}</span></span>
+                                <span>Jita: {item.jita_price_formatted}</span>
+                                <span>Vol/Day: {item.estimated_daily_sales.toFixed(1)}</span>
+                                <span className="text-blue-500 font-medium">{item.isk_per_day_formatted}/day</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2"
+                                onClick={() => copyPastedItemName(item)}
+                              >
+                                {pastedCopiedNameId === item.type_id ? (
+                                  <Check className="size-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="size-3" />
+                                )}
+                                <span className="ml-1.5 text-xs">Name</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 font-mono"
+                                onClick={() => copyPastedItemPrice(item)}
+                              >
+                                {pastedCopiedPriceId === item.type_id ? (
+                                  <Check className="size-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="size-3" />
+                                )}
+                                <span className="ml-1.5 text-xs">{item.sell_price_eve}</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </CardContent>

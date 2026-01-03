@@ -33,6 +33,12 @@ import {
   ShieldAlert,
   RefreshCw,
   Crown,
+  Wallet,
+  BookOpen,
+  MapPin,
+  Building2,
+  CircleDot,
+  Clock,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { ScopeLevel } from "@/types/auth"
@@ -46,12 +52,53 @@ interface CharacterData {
   created_at: string
 }
 
+interface CharacterDetails {
+  character_id: number
+  character_name: string
+  wallet_balance: number | null
+  wallet_balance_formatted: string | null
+  total_sp: number | null
+  total_sp_formatted: string | null
+  unallocated_sp: number | null
+  current_training: {
+    skill_name: string
+    finish_date: string
+    time_remaining: string
+  } | null
+  online: boolean | null
+  last_login: string | null
+  last_logout: string | null
+  solar_system_id: number | null
+  solar_system_name: string | null
+  corporation_id: number | null
+  corporation_name: string | null
+  alliance_id: number | null
+  alliance_name: string | null
+  requires_full_access: boolean
+  errors: string[]
+}
+
+interface DetailsResponse {
+  characters: CharacterDetails[]
+  totals: {
+    wallet_balance: number
+    wallet_balance_formatted: string
+    total_sp: number
+    total_sp_formatted: string
+  }
+}
+
 export default function CharactersPage() {
   const router = useRouter()
   const [characters, setCharacters] = useState<CharacterData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<number | null>(null)
+  
+  // Character details state
+  const [details, setDetails] = useState<Map<number, CharacterDetails>>(new Map())
+  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [totals, setTotals] = useState<DetailsResponse['totals'] | null>(null)
   
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<CharacterData | null>(null)
@@ -77,9 +124,41 @@ export default function CharactersPage() {
     }
   }, [])
 
+  const fetchDetails = useCallback(async () => {
+    try {
+      setDetailsLoading(true)
+      const response = await fetch("/api/characters/details")
+      if (!response.ok) {
+        // Don't throw - details are optional enhancement
+        console.error("Failed to fetch character details")
+        return
+      }
+      const data: DetailsResponse = await response.json()
+      
+      // Convert to map for easy lookup
+      const detailsMap = new Map<number, CharacterDetails>()
+      for (const char of data.characters) {
+        detailsMap.set(char.character_id, char)
+      }
+      setDetails(detailsMap)
+      setTotals(data.totals)
+    } catch (err) {
+      console.error("Failed to fetch character details:", err)
+    } finally {
+      setDetailsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchCharacters()
   }, [fetchCharacters])
+
+  // Fetch details after characters are loaded
+  useEffect(() => {
+    if (characters.length > 0) {
+      fetchDetails()
+    }
+  }, [characters.length, fetchDetails])
 
   const handleSetMain = async (character: CharacterData) => {
     setActionLoading(character.character_id)
@@ -130,6 +209,11 @@ export default function CharactersPage() {
     router.push("/api/auth/eve/request-full-access")
   }
 
+  const handleRefreshAll = async () => {
+    await fetchCharacters()
+    await fetchDetails()
+  }
+
   const mainCharacter = characters.find(c => c.is_main)
   const altCharacters = characters.filter(c => !c.is_main)
 
@@ -164,8 +248,8 @@ export default function CharactersPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={fetchCharacters} disabled={loading}>
-              <RefreshCw className={`size-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            <Button variant="outline" size="sm" onClick={handleRefreshAll} disabled={loading || detailsLoading}>
+              <RefreshCw className={`size-4 mr-2 ${(loading || detailsLoading) ? "animate-spin" : ""}`} />
               Refresh
             </Button>
             <Button onClick={handleAddAlt}>
@@ -212,6 +296,30 @@ export default function CharactersPage() {
           </Card>
         </div>
 
+        {/* Totals Summary (if we have details) */}
+        {totals && (
+          <div className="grid grid-cols-2 gap-4">
+            <Card className="bg-emerald-500/5 border-emerald-500/20">
+              <CardContent className="py-4 flex items-center gap-3">
+                <Wallet className="size-5 text-emerald-400" />
+                <div>
+                  <div className="text-lg font-bold text-emerald-400">{totals.wallet_balance_formatted} ISK</div>
+                  <div className="text-xs text-muted-foreground">Total Wallet Balance</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-blue-500/5 border-blue-500/20">
+              <CardContent className="py-4 flex items-center gap-3">
+                <BookOpen className="size-5 text-blue-400" />
+                <div>
+                  <div className="text-lg font-bold text-blue-400">{totals.total_sp_formatted}</div>
+                  <div className="text-xs text-muted-foreground">Total Skill Points</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Main Character Section */}
         {mainCharacter && (
           <div className="space-y-3">
@@ -221,6 +329,8 @@ export default function CharactersPage() {
             </h2>
             <CharacterCard
               character={mainCharacter}
+              details={details.get(mainCharacter.character_id)}
+              detailsLoading={detailsLoading}
               isMain
               actionLoading={actionLoading}
               onSetMain={handleSetMain}
@@ -237,11 +347,13 @@ export default function CharactersPage() {
               <Users className="size-5" />
               Alt Characters ({altCharacters.length})
             </h2>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
               {altCharacters.map(character => (
                 <CharacterCard
                   key={character.id}
                   character={character}
+                  details={details.get(character.character_id)}
+                  detailsLoading={detailsLoading}
                   isMain={false}
                   actionLoading={actionLoading}
                   onSetMain={handleSetMain}
@@ -357,6 +469,8 @@ export default function CharactersPage() {
 
 interface CharacterCardProps {
   character: CharacterData
+  details?: CharacterDetails
+  detailsLoading: boolean
   isMain: boolean
   actionLoading: number | null
   onSetMain: (character: CharacterData) => void
@@ -366,6 +480,8 @@ interface CharacterCardProps {
 
 function CharacterCard({
   character,
+  details,
+  detailsLoading,
   isMain,
   actionLoading,
   onSetMain,
@@ -380,11 +496,22 @@ function CharacterCard({
       <CardContent className="py-4">
         <div className="flex items-start gap-4">
           {/* Character Portrait */}
-          <img
-            src={`https://images.evetech.net/characters/${character.character_id}/portrait?size=64`}
-            alt={character.character_name}
-            className="size-16 rounded-lg ring-2 ring-border"
-          />
+          <div className="relative">
+            <img
+              src={`https://images.evetech.net/characters/${character.character_id}/portrait?size=64`}
+              alt={character.character_name}
+              className="size-16 rounded-lg ring-2 ring-border"
+            />
+            {/* Online indicator */}
+            {details && details.online !== null && (
+              <div 
+                className={`absolute -bottom-1 -right-1 size-4 rounded-full border-2 border-background ${
+                  details.online ? 'bg-green-500' : 'bg-gray-500'
+                }`}
+                title={details.online ? 'Online' : 'Offline'}
+              />
+            )}
+          </div>
           
           <div className="flex-1 min-w-0">
             {/* Character Name & Badges */}
@@ -398,8 +525,21 @@ function CharacterCard({
               )}
             </div>
 
+            {/* Corporation & Alliance */}
+            {details?.corporation_name && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                <Building2 className="size-3" />
+                <span className="truncate">
+                  {details.corporation_name}
+                  {details.alliance_name && (
+                    <span className="text-xs"> [{details.alliance_name}]</span>
+                  )}
+                </span>
+              </div>
+            )}
+
             {/* Scope Level Badge */}
-            <div className="mt-2">
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
               {isFullAccess ? (
                 <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                   <ShieldCheck className="size-3 mr-1" />
@@ -412,6 +552,82 @@ function CharacterCard({
                 </Badge>
               )}
             </div>
+
+            {/* Details Grid */}
+            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              {/* Wallet */}
+              <div className="flex items-center gap-1.5">
+                <Wallet className="size-3.5 text-emerald-400" />
+                {detailsLoading ? (
+                  <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                ) : details?.wallet_balance_formatted ? (
+                  <span className="text-emerald-400 font-medium">{details.wallet_balance_formatted}</span>
+                ) : isFullAccess ? (
+                  <span className="text-muted-foreground">--</span>
+                ) : (
+                  <span className="text-muted-foreground/50 text-xs">Upgrade</span>
+                )}
+              </div>
+
+              {/* Skill Points */}
+              <div className="flex items-center gap-1.5">
+                <BookOpen className="size-3.5 text-blue-400" />
+                {detailsLoading ? (
+                  <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                ) : details?.total_sp_formatted ? (
+                  <span className="text-blue-400 font-medium">{details.total_sp_formatted}</span>
+                ) : isFullAccess ? (
+                  <span className="text-muted-foreground">--</span>
+                ) : (
+                  <span className="text-muted-foreground/50 text-xs">Upgrade</span>
+                )}
+              </div>
+
+              {/* Location */}
+              <div className="flex items-center gap-1.5">
+                <MapPin className="size-3.5 text-orange-400" />
+                {detailsLoading ? (
+                  <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                ) : details?.solar_system_name ? (
+                  <span className="text-orange-400 truncate" title={details.solar_system_name}>
+                    {details.solar_system_name}
+                  </span>
+                ) : isFullAccess ? (
+                  <span className="text-muted-foreground">--</span>
+                ) : (
+                  <span className="text-muted-foreground/50 text-xs">Upgrade</span>
+                )}
+              </div>
+
+              {/* Online Status */}
+              <div className="flex items-center gap-1.5">
+                <CircleDot className={`size-3.5 ${details?.online ? 'text-green-400' : 'text-gray-400'}`} />
+                {detailsLoading ? (
+                  <div className="h-4 w-12 bg-muted animate-pulse rounded" />
+                ) : details && details.online !== null ? (
+                  <span className={details.online ? 'text-green-400' : 'text-gray-400'}>
+                    {details.online ? 'Online' : 'Offline'}
+                  </span>
+                ) : isFullAccess ? (
+                  <span className="text-muted-foreground">--</span>
+                ) : (
+                  <span className="text-muted-foreground/50 text-xs">Upgrade</span>
+                )}
+              </div>
+            </div>
+
+            {/* Current Training */}
+            {details?.current_training && (
+              <div className="mt-2 flex items-center gap-1.5 text-sm">
+                <Clock className="size-3.5 text-purple-400" />
+                <span className="text-purple-400">
+                  {details.current_training.skill_name}
+                </span>
+                <span className="text-muted-foreground">
+                  - {details.current_training.time_remaining}
+                </span>
+              </div>
+            )}
 
             {/* Character ID */}
             <p className="text-xs text-muted-foreground mt-2">
@@ -463,4 +679,3 @@ function CharacterCard({
     </Card>
   )
 }
-
