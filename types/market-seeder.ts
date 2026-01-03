@@ -751,3 +751,91 @@ export const ORDER_HISTORY_PERIODS = [
 
 export type OrderHistoryPeriod = '3d' | '7d' | '30d'
 
+// ============================================================================
+// Trading Velocity Types
+// ============================================================================
+
+/**
+ * Daily profit entry for velocity tracking
+ */
+export interface DailyProfitEntry {
+  date: string           // YYYY-MM-DD format
+  profit: number         // ISK profit for the day
+  revenue: number        // Total ISK revenue
+  orders: number         // Number of orders completed
+}
+
+/**
+ * Top performing item for velocity analysis
+ */
+export interface TopPerformerItem {
+  typeId: number
+  typeName: string
+  categoryName: string | null
+  totalProfit: number
+  totalRevenue: number
+  orderCount: number
+  quantitySold: number
+  profitPerDay: number   // Average profit per day over the period
+}
+
+/**
+ * Trend analysis for trading performance
+ */
+export interface VelocityTrend {
+  direction: 'up' | 'down' | 'stable'
+  percentChange: number   // Percentage change between recent and older periods
+  recentAvg: number       // Average profit for last 7 days
+  olderAvg: number        // Average profit for days before last 7
+}
+
+/**
+ * Summary statistics for velocity analysis
+ */
+export interface VelocitySummary {
+  avgProfitPerDay: number
+  bestDay: { date: string; profit: number }
+  worstDay: { date: string; profit: number }
+  totalProfit: number
+  totalRevenue: number
+  totalOrders: number
+  daysWithData: number
+  charactersQueried: number
+}
+
+/**
+ * Trading velocity API response
+ */
+export interface TradingVelocityResponse {
+  success: boolean
+  dailyProfit: DailyProfitEntry[]
+  topItems: TopPerformerItem[]
+  trend: VelocityTrend
+  summary: VelocitySummary
+  period: VelocityPeriod
+  analyzedAt: string
+  config: {
+    transportCostPerM3: number
+  }
+}
+
+/**
+ * Trading goal stored in localStorage
+ */
+export interface TradingGoal {
+  dailyTarget: number          // Target ISK per day (e.g., 1_000_000_000)
+  setAt: string                // ISO date when goal was set
+  notificationsEnabled: boolean
+}
+
+/**
+ * Time period options for velocity analysis
+ */
+export const VELOCITY_PERIODS = [
+  { value: '7d', label: '7 Days', days: 7 },
+  { value: '30d', label: '30 Days', days: 30 },
+  { value: '90d', label: '90 Days', days: 90 },
+] as const
+
+export type VelocityPeriod = '7d' | '30d' | '90d'
+

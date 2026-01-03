@@ -24,6 +24,5 @@ export {
   StockFilterSidebar,
   DEFAULT_STOCK_FILTERS,
   type StockFilterState,
-  type CompetitionFilter,
 } from "./stock-filter-sidebar"
 

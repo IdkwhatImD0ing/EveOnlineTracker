@@ -24,6 +24,8 @@ import {
   type ProgressState,
   type OrderHistoryData,
   type OrderHistoryPeriod,
+  type TradingVelocityResponse,
+  type VelocityPeriod,
 } from "@/types/market-seeder"
 import { type HistoryFilterState } from "@/components/market-seeder/history-filter-sidebar"
 import { type ProfitAnalysis } from "@/components/market-seeder/results-table"
@@ -39,7 +41,7 @@ import {
 import { RegionSelector, useVolumeRegion, HubFactorSelector, useHubFactor } from "@/components/ui/region-selector"
 
 // Tab components
-import { CapitalTab } from "@/components/market-seeder/capital-tab"
+import { DashboardTab } from "@/components/market-seeder/dashboard-tab"
 import { AnalysisTab } from "@/components/market-seeder/analysis-tab"
 import { WatchlistTab } from "@/components/market-seeder/watchlist-tab"
 import { EssentialsTab } from "@/components/market-seeder/essentials-tab"
@@ -72,7 +74,7 @@ export default function MarketSeederPage() {
     minProfitPerDay: DEFAULT_FILTERS.minProfitPerDay,
     noCompetitionOnly: DEFAULT_FILTERS.noCompetitionOnly,
     hideInInventory: DEFAULT_FILTERS.hideInInventory,
-    hideWithSellOrders: DEFAULT_FILTERS.hideWithSellOrders,
+    hasActiveOrderOnly: DEFAULT_FILTERS.hasActiveOrderOnly,
     selectedCategories: new Set(DEFAULT_FILTERS.selectedCategories),
   })
 
@@ -91,7 +93,7 @@ export default function MarketSeederPage() {
   // ============================================================================
   // Tab Navigation State
   // ============================================================================
-  const [activeMainTab, setActiveMainTab] = useState<"capital" | "analysis" | "watchlist" | "essentials" | "depletion" | "market">("capital")
+  const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "analysis" | "watchlist" | "essentials" | "depletion" | "market">("dashboard")
 
   // ============================================================================
   // Watchlist State
@@ -110,8 +112,8 @@ export default function MarketSeederPage() {
   const [watchlistFilters, setWatchlistFilters] = useState<StockFilterState>({
     selectedUrgency: new Set(DEFAULT_STOCK_FILTERS.selectedUrgency),
     selectedCategories: new Set(DEFAULT_STOCK_FILTERS.selectedCategories),
-    hideSellOrderItems: DEFAULT_STOCK_FILTERS.hideSellOrderItems,
-    competitionFilter: DEFAULT_STOCK_FILTERS.competitionFilter,
+    noCompetitionOnly: DEFAULT_STOCK_FILTERS.noCompetitionOnly,
+    hasActiveOrderOnly: DEFAULT_STOCK_FILTERS.hasActiveOrderOnly,
     minOrdersPerDay: DEFAULT_STOCK_FILTERS.minOrdersPerDay,
     minProfitPerDay: DEFAULT_STOCK_FILTERS.minProfitPerDay,
     maxJitaCost: DEFAULT_STOCK_FILTERS.maxJitaCost,
@@ -137,8 +139,8 @@ export default function MarketSeederPage() {
   const [essentialsFilters, setEssentialsFilters] = useState<StockFilterState>({
     selectedUrgency: new Set(DEFAULT_STOCK_FILTERS.selectedUrgency),
     selectedCategories: new Set(DEFAULT_STOCK_FILTERS.selectedCategories),
-    hideSellOrderItems: DEFAULT_STOCK_FILTERS.hideSellOrderItems,
-    competitionFilter: DEFAULT_STOCK_FILTERS.competitionFilter,
+    noCompetitionOnly: DEFAULT_STOCK_FILTERS.noCompetitionOnly,
+    hasActiveOrderOnly: DEFAULT_STOCK_FILTERS.hasActiveOrderOnly,
     minOrdersPerDay: DEFAULT_STOCK_FILTERS.minOrdersPerDay,
     minProfitPerDay: DEFAULT_STOCK_FILTERS.minProfitPerDay,
     maxJitaCost: DEFAULT_STOCK_FILTERS.maxJitaCost,
@@ -173,8 +175,8 @@ export default function MarketSeederPage() {
   const [depletionFilters, setDepletionFilters] = useState<StockFilterState>({
     selectedUrgency: new Set(DEFAULT_STOCK_FILTERS.selectedUrgency),
     selectedCategories: new Set(DEFAULT_STOCK_FILTERS.selectedCategories),
-    hideSellOrderItems: DEFAULT_STOCK_FILTERS.hideSellOrderItems,
-    competitionFilter: DEFAULT_STOCK_FILTERS.competitionFilter,
+    noCompetitionOnly: DEFAULT_STOCK_FILTERS.noCompetitionOnly,
+    hasActiveOrderOnly: DEFAULT_STOCK_FILTERS.hasActiveOrderOnly,
     minOrdersPerDay: DEFAULT_STOCK_FILTERS.minOrdersPerDay,
     minProfitPerDay: DEFAULT_STOCK_FILTERS.minProfitPerDay,
     maxJitaCost: DEFAULT_STOCK_FILTERS.maxJitaCost,
@@ -209,12 +211,8 @@ export default function MarketSeederPage() {
   const [sellCopiedNameId, setSellCopiedNameId] = useState<number | null>(null)
   const [sellCopiedPriceId, setSellCopiedPriceId] = useState<number | null>(null)
   const [activeMarketSubTab, setActiveMarketSubTab] = useState<"undercut" | "sell" | "history">("undercut")
-  const [sellMinQuantity, setSellMinQuantity] = useState<number>(1)
   const [sellProgress, setSellProgress] = useState<ProgressState | null>(null)
-  const [sellCompetitionFilter, setSellCompetitionFilter] = useState<"all" | "no_competition" | "with_competition">("all")
-  const [sellSortBy, setSellSortBy] = useState<"isk_per_day" | "volume" | "price">("isk_per_day")
-  const [sellMinIskPerDay, setSellMinIskPerDay] = useState<number>(0)
-  const [sellCopySuccess, setSellCopySuccess] = useState(false)
+  const [sellCopyAllSuccess, setSellCopyAllSuccess] = useState(false)
 
   // ============================================================================
   // Order History State
@@ -232,6 +230,14 @@ export default function MarketSeederPage() {
     minMargin: null,
     minQuantitySold: null,
   })
+
+  // ============================================================================
+  // Trading Velocity State
+  // ============================================================================
+  const [velocityData, setVelocityData] = useState<TradingVelocityResponse | null>(null)
+  const [velocityLoading, setVelocityLoading] = useState(false)
+  const [velocityError, setVelocityError] = useState<string | null>(null)
+  const [velocityPeriod, setVelocityPeriod] = useState<VelocityPeriod>('30d')
 
   // ============================================================================
   // Settings Persistence
@@ -256,7 +262,7 @@ export default function MarketSeederPage() {
             minProfitPerDay: settings.filters.minProfitPerDay ?? DEFAULT_FILTERS.minProfitPerDay,
             noCompetitionOnly: settings.filters.noCompetitionOnly ?? DEFAULT_FILTERS.noCompetitionOnly,
             hideInInventory: settings.filters.hideInInventory ?? DEFAULT_FILTERS.hideInInventory,
-            hideWithSellOrders: settings.filters.hideWithSellOrders ?? DEFAULT_FILTERS.hideWithSellOrders,
+            hasActiveOrderOnly: settings.filters.hasActiveOrderOnly ?? DEFAULT_FILTERS.hasActiveOrderOnly,
             selectedCategories: settings.filters.selectedCategories
               ? new Set(settings.filters.selectedCategories)
               : new Set(DEFAULT_FILTERS.selectedCategories),
@@ -281,7 +287,7 @@ export default function MarketSeederPage() {
           minProfitPerDay: filters.minProfitPerDay,
           noCompetitionOnly: filters.noCompetitionOnly,
           hideInInventory: filters.hideInInventory,
-          hideWithSellOrders: filters.hideWithSellOrders,
+          hasActiveOrderOnly: filters.hasActiveOrderOnly,
           selectedCategories: Array.from(filters.selectedCategories),
         }
       })
@@ -349,7 +355,7 @@ export default function MarketSeederPage() {
         filters.selectedCategories.has(item.categoryName) &&
         (!filters.noCompetitionOnly || !item.hasCompetition) &&
         (!filters.hideInInventory || !item.userHasInInventory) &&
-        (!filters.hideWithSellOrders || !item.userHasSellOrder)
+        (!filters.hasActiveOrderOnly || item.userHasSellOrder)
       )
     })
   }, [transformedItems, filters, hubFactor])
@@ -1105,27 +1111,14 @@ export default function MarketSeederPage() {
   const copySellAll = useCallback(async () => {
     if (!sellOrderData) return
 
-    const filtered = sellOrderData.items
-      .filter(item => {
-        if (item.quantity < sellMinQuantity) return false
-        if (item.isk_per_day < sellMinIskPerDay) return false
-        if (sellCompetitionFilter === "no_competition" && item.has_competition) return false
-        if (sellCompetitionFilter === "with_competition" && !item.has_competition) return false
-        return true
-      })
-      .sort((a, b) => {
-        switch (sellSortBy) {
-          case "volume": return b.estimated_daily_sales - a.estimated_daily_sales
-          case "price": return b.sell_price - a.sell_price
-          default: return b.isk_per_day - a.isk_per_day
-        }
-      })
-
-    const text = filtered.map(item => `${item.type_name} ${item.sell_price_eve}`).join('\n')
+    // Copy all items sorted by ISK/day with their prices
+    const sorted = [...sellOrderData.items].sort((a, b) => b.isk_per_day - a.isk_per_day)
+    const text = sorted.map(item => `${item.type_name} ${item.sell_price_eve}`).join('\n')
+    
     await navigator.clipboard.writeText(text)
-    setSellCopySuccess(true)
-    setTimeout(() => setSellCopySuccess(false), 2000)
-  }, [sellOrderData, sellMinQuantity, sellMinIskPerDay, sellCompetitionFilter, sellSortBy])
+    setSellCopyAllSuccess(true)
+    setTimeout(() => setSellCopyAllSuccess(false), 2000)
+  }, [sellOrderData])
 
   // ============================================================================
   // Order History Functions
@@ -1163,10 +1156,44 @@ export default function MarketSeederPage() {
   }, [])
 
   // ============================================================================
+  // Trading Velocity Functions
+  // ============================================================================
+  const fetchVelocity = useCallback(async () => {
+    setVelocityLoading(true)
+    setVelocityError(null)
+
+    try {
+      const params = new URLSearchParams({
+        period: velocityPeriod,
+        transport_cost: transportCost,
+      })
+      const response = await fetch(`/api/esi/trading-velocity?${params}`)
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to fetch trading velocity")
+      }
+
+      const data: TradingVelocityResponse = await response.json()
+      setVelocityData(data)
+    } catch (err) {
+      setVelocityError(err instanceof Error ? err.message : "Failed to fetch trading velocity")
+    } finally {
+      setVelocityLoading(false)
+    }
+  }, [velocityPeriod, transportCost])
+
+  const handleVelocityPeriodChange = useCallback((period: VelocityPeriod) => {
+    setVelocityPeriod(period)
+    // Clear data to trigger refetch with new period
+    setVelocityData(null)
+  }, [])
+
+  // ============================================================================
   // Auto-load Effects
   // ============================================================================
   useEffect(() => {
-    if (activeMainTab === "capital" && !capitalData && !capitalLoading && !capitalError) {
+    if (activeMainTab === "dashboard" && !capitalData && !capitalLoading && !capitalError) {
       fetchCapitalEfficiency()
     }
   }, [activeMainTab, capitalData, capitalLoading, capitalError, fetchCapitalEfficiency])
@@ -1219,10 +1246,10 @@ export default function MarketSeederPage() {
         <Tabs value={activeMainTab} onValueChange={(v: string) => setActiveMainTab(v as typeof activeMainTab)} className="space-y-4 md:space-y-6">
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
             <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:max-w-5xl md:grid-cols-6 h-auto">
-              <TabsTrigger value="capital" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5 px-3 md:px-4 whitespace-nowrap">
+              <TabsTrigger value="dashboard" className="gap-1.5 md:gap-2 text-xs md:text-sm py-2.5 px-3 md:px-4 whitespace-nowrap">
                 <DollarSign className="size-3.5 md:size-4" />
-                <span className="hidden sm:inline">Capital</span>
-                <span className="sm:hidden">Cap</span>
+                <span className="hidden sm:inline">Dashboard</span>
+                <span className="sm:hidden">Dash</span>
                 {capitalData && capitalData.summary.deadCapitalOrders > 0 && (
                   <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
                     {capitalData.summary.deadCapitalOrders}
@@ -1278,14 +1305,20 @@ export default function MarketSeederPage() {
             </TabsList>
           </div>
 
-          {/* Capital Tab */}
-          <TabsContent value="capital">
-            <CapitalTab
-              data={capitalData}
-              loading={capitalLoading}
-              error={capitalError}
-              progress={capitalProgress}
-              onRefresh={fetchCapitalEfficiency}
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard">
+            <DashboardTab
+              capitalData={capitalData}
+              capitalLoading={capitalLoading}
+              capitalError={capitalError}
+              capitalProgress={capitalProgress}
+              onCapitalRefresh={fetchCapitalEfficiency}
+              velocityData={velocityData}
+              velocityLoading={velocityLoading}
+              velocityError={velocityError}
+              velocityPeriod={velocityPeriod}
+              onVelocityPeriodChange={handleVelocityPeriodChange}
+              onVelocityRefresh={fetchVelocity}
             />
           </TabsContent>
 
@@ -1419,17 +1452,9 @@ export default function MarketSeederPage() {
               sellOrderError={sellOrderError}
               sellProgress={sellProgress}
               onSellRefresh={fetchSellOrders}
-              sellMinQuantity={sellMinQuantity}
-              setSellMinQuantity={setSellMinQuantity}
-              sellCompetitionFilter={sellCompetitionFilter}
-              setSellCompetitionFilter={setSellCompetitionFilter}
-              sellSortBy={sellSortBy}
-              setSellSortBy={setSellSortBy}
-              sellMinIskPerDay={sellMinIskPerDay}
-              setSellMinIskPerDay={setSellMinIskPerDay}
               sellCopiedNameId={sellCopiedNameId}
               sellCopiedPriceId={sellCopiedPriceId}
-              sellCopyAllSuccess={sellCopySuccess}
+              sellCopyAllSuccess={sellCopyAllSuccess}
               onSellCopyName={copySellItemName}
               onSellCopyPrice={copySellPrice}
               onSellCopyAll={copySellAll}

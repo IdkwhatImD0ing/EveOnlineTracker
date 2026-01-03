@@ -10,7 +10,11 @@ The Market Seeder page helps identify the most profitable items to import from J
 
 ## Features
 
-The page has six main tabs: **Capital**, **Analysis**, **Watchlist**, **Essentials**, **Depletion**, and **Market**.
+The page has six main tabs: **Dashboard**, **Analysis**, **Watchlist**, **Essentials**, **Depletion**, and **Market**.
+
+The **Dashboard** tab contains two sub-tabs:
+- **Capital** - Track capital efficiency and identify dead capital
+- **Velocity** - Track daily ISK profit, trends, and set goals
 
 The **Market** tab contains three sub-tabs:
 - **Undercut** - Track and respond to competitors undercutting your sell orders
@@ -19,9 +23,15 @@ The **Market** tab contains three sub-tabs:
 
 ---
 
-## Capital Efficiency Dashboard
+## Dashboard Tab
 
-Track your ISK-at-work across all market sell orders. The Capital tab shows where your capital is deployed and calculates ROI metrics.
+The Dashboard tab combines capital efficiency analysis with trading velocity tracking to give you a complete picture of your trading performance.
+
+---
+
+### Capital Sub-Tab
+
+Track your ISK-at-work across all market sell orders. The Capital sub-tab shows where your capital is deployed and calculates ROI metrics.
 
 ### Concept
 
@@ -54,11 +64,11 @@ Two dropdowns in the page header control demand estimation:
 | **Volume Region** | Which region's market history to use (Vale, Deklein, or The Forge) |
 | **Hub Factor** | Percentage of regional volume your hub sees (1%, 2%, 5%, 10%, 15%, 20%) |
 
-These settings persist in localStorage and apply to all tabs (Capital, Analysis, Depletion, etc.).
+These settings persist in localStorage and apply to all tabs (Dashboard, Analysis, Depletion, etc.).
 
 ### System Filter
 
-When your sell orders span multiple structures/systems, a **System** dropdown appears in the Capital tab header. This allows you to:
+When your sell orders span multiple structures/systems, a **System** dropdown appears in the Capital sub-tab header. This allows you to:
 
 - View metrics for **All Systems** (default) - aggregated view of all orders
 - Filter to a **specific structure** - view orders and recalculated metrics for one location only
@@ -72,7 +82,7 @@ When a specific system is selected, all metrics (Total ISK Deployed, Daily Reven
 
 ### Character Breakdown
 
-When you have multiple EVE characters linked to your account, the Capital tab shows a **Capital by Character** section with:
+When you have multiple EVE characters linked to your account, the Capital sub-tab shows a **Capital by Character** section with:
 
 - **Pie Chart** - Visual breakdown of capital distribution across characters, color-coded
 - **Character Cards** - Summary for each character showing:
@@ -141,7 +151,7 @@ Slow and dead capital orders show expanded details:
 
 **ESI Scope:** `esi-markets.read_character_orders.v1`
 
-The Capital tab requires character-level order access, not just structure market access.
+The Capital sub-tab requires character-level order access, not just structure market access.
 
 ### API Endpoint
 
@@ -190,6 +200,168 @@ The Capital Efficiency analysis uses Server-Sent Events (SSE) to show real-time 
 | analyzing | Calculating efficiency metrics for each order |
 | summary | Computing portfolio-wide metrics |
 | complete | Analysis finished |
+
+---
+
+### Velocity Sub-Tab (ISK Velocity Leaderboard)
+
+Track your ISK/day earned from trading, compare item performance, analyze trends, and set profit goals.
+
+#### Concept
+
+Gamify your trading to optimize performance:
+- Track ISK/day earned from trading
+- Compare items: "Which items made me the most ISK this week?"
+- Trend analysis: "Your trading is improving/declining"
+- Goal setting: "Reach 1B ISK/day profit"
+
+#### Summary Cards
+
+| Card | Description |
+|------|-------------|
+| Avg ISK/Day | Average daily profit with trend indicator (up/down/stable) |
+| Best Day | Highest single-day profit with date |
+| Last 7 Days Avg | Recent performance average |
+| Goal Progress | Progress toward your daily ISK target (if set) |
+
+#### Daily Profit Chart
+
+Visual bar chart showing ISK/day over the selected period (7d/30d/90d):
+- Green bars = Positive profit days
+- Red bars = Negative profit days
+- Goal line overlay when a goal is set
+- Hover for exact values
+- Fixed 192px height with minimum 4px bars for visibility
+- Date labels at start, middle, and end
+- Empty state with "No profit data available" message when no completed orders
+
+#### Top Performers
+
+Items ranked by total profit over the selected period:
+- Item name with icon
+- Total profit and profit/day
+- Order count and quantity sold
+- Expandable rows for detailed metrics (revenue, category, profit/day)
+- Shows all items (not limited) with filter sidebar
+
+#### Filter Sidebar
+
+The Velocity sub-tab includes a filter sidebar (visible on desktop, collapsible on mobile) with the following options:
+
+| Filter | Description |
+|--------|-------------|
+| **Profit Status** | All Items / Profitable Only / Loss Only |
+| **Min Total Profit** | Minimum total profit in millions ISK |
+| **Categories** | Checkboxes for Modules, Ships, Ammo, Boosters, Drones, Fighters, Implants, Deployables, Subsystems |
+
+A **Reset Filters** button appears when any filters are modified from defaults.
+
+#### Trend Analysis
+
+Compares recent 7-day average against older period average:
+
+| Trend | Condition | Threshold |
+|-------|-----------|-----------|
+| Up | Recent avg > Older avg | +10% |
+| Down | Recent avg < Older avg | -10% |
+| Stable | Within +/-10% | - |
+
+Provides actionable feedback:
+- "Great work! Your trading performance is improving."
+- "Your trading has slowed down. Consider reviewing your strategies."
+- "Your trading performance is consistent."
+
+#### Goal Setting
+
+Set a daily ISK target to track progress:
+
+1. Click "Set Goal" in the Goal Progress card
+2. Enter target in billions (e.g., "1.0" for 1B ISK/day)
+3. Click "Set" to save
+
+Goals are stored in localStorage and persist across sessions.
+
+**Goal Progress Indicator:**
+- Progress bar fills based on current avg vs target
+- Celebration state when goal is achieved
+- "Clear" button to remove goal
+
+**localStorage Key:** `eve-tracker-trading-goal`
+
+```typescript
+{
+  dailyTarget: number,        // Target ISK per day
+  setAt: string,              // ISO date when set
+  notificationsEnabled: boolean
+}
+```
+
+#### Time Periods
+
+| Period | Description |
+|--------|-------------|
+| 7 Days | Last week of trading |
+| 30 Days | Last month (default) |
+| 90 Days | Last quarter (max ESI history) |
+
+**Note:** ESI only provides order history for the last 90 days.
+
+#### API Endpoint
+
+**GET /api/esi/trading-velocity**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| period | string | No | Time period: '7d', '30d', or '90d' (default: '30d') |
+| transport_cost | number | No | ISK per m3 for cost calculation (default: 450) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "dailyProfit": [
+    { "date": "2025-12-30", "profit": 500000000, "revenue": 2000000000, "orders": 15 }
+  ],
+  "topItems": [
+    {
+      "typeId": 2048,
+      "typeName": "Damage Control II",
+      "categoryName": "Module",
+      "totalProfit": 150000000,
+      "totalRevenue": 500000000,
+      "orderCount": 10,
+      "quantitySold": 200,
+      "profitPerDay": 5000000
+    }
+  ],
+  "trend": {
+    "direction": "up",
+    "percentChange": 15.5,
+    "recentAvg": 550000000,
+    "olderAvg": 476000000
+  },
+  "summary": {
+    "avgProfitPerDay": 500000000,
+    "bestDay": { "date": "2025-12-28", "profit": 800000000 },
+    "worstDay": { "date": "2025-12-15", "profit": 50000000 },
+    "totalProfit": 15000000000,
+    "totalRevenue": 60000000000,
+    "totalOrders": 450,
+    "daysWithData": 30,
+    "charactersQueried": 2
+  },
+  "period": "30d",
+  "analyzedAt": "2025-12-31T12:00:00Z",
+  "config": { "transportCostPerM3": 450 }
+}
+```
+
+#### Requirements
+
+**ESI Scope:** `esi-markets.read_character_orders.v1`
+
+The Velocity sub-tab reads order history, which requires the market orders scope.
 
 ---
 
@@ -989,12 +1161,15 @@ Each item shows:
 - Item icon and name
 - Quantity in inventory
 - **Character ownership** - Which character(s) have the item (with portraits for multi-character items)
+- **Low margin badge** (orange) - Shown when the margin is less than 20% from Jita sell price, displays the margin percentage
 - **Has Order badge** (blue) - Shown when you already have a sell order for this item (informational)
 - Competition badge (green = no competition, amber = competition)
 - **Sell Price** - The optimal price to list at
 - **Jita Price** - Current Jita price for reference
 - **Vol/Day** - Estimated daily sales (Regional volume × hub factor)
 - **ISK/Day** - Estimated daily revenue (Vol/Day × Sell Price)
+
+Items with low margins (< 20%) are highlighted with an orange border and background to make them easily identifiable.
 
 #### Character Filter
 
@@ -1003,12 +1178,24 @@ When multiple characters are linked, a dropdown appears in the header allowing y
 #### Side-by-Side Layout
 
 The Sell sub-tab uses a two-column layout on large screens:
-- **Left column (wider)**: Sell orders with pricing and copy buttons (includes all items, even those with existing orders)
-- **Right column (sticky)**: "Do Not Sell" items - always visible while scrolling
+- **Left column (wider)**: Sell orders with pricing and copy buttons (includes all items, sorted by ISK/day)
+- **Right column (sticky)**: Information panels - always visible while scrolling
   - **Has Existing Orders**: Quick reference showing items where you already have sell orders. Displays the optimal sell price and quantity for each item. Shows which character(s) own the order.
-  - **Filtered Out**: Items excluded by current filters (amber) with reason badges
+  - **Low Margin**: Warning section showing items with less than 20% margin from Jita sell price. Items in this section are also shown in the main list with an orange margin badge, but this sidebar provides a quick reference for items that may not be worth selling due to thin margins.
 
 On smaller screens, the layout stacks vertically with sell orders first.
+
+#### Low Margin Warning
+
+Items where the sell price yields less than 20% profit margin from the Jita price are flagged as "Low Margin":
+
+| Margin | Visual |
+|--------|--------|
+| < 10% | Red badge, appears in Low Margin sidebar |
+| 10-19% | Orange badge, appears in Low Margin sidebar |
+| >= 20% | No margin badge |
+
+Low margin items still appear in the main sell orders list with an orange margin percentage badge, allowing you to decide whether to sell them. The sidebar provides a quick way to identify items that may not be profitable after considering other costs like broker fees and taxes.
 
 #### Copy Buttons
 
@@ -1320,6 +1507,10 @@ components/market-seeder/
 ├── undercut-subtab.tsx         # Undercut tracker
 ├── sell-subtab.tsx             # Sell order generator
 ├── history-subtab.tsx          # Order history profit analysis
+├── history-filter-sidebar.tsx  # History tab category/profit filters
+├── velocity-subtab.tsx         # ISK Velocity tracking
+├── velocity-filter-sidebar.tsx # Velocity tab category/profit filters
+├── dashboard-tab.tsx           # Dashboard container (Capital + Velocity)
 ├── progress-bar.tsx            # SSE progress indicator
 └── utils.ts                    # Shared utilities and constants
 

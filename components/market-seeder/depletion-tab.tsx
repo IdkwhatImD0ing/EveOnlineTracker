@@ -139,8 +139,11 @@ export function DepletionTab({
       // Check category filter
       if (p.categoryName && !filters.selectedCategories.has(p.categoryName)) return false
       
-      // Check hide sell order items filter (uses ownership flags)
-      if (filters.hideSellOrderItems && (p.userHasInInventory || p.userHasSellOrder)) return false
+      // Check no competition filter
+      if (filters.noCompetitionOnly && p.hasCompetition) return false
+      
+      // Check has active order filter (show only items where user has sell orders)
+      if (filters.hasActiveOrderOnly && !p.userHasSellOrder) return false
       
       // Check min orders/day filter
       if (filters.minOrdersPerDay !== null && p.estimatedDailySales < filters.minOrdersPerDay) return false
@@ -150,10 +153,6 @@ export function DepletionTab({
       
       // Check max Jita cost filter
       if (filters.maxJitaCost !== null && p.jitaBuyPrice > filters.maxJitaCost) return false
-      
-      // Check competition filter
-      if (filters.competitionFilter === 'no_competition' && p.hasCompetition) return false
-      if (filters.competitionFilter === 'with_competition' && !p.hasCompetition) return false
       
       return true
     })
@@ -179,7 +178,6 @@ export function DepletionTab({
       totalItems={predictions.length}
       filteredCount={filteredPredictions.length}
       hubFactorPercent={hubFactorPercent}
-      showCompetitionFilter={true}
       idPrefix="depletion"
     />
   )

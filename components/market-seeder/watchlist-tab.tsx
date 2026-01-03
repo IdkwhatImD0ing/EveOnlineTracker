@@ -140,8 +140,10 @@ export function WatchlistTab({
       // Check category filter
       if (item.category_name && !filters.selectedCategories.has(item.category_name)) return false
       
-      // Check hide sell order items filter
-      if (filters.hideSellOrderItems && item.hasSellOrder) return false
+      // Check has active order filter (show only items where user has sell orders)
+      if (filters.hasActiveOrderOnly && !item.hasSellOrder) return false
+      
+      // Note: noCompetitionOnly filter not applicable for watchlist (no competition data)
       
       // Check min orders/day filter
       if (filters.minOrdersPerDay !== null && dailySales < filters.minOrdersPerDay) return false

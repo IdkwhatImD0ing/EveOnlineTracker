@@ -5,10 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RotateCcw, Filter } from "lucide-react"
-
-export type CompetitionFilter = 'all' | 'no_competition' | 'with_competition'
 
 export interface StockFilterState {
   minOrdersPerDay: number | null      // Minimum estimated daily sales
@@ -16,8 +13,8 @@ export interface StockFilterState {
   maxJitaCost: number | null          // Maximum item Jita cost
   selectedUrgency: Set<string>        // 'critical' | 'warning' | 'ok' | 'none'
   selectedCategories: Set<string>
-  hideSellOrderItems: boolean         // Hide items where user has active sell orders
-  competitionFilter: CompetitionFilter // Filter by competition status (for Depletion)
+  noCompetitionOnly: boolean          // Show only items with no competition
+  hasActiveOrderOnly: boolean         // Show only items where user has active sell orders
 }
 
 interface StockFilterSidebarProps {
@@ -26,7 +23,6 @@ interface StockFilterSidebarProps {
   totalItems: number
   filteredCount: number
   hubFactorPercent?: string           // e.g. "5%" - for display in labels
-  showCompetitionFilter?: boolean     // Only show for Depletion tab
   idPrefix?: string                   // Unique ID prefix for form elements
 }
 
@@ -58,8 +54,8 @@ export const DEFAULT_STOCK_FILTERS: StockFilterState = {
     "Module", "Ship", "Charge", "Booster",
     "Drone", "Fighter", "Implant", "Deployable", "Subsystem"
   ]),
-  hideSellOrderItems: false,
-  competitionFilter: 'all',
+  noCompetitionOnly: false,
+  hasActiveOrderOnly: false,
 }
 
 export function StockFilterSidebar({
@@ -68,7 +64,6 @@ export function StockFilterSidebar({
   totalItems,
   filteredCount,
   hubFactorPercent = "5%",
-  showCompetitionFilter = false,
   idPrefix = "stock",
 }: StockFilterSidebarProps) {
   const handleMinOrdersChange = (value: string) => {
@@ -106,12 +101,12 @@ export function StockFilterSidebar({
     onFiltersChange({ ...filters, selectedCategories: newCategories })
   }
 
-  const handleHideSellOrderChange = (checked: boolean) => {
-    onFiltersChange({ ...filters, hideSellOrderItems: checked })
+  const handleNoCompetitionChange = (checked: boolean) => {
+    onFiltersChange({ ...filters, noCompetitionOnly: checked })
   }
 
-  const handleCompetitionChange = (value: CompetitionFilter) => {
-    onFiltersChange({ ...filters, competitionFilter: value })
+  const handleHasActiveOrderChange = (checked: boolean) => {
+    onFiltersChange({ ...filters, hasActiveOrderOnly: checked })
   }
 
   const handleReset = () => {
@@ -121,8 +116,8 @@ export function StockFilterSidebar({
       maxJitaCost: DEFAULT_STOCK_FILTERS.maxJitaCost,
       selectedUrgency: new Set(DEFAULT_STOCK_FILTERS.selectedUrgency),
       selectedCategories: new Set(DEFAULT_STOCK_FILTERS.selectedCategories),
-      hideSellOrderItems: DEFAULT_STOCK_FILTERS.hideSellOrderItems,
-      competitionFilter: DEFAULT_STOCK_FILTERS.competitionFilter,
+      noCompetitionOnly: DEFAULT_STOCK_FILTERS.noCompetitionOnly,
+      hasActiveOrderOnly: DEFAULT_STOCK_FILTERS.hasActiveOrderOnly,
     })
   }
 
@@ -132,8 +127,8 @@ export function StockFilterSidebar({
     filters.maxJitaCost !== DEFAULT_STOCK_FILTERS.maxJitaCost ||
     filters.selectedUrgency.size !== DEFAULT_STOCK_FILTERS.selectedUrgency.size ||
     filters.selectedCategories.size !== DEFAULT_STOCK_FILTERS.selectedCategories.size ||
-    filters.hideSellOrderItems !== DEFAULT_STOCK_FILTERS.hideSellOrderItems ||
-    filters.competitionFilter !== DEFAULT_STOCK_FILTERS.competitionFilter
+    filters.noCompetitionOnly !== DEFAULT_STOCK_FILTERS.noCompetitionOnly ||
+    filters.hasActiveOrderOnly !== DEFAULT_STOCK_FILTERS.hasActiveOrderOnly
 
   return (
     <Card className="sticky top-4">
@@ -207,43 +202,35 @@ export function StockFilterSidebar({
           </p>
         </div>
 
-        {/* Hide Sell Order Items Toggle */}
+        {/* No Competition Only Toggle */}
         <div className="flex items-center gap-3">
           <Checkbox
-            id={`${idPrefix}-hide-sell-orders`}
-            checked={filters.hideSellOrderItems}
-            onCheckedChange={(checked) => handleHideSellOrderChange(checked === true)}
+            id={`${idPrefix}-no-competition`}
+            checked={filters.noCompetitionOnly}
+            onCheckedChange={(checked) => handleNoCompetitionChange(checked === true)}
           />
           <Label
-            htmlFor={`${idPrefix}-hide-sell-orders`}
+            htmlFor={`${idPrefix}-no-competition`}
             className="text-sm cursor-pointer leading-none"
           >
-            Hide items with sell orders
+            No competition
           </Label>
         </div>
 
-        {/* Competition Filter (Depletion only) */}
-        {showCompetitionFilter && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Competition</Label>
-            <Select
-              value={filters.competitionFilter}
-              onValueChange={(v) => handleCompetitionChange(v as CompetitionFilter)}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Items</SelectItem>
-                <SelectItem value="no_competition">No Competition</SelectItem>
-                <SelectItem value="with_competition">With Competition</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              No competition = you&apos;re the only seller
-            </p>
-          </div>
-        )}
+        {/* Has Active Order Toggle */}
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id={`${idPrefix}-has-active-order`}
+            checked={filters.hasActiveOrderOnly}
+            onCheckedChange={(checked) => handleHasActiveOrderChange(checked === true)}
+          />
+          <Label
+            htmlFor={`${idPrefix}-has-active-order`}
+            className="text-sm cursor-pointer leading-none"
+          >
+            Has active order
+          </Label>
+        </div>
 
         {/* Urgency Level Filters */}
         <div className="space-y-3">
@@ -309,4 +296,3 @@ export function StockFilterSidebar({
     </Card>
   )
 }
-

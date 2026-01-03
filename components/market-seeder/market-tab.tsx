@@ -37,16 +37,6 @@ interface MarketTabProps {
   sellProgress: ProgressState | null
   onSellRefresh: () => void
 
-  // Sell filter state
-  sellMinQuantity: number
-  setSellMinQuantity: (value: number) => void
-  sellCompetitionFilter: "all" | "no_competition" | "with_competition"
-  setSellCompetitionFilter: (value: "all" | "no_competition" | "with_competition") => void
-  sellSortBy: "isk_per_day" | "volume" | "price"
-  setSellSortBy: (value: "isk_per_day" | "volume" | "price") => void
-  sellMinIskPerDay: number
-  setSellMinIskPerDay: (value: number) => void
-
   // Sell copy state
   sellCopiedNameId: number | null
   sellCopiedPriceId: number | null
@@ -83,14 +73,6 @@ export function MarketTab({
   sellOrderError,
   sellProgress,
   onSellRefresh,
-  sellMinQuantity,
-  setSellMinQuantity,
-  sellCompetitionFilter,
-  setSellCompetitionFilter,
-  sellSortBy,
-  setSellSortBy,
-  sellMinIskPerDay,
-  setSellMinIskPerDay,
   sellCopiedNameId,
   sellCopiedPriceId,
   sellCopyAllSuccess,
@@ -158,14 +140,6 @@ export function MarketTab({
             error={sellOrderError}
             progress={sellProgress}
             onRefresh={onSellRefresh}
-            minQuantity={sellMinQuantity}
-            setMinQuantity={setSellMinQuantity}
-            competitionFilter={sellCompetitionFilter}
-            setCompetitionFilter={setSellCompetitionFilter}
-            sortBy={sellSortBy}
-            setSortBy={setSellSortBy}
-            minIskPerDay={sellMinIskPerDay}
-            setMinIskPerDay={setSellMinIskPerDay}
             copiedNameId={sellCopiedNameId}
             copiedPriceId={sellCopiedPriceId}
             copyAllSuccess={sellCopyAllSuccess}
@@ -192,4 +166,3 @@ export function MarketTab({
     </div>
   )
 }
-
