@@ -10,6 +10,7 @@ import { GroupedItemList } from "@/components/grouped-item-list"
 import { PriceSummary } from "@/components/price-summary"
 import { AdditionalCosts } from "@/components/additional-costs"
 import { TotalCost } from "@/components/total-cost"
+import { InventoryImport } from "@/components/inventory-import"
 import { ArrowLeft, Loader2, AlertCircle, Trash2, ShoppingCart, Hammer, CheckCircle2, Circle } from "lucide-react"
 import type { ProjectWithDetails, AdditionalCost, RawMaterial, Component } from "@/types/database"
 
@@ -154,6 +155,18 @@ export default function ProjectDetailPage() {
       }
     })
   }
+
+  const handleInventoryItemsCollected = useCallback((itemIds: string[]) => {
+    setProject((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        raw_materials: prev.raw_materials.map((item) =>
+          itemIds.includes(item.id) ? { ...item, collected: true } : item
+        ),
+      }
+    })
+  }, [])
 
   const handleToggleComplete = async () => {
     if (!project) return
@@ -303,6 +316,13 @@ export default function ProjectDetailPage() {
             </Button>
           </div>
         </header>
+
+        {/* Inventory Import */}
+        <InventoryImport
+          rawMaterials={project.raw_materials}
+          projectId={projectId}
+          onItemsCollected={handleInventoryItemsCollected}
+        />
 
         {/* Item Lists - Stacked vertically for better table view */}
         <div className="space-y-6">
