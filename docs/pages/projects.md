@@ -112,6 +112,7 @@ User Input → Validation → POST /api/projects → Redirect to /projects/[id]
 
 View and manage a manufacturing project:
 - Track collected items
+- Import inventory to bulk-mark items as collected
 - Monitor component progress
 - Add additional costs
 - View price summaries
@@ -204,6 +205,19 @@ View and manage a manufacturing project:
 - "Mark as Active" button in header (when project is completed)
 - Completed projects appear in a separate collapsible section on the projects list page
 
+**Inventory Import:**
+- Collapsible section at the top of the project detail page
+- Paste Eve Online inventory export (Ctrl+C from in-game inventory)
+- Parses tab-separated format: `Item Name\tQuantity\tCategory\t...\tVolume\tValue`
+- Matches items against project's raw materials (case-insensitive)
+- Shows preview table with:
+  - Item name and icon
+  - Required quantity (from project)
+  - Inventory quantity (from paste)
+  - Status: "Ready" (sufficient), "Need more" (insufficient), or "Done" (already collected)
+- "Apply" button marks all sufficient items as collected
+- "Clear" button resets the import
+
 ### State
 
 ```typescript
@@ -252,6 +266,7 @@ Item updates are optimistic:
 
 | Component | Source | Purpose |
 |-----------|--------|---------|
+| `InventoryImport` | Custom | Bulk import from Eve inventory |
 | `ItemList` | Custom | Component list with progress |
 | `GroupedItemList` | Custom | Grouped raw materials |
 | `PriceSummary` | Custom | Jita price totals |
@@ -358,6 +373,7 @@ Both arrays are filtered by search query independently, allowing users to search
 - `app/projects/page.tsx` — Projects list page
 - `app/projects/new/page.tsx` — New project form
 - `app/projects/[id]/page.tsx` — Project detail view
+- `components/inventory-import.tsx` — Inventory import for bulk collection
 - `components/item-list.tsx` — Item list component
 - `components/grouped-item-list.tsx` — Grouped materials
 - `components/price-summary.tsx` — Price totals
