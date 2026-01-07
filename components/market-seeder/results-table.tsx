@@ -25,6 +25,7 @@ export interface ProfitAnalysis {
   categoryName: string
   groupName: string
   volumePerUnit: number
+  metaGroupName: string  // Tech I, Tech II, Faction, Deadspace, Officer, etc.
   jitaSellPrice: number
   jitaSellPriceFormatted: string
   transportCostPerUnit: number

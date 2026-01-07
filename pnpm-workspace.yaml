@@ -13,3 +13,6 @@ onlyBuiltDependencies:
   - r
   - s
   - t
+
+ignoredBuiltDependencies:
+  - better-sqlite3

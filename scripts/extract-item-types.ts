@@ -10,6 +10,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
+import Database from 'better-sqlite3'
 
 // Target categories
 const CATEGORY_SHIP = 6
@@ -73,6 +74,25 @@ interface ExtractedItem {
   categoryName: string
   volume: number
   marketGroupId: number | null
+  metaGroupId: number
+  metaGroupName: string
+}
+
+// Meta group names from EVE SDE
+const META_GROUP_NAMES: Record<number, string> = {
+  1: 'Tech I',
+  2: 'Tech II',
+  3: 'Storyline',
+  4: 'Faction',
+  5: 'Officer',
+  6: 'Deadspace',
+  14: 'Tech III',
+  15: 'Abyssal',
+  17: 'Premium',
+  19: 'Limited Time',
+  52: 'Structure Faction',
+  53: 'Structure Tech II',
+  54: 'Structure Tech I'
 }
 
 async function readJsonlFile<T>(filePath: string): Promise<T[]> {
@@ -97,6 +117,42 @@ async function readJsonlFile<T>(filePath: string): Promise<T[]> {
   return items
 }
 
+/**
+ * Load meta group mappings from SQLite database
+ * Returns a map of typeId -> metaGroupId
+ */
+function loadMetaGroupsFromSQLite(): Map<number, number> {
+  const dbPath = path.join(__dirname, '..', 'data', 'sqlite-latest.sqlite')
+  
+  if (!fs.existsSync(dbPath)) {
+    console.warn(`Warning: SQLite database not found at ${dbPath}`)
+    console.warn('  Meta group data will not be available. All items will default to Tech I.')
+    return new Map()
+  }
+  
+  console.log('Loading meta group data from SQLite...')
+  const db = new Database(dbPath, { readonly: true })
+  
+  try {
+    // Query all meta type mappings
+    const rows = db.prepare(`
+      SELECT typeID, metaGroupID 
+      FROM invMetaTypes 
+      WHERE metaGroupID IS NOT NULL
+    `).all() as { typeID: number; metaGroupID: number }[]
+    
+    const metaGroupMap = new Map<number, number>()
+    for (const row of rows) {
+      metaGroupMap.set(row.typeID, row.metaGroupID)
+    }
+    
+    console.log(`  Loaded ${metaGroupMap.size} meta group mappings`)
+    return metaGroupMap
+  } finally {
+    db.close()
+  }
+}
+
 async function main() {
   // Get input folder from command line or use default
   const inputFolder = process.argv[2] || 'c:\\Users\\aaaab\\Downloads\\eve-online-static-data-3133773-jsonl'
@@ -118,6 +174,9 @@ async function main() {
     console.error(`Error: types.jsonl not found at ${typesPath}`)
     process.exit(1)
   }
+
+  // Step 0: Load meta group data from SQLite
+  const metaGroupMap = loadMetaGroupsFromSQLite()
 
   // Step 1: Read groups and build lookup maps
   console.log('Reading groups.jsonl...')
@@ -151,6 +210,7 @@ async function main() {
     skippedUnpublished: 0,
     skippedNoMatch: 0
   }
+  const metaStats: Record<string, number> = {}
 
   for (const type of types) {
     // Skip unpublished items
@@ -181,6 +241,10 @@ async function main() {
 
     const groupName = groupNameMap.get(groupId) || 'Unknown'
     const categoryName = CATEGORY_NAMES[categoryId] || 'Unknown'
+    
+    // Get meta group (default to Tech I if not found)
+    const metaGroupId = metaGroupMap.get(type._key) ?? 1
+    const metaGroupName = META_GROUP_NAMES[metaGroupId] ?? 'Tech I'
 
     const item: ExtractedItem = {
       typeId: type._key,
@@ -190,10 +254,15 @@ async function main() {
       categoryId,
       categoryName: isBooster ? 'Booster' : categoryName,
       volume: type.volume ?? 0,
-      marketGroupId: type.marketGroupID ?? null
+      marketGroupId: type.marketGroupID ?? null,
+      metaGroupId,
+      metaGroupName
     }
 
     extractedItems.push(item)
+    
+    // Update meta group stats
+    metaStats[metaGroupName] = (metaStats[metaGroupName] || 0) + 1
 
     // Update stats
     if (categoryId === CATEGORY_SHIP) {
@@ -238,6 +307,7 @@ async function main() {
   // Print summary
   console.log('\n=== Extraction Complete ===')
   console.log(`Total items extracted: ${extractedItems.length}`)
+  console.log(`\nBy Category:`)
   console.log(`  Ships: ${stats.ships}`)
   console.log(`  Modules: ${stats.modules}`)
   console.log(`  Charges (Ammo): ${stats.charges}`)
@@ -246,6 +316,12 @@ async function main() {
   console.log(`  Deployables: ${stats.deployables}`)
   console.log(`  Subsystems: ${stats.subsystems}`)
   console.log(`  Fighters: ${stats.fighters}`)
+  console.log(`\nBy Meta Type:`)
+  // Sort meta types by count descending
+  const sortedMeta = Object.entries(metaStats).sort((a, b) => b[1] - a[1])
+  for (const [metaName, count] of sortedMeta) {
+    console.log(`  ${metaName}: ${count}`)
+  }
   console.log(`\nSkipped:`)
   console.log(`  Unpublished: ${stats.skippedUnpublished}`)
   console.log(`  Not matching criteria: ${stats.skippedNoMatch}`)

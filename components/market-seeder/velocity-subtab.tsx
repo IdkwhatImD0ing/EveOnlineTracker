@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -19,9 +19,13 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Zap,
   Star,
   BarChart3,
+  Sparkles,
+  Brain,
+  X,
 } from "lucide-react"
 import {
   type TradingVelocityResponse,
@@ -87,6 +91,15 @@ export function VelocitySubtab({
     profitStatus: DEFAULT_VELOCITY_FILTERS.profitStatus,
     minProfit: DEFAULT_VELOCITY_FILTERS.minProfit,
   })
+
+  // AI Analysis state
+  const [analysisCache, setAnalysisCache] = useState<Map<string, { analysis: string; reasoning: string }>>(new Map())
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [currentAnalysis, setCurrentAnalysis] = useState("")
+  const [currentReasoning, setCurrentReasoning] = useState("")
+  const [showReasoning, setShowReasoning] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const analyzeAbortRef = useRef<AbortController | null>(null)
 
   // Load goal on mount
   useEffect(() => {
@@ -224,6 +237,125 @@ export function VelocitySubtab({
     const goalRatio = Math.min(goal.dailyTarget / maxProfit, 1)
     return goalRatio * CHART_HEIGHT_PX
   }, [goal, chartData])
+
+  // Generate cache key for AI analysis based on data
+  const getAnalysisCacheKey = useCallback((): string => {
+    if (!data) return ""
+    // Use period + summary hash as cache key
+    return `${period}-${data.summary.totalProfit.toFixed(0)}-${data.topItems.length}`
+  }, [data, period])
+
+  // Analyze trading velocity with AI
+  const analyzeWithAI = useCallback(async () => {
+    if (!data || data.topItems.length === 0) return
+
+    // Check cache first
+    const cacheKey = getAnalysisCacheKey()
+    const cached = analysisCache.get(cacheKey)
+    if (cached) {
+      setCurrentAnalysis(cached.analysis)
+      setCurrentReasoning(cached.reasoning)
+      return
+    }
+
+    // Abort any existing analysis
+    if (analyzeAbortRef.current) {
+      analyzeAbortRef.current.abort()
+    }
+    analyzeAbortRef.current = new AbortController()
+
+    setIsAnalyzing(true)
+    setCurrentAnalysis("")
+    setCurrentReasoning("")
+    setAnalysisError(null)
+
+    try {
+      const response = await fetch('/api/market/analyze-velocity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topItems: data.topItems,
+          trend: data.trend,
+          summary: data.summary,
+          period: period,
+        }),
+        signal: analyzeAbortRef.current?.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze trading velocity')
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response body')
+
+      const decoder = new TextDecoder()
+      let fullAnalysis = ""
+      let fullReasoning = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6)
+            if (dataStr === '[DONE]') continue
+
+            try {
+              const parsed = JSON.parse(dataStr)
+
+              // Handle reasoning chunks
+              if (parsed.type === 'reasoning' && parsed.delta) {
+                fullReasoning += parsed.delta
+                setCurrentReasoning(fullReasoning)
+              }
+
+              // Handle output text
+              if (parsed.type === 'output' && parsed.delta) {
+                fullAnalysis += parsed.delta
+                setCurrentAnalysis(fullAnalysis)
+              }
+
+              // Legacy format support
+              if (parsed.delta && !parsed.type) {
+                fullAnalysis += parsed.delta
+                setCurrentAnalysis(fullAnalysis)
+              }
+
+              if (parsed.error) {
+                throw new Error(parsed.error)
+              }
+            } catch {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
+
+      // Cache the result
+      setAnalysisCache(prev => new Map(prev).set(cacheKey, { analysis: fullAnalysis, reasoning: fullReasoning }))
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        // Aborted, ignore
+        return
+      }
+      console.error('AI Analysis error:', err)
+      setAnalysisError(err instanceof Error ? err.message : 'Failed to analyze')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }, [data, period, getAnalysisCacheKey, analysisCache])
+
+  // Clear AI analysis when period or data changes significantly
+  const clearAnalysis = useCallback(() => {
+    setCurrentAnalysis("")
+    setCurrentReasoning("")
+    setAnalysisError(null)
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -415,6 +547,146 @@ export function VelocitySubtab({
               </CardContent>
             </Card>
           </div>
+
+          {/* AI Analysis Button */}
+          <Card className="border-violet-500/30 bg-gradient-to-r from-violet-500/5 to-purple-500/5">
+            <CardContent className="py-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-violet-500/20">
+                    <Sparkles className="size-5 text-violet-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium">AI Import Recommendations</p>
+                    <p className="text-sm text-muted-foreground">
+                      Get personalized advice on which items to import next
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={analyzeWithAI}
+                  disabled={isAnalyzing || data.topItems.length === 0}
+                  className="gap-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="size-4" />
+                      Analyze with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Analysis Display */}
+          {(currentAnalysis || currentReasoning || isAnalyzing || analysisError) && (
+            <Card className="border-violet-500/30 bg-gradient-to-br from-violet-500/5 to-purple-500/5">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Sparkles className="size-5 text-violet-400" />
+                    AI Import Recommendations
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAnalysis}
+                    className="h-8 w-8 p-0"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                <CardDescription>
+                  Based on your {VELOCITY_PERIODS.find(p => p.value === period)?.label.toLowerCase()} of sales data
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Status indicators */}
+                {isAnalyzing && (
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    {currentReasoning && !currentAnalysis && (
+                      <span className="flex items-center gap-1.5 text-violet-400">
+                        <Brain className="size-4 animate-pulse" />
+                        Thinking...
+                      </span>
+                    )}
+                    {currentAnalysis && (
+                      <span className="flex items-center gap-1.5 text-emerald-400">
+                        <Loader2 className="size-4 animate-spin" />
+                        Writing recommendations...
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Reasoning section (collapsible) */}
+                {currentReasoning && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setShowReasoning(!showReasoning)}
+                      className="w-full flex items-center gap-2 p-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      {showReasoning ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                      <Brain className="size-4" />
+                      AI Reasoning
+                      {isAnalyzing && !currentAnalysis && (
+                        <span className="ml-auto text-xs animate-pulse">thinking...</span>
+                      )}
+                    </button>
+                    {showReasoning && (
+                      <div className="p-3 bg-muted/30 text-xs text-muted-foreground whitespace-pre-wrap border-t">
+                        {currentReasoning}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Error display */}
+                {analysisError ? (
+                  <div className="text-destructive">
+                    <p className="font-medium">Error: {analysisError}</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Make sure you have set the OPENAI_API_KEY environment variable.
+                    </p>
+                  </div>
+                ) : currentAnalysis ? (
+                  /* Markdown rendered output */
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <div
+                      className="text-sm leading-relaxed"
+                      dangerouslySetInnerHTML={{
+                        __html: currentAnalysis
+                          // Headers
+                          .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-4 mb-2">$1</h3>')
+                          .replace(/^## (.+)$/gm, '<h2 class="text-lg font-semibold mt-4 mb-2">$1</h2>')
+                          .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>')
+                          // Bold
+                          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                          // Italic
+                          .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                          // Bullet points
+                          .replace(/^- (.+)$/gm, '<li class="ml-4">$1</li>')
+                          // Numbered lists
+                          .replace(/^\d+\. (.+)$/gm, '<li class="ml-4 list-decimal">$1</li>')
+                          // Line breaks
+                          .replace(/\n\n/g, '</p><p class="mb-2">')
+                          .replace(/\n/g, '<br />')
+                      }}
+                    />
+                    {isAnalyzing && (
+                      <span className="inline-block w-2 h-4 bg-violet-400 animate-pulse ml-0.5" />
+                    )}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Daily Profit Chart */}
           <Card>

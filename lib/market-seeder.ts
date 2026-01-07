@@ -608,6 +608,7 @@ export function analyzeItem(
     categoryName: item.categoryName,
     groupName: item.groupName,
     volumePerUnit: item.volume,
+    metaGroupName: item.metaGroupName || 'Tech I',
     
     jitaSellPrice,
     transportCostPerUnit,

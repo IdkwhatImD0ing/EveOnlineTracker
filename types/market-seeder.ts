@@ -21,6 +21,8 @@ export interface TradeableItem {
   categoryName: 'Module' | 'Charge' | 'Booster' | 'Ship'
   volume: number  // m³ per unit
   marketGroupId: number | null
+  metaGroupId: number        // Meta group ID (1=Tech I, 2=Tech II, 4=Faction, 5=Officer, 6=Deadspace, etc.)
+  metaGroupName: string      // Human-readable meta group name
 }
 
 /**
@@ -145,6 +147,7 @@ export interface ProfitAnalysis {
   categoryName: string
   groupName: string
   volumePerUnit: number  // m³
+  metaGroupName: string  // Tech I, Tech II, Faction, Deadspace, Officer, etc.
   
   // Costs
   jitaSellPrice: number           // Acquisition cost per unit

@@ -16,6 +16,7 @@ export interface FilterState {
   hideInInventory: boolean  // Hide items user has in their inventory
   hasActiveOrderOnly: boolean  // Show only items where user has active sell orders
   selectedCategories: Set<string>
+  selectedMetaTypes: Set<string>  // Meta type filter (Tech I, Tech II, Faction, etc.)
 }
 
 interface FilterSidebarProps {
@@ -38,6 +39,17 @@ const CATEGORIES = [
   { id: "Subsystem", label: "Subsystems" },
 ] as const
 
+const META_TYPES = [
+  { id: "Tech I", label: "Tech I" },
+  { id: "Tech II", label: "Tech II" },
+  { id: "Tech III", label: "Tech III" },
+  { id: "Faction", label: "Faction" },
+  { id: "Deadspace", label: "Deadspace" },
+  { id: "Officer", label: "Officer" },
+  { id: "Storyline", label: "Storyline" },
+  { id: "Abyssal", label: "Abyssal" },
+] as const
+
 const DEFAULT_FILTERS: FilterState = {
   minMargin: 10,
   maxJitaCost: null,  // No limit by default
@@ -49,6 +61,10 @@ const DEFAULT_FILTERS: FilterState = {
   selectedCategories: new Set([
     "Module", "Ship", "Charge", "Booster",
     "Drone", "Fighter", "Implant", "Deployable", "Subsystem"
+  ]),
+  selectedMetaTypes: new Set([
+    "Tech I", "Tech II", "Tech III", "Faction", 
+    "Deadspace", "Officer", "Storyline", "Abyssal"
   ]),
 }
 
@@ -104,6 +120,16 @@ export function FilterSidebar({
     onFiltersChange({ ...filters, selectedCategories: newCategories })
   }
 
+  const handleMetaTypeChange = (metaTypeId: string, checked: boolean) => {
+    const newMetaTypes = new Set(filters.selectedMetaTypes)
+    if (checked) {
+      newMetaTypes.add(metaTypeId)
+    } else {
+      newMetaTypes.delete(metaTypeId)
+    }
+    onFiltersChange({ ...filters, selectedMetaTypes: newMetaTypes })
+  }
+
   const handleReset = () => {
     onFiltersChange({
       minMargin: DEFAULT_FILTERS.minMargin,
@@ -114,6 +140,7 @@ export function FilterSidebar({
       hideInInventory: DEFAULT_FILTERS.hideInInventory,
       hasActiveOrderOnly: DEFAULT_FILTERS.hasActiveOrderOnly,
       selectedCategories: new Set(DEFAULT_FILTERS.selectedCategories),
+      selectedMetaTypes: new Set(DEFAULT_FILTERS.selectedMetaTypes),
     })
   }
 
@@ -125,7 +152,8 @@ export function FilterSidebar({
     filters.noCompetitionOnly !== DEFAULT_FILTERS.noCompetitionOnly ||
     filters.hideInInventory !== DEFAULT_FILTERS.hideInInventory ||
     filters.hasActiveOrderOnly !== DEFAULT_FILTERS.hasActiveOrderOnly ||
-    filters.selectedCategories.size !== DEFAULT_FILTERS.selectedCategories.size
+    filters.selectedCategories.size !== DEFAULT_FILTERS.selectedCategories.size ||
+    filters.selectedMetaTypes.size !== DEFAULT_FILTERS.selectedMetaTypes.size
 
   return (
     <Card className="sticky top-4">
@@ -284,6 +312,30 @@ export function FilterSidebar({
                   className="text-sm cursor-pointer leading-none"
                 >
                   {category.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Meta Type Checkboxes */}
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">Meta Types</Label>
+          <div className="space-y-2">
+            {META_TYPES.map((metaType) => (
+              <div key={metaType.id} className="flex items-center gap-3">
+                <Checkbox
+                  id={`meta-${metaType.id}`}
+                  checked={filters.selectedMetaTypes.has(metaType.id)}
+                  onCheckedChange={(checked) =>
+                    handleMetaTypeChange(metaType.id, checked === true)
+                  }
+                />
+                <Label
+                  htmlFor={`meta-${metaType.id}`}
+                  className="text-sm cursor-pointer leading-none"
+                >
+                  {metaType.label}
                 </Label>
               </div>
             ))}

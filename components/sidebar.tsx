@@ -20,6 +20,7 @@ import {
   Users,
   Shield,
   KeySquare,
+  LineChart,
 } from "lucide-react"
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
@@ -85,6 +86,12 @@ const allNavItems: NavItem[] = [
     href: "/jita-opportunities",
     icon: TrendingUp,
     description: "Sell + market opportunities",
+  },
+  {
+    title: "Market History",
+    href: "/market-history",
+    icon: LineChart,
+    description: "Price history comparison",
   },
   {
     title: "Projects",

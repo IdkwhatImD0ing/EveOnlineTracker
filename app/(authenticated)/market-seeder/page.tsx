@@ -76,6 +76,7 @@ export default function MarketSeederPage() {
     hideInInventory: DEFAULT_FILTERS.hideInInventory,
     hasActiveOrderOnly: DEFAULT_FILTERS.hasActiveOrderOnly,
     selectedCategories: new Set(DEFAULT_FILTERS.selectedCategories),
+    selectedMetaTypes: new Set(DEFAULT_FILTERS.selectedMetaTypes),
   })
 
   // ============================================================================
@@ -266,6 +267,9 @@ export default function MarketSeederPage() {
             selectedCategories: settings.filters.selectedCategories
               ? new Set(settings.filters.selectedCategories)
               : new Set(DEFAULT_FILTERS.selectedCategories),
+            selectedMetaTypes: settings.filters.selectedMetaTypes
+              ? new Set(settings.filters.selectedMetaTypes)
+              : new Set(DEFAULT_FILTERS.selectedMetaTypes),
           })
         }
       } catch {
@@ -289,6 +293,7 @@ export default function MarketSeederPage() {
           hideInInventory: filters.hideInInventory,
           hasActiveOrderOnly: filters.hasActiveOrderOnly,
           selectedCategories: Array.from(filters.selectedCategories),
+          selectedMetaTypes: Array.from(filters.selectedMetaTypes),
         }
       })
     )
@@ -353,6 +358,7 @@ export default function MarketSeederPage() {
         (filters.minOrdersPerDay === null || ordersPerDay >= filters.minOrdersPerDay) &&
         (filters.minProfitPerDay === null || profitPerDay >= filters.minProfitPerDay) &&
         filters.selectedCategories.has(item.categoryName) &&
+        filters.selectedMetaTypes.has(item.metaGroupName) &&
         (!filters.noCompetitionOnly || !item.hasCompetition) &&
         (!filters.hideInInventory || !item.userHasInInventory) &&
         (!filters.hasActiveOrderOnly || item.userHasSellOrder)

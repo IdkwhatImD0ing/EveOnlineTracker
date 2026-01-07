@@ -12,6 +12,7 @@ import * as path from 'path'
 import * as https from 'https'
 import * as readline from 'readline'
 import AdmZip from 'adm-zip'
+import Database from 'better-sqlite3'
 
 const OFFICIAL_SDE_URL = 'https://developers.eveonline.com/static-data/eve-online-static-data-latest-jsonl.zip'
 const DATA_DIR = path.join(__dirname, '..', 'data')
@@ -95,6 +96,25 @@ interface ExtractedItem {
   categoryName: string
   volume: number
   marketGroupId: number | null
+  metaGroupId: number
+  metaGroupName: string
+}
+
+// Meta group names from EVE SDE
+const META_GROUP_NAMES: Record<number, string> = {
+  1: 'Tech I',
+  2: 'Tech II',
+  3: 'Storyline',
+  4: 'Faction',
+  5: 'Officer',
+  6: 'Deadspace',
+  14: 'Tech III',
+  15: 'Abyssal',
+  17: 'Premium',
+  19: 'Limited Time',
+  52: 'Structure Faction',
+  53: 'Structure Tech II',
+  54: 'Structure Tech I'
 }
 
 // Download file with redirect support
@@ -363,14 +383,52 @@ async function processSolarSystems(extractedDir: string): Promise<{ id: number; 
   return result
 }
 
+/**
+ * Load meta group mappings from SQLite database
+ * Returns a map of typeId -> metaGroupId
+ */
+function loadMetaGroupsFromSQLite(): Map<number, number> {
+  const dbPath = path.join(DATA_DIR, 'sqlite-latest.sqlite')
+  
+  if (!fs.existsSync(dbPath)) {
+    console.warn(`Warning: SQLite database not found at ${dbPath}`)
+    console.warn('  Meta group data will not be available. All items will default to Tech I.')
+    return new Map()
+  }
+  
+  console.log('\nLoading meta group data from SQLite...')
+  const db = new Database(dbPath, { readonly: true })
+  
+  try {
+    // Query all meta type mappings
+    const rows = db.prepare(`
+      SELECT typeID, metaGroupID 
+      FROM invMetaTypes 
+      WHERE metaGroupID IS NOT NULL
+    `).all() as { typeID: number; metaGroupID: number }[]
+    
+    const metaGroupMap = new Map<number, number>()
+    for (const row of rows) {
+      metaGroupMap.set(row.typeID, row.metaGroupID)
+    }
+    
+    console.log(`  Loaded ${metaGroupMap.size} meta group mappings`)
+    return metaGroupMap
+  } finally {
+    db.close()
+  }
+}
+
 function generateTradeableItems(
   types: Record<number, { name: string; groupId: number | null; volume: number }>,
   groups: Record<number, { name: string; categoryId: number }>,
-  rawTypes: TypeData[]
+  rawTypes: TypeData[],
+  metaGroupMap: Map<number, number>
 ): ExtractedItem[] {
   console.log('\nGenerating tradeable-items.jsonl...')
   
   const items: ExtractedItem[] = []
+  const metaStats: Record<string, number> = {}
   
   for (const type of rawTypes) {
     // Skip unpublished items
@@ -388,6 +446,13 @@ function generateTradeableItems(
     const name = extractName(type.name)
     if (!name || name === 'Unknown') continue
     
+    // Get meta group (default to Tech I if not found)
+    const metaGroupId = metaGroupMap.get(type._key) ?? 1
+    const metaGroupName = META_GROUP_NAMES[metaGroupId] ?? 'Tech I'
+    
+    // Track meta group stats
+    metaStats[metaGroupName] = (metaStats[metaGroupName] || 0) + 1
+    
     items.push({
       typeId: type._key,
       name,
@@ -396,7 +461,9 @@ function generateTradeableItems(
       categoryId,
       categoryName: CATEGORY_NAMES[categoryId] || 'Unknown',
       volume: type.volume ?? 0,
-      marketGroupId: type.marketGroupID ?? null
+      marketGroupId: type.marketGroupID ?? null,
+      metaGroupId,
+      metaGroupName
     })
   }
   
@@ -404,6 +471,14 @@ function generateTradeableItems(
   items.sort((a, b) => a.name.localeCompare(b.name))
   
   console.log(`  Generated ${items.length} tradeable items`)
+  
+  // Print meta group breakdown
+  console.log('  Meta group breakdown:')
+  const sortedMeta = Object.entries(metaStats).sort((a, b) => b[1] - a[1])
+  for (const [metaName, count] of sortedMeta) {
+    console.log(`    ${metaName}: ${count}`)
+  }
+  
   return items
 }
 
@@ -462,13 +537,16 @@ async function main() {
       // Step 6: Process solar systems
       const solarSystems = await processSolarSystems(extractedDir)
       
-      // Step 7: Generate tradeable items
+      // Step 7: Load meta groups from SQLite (if available)
+      const metaGroupMap = loadMetaGroupsFromSQLite()
+      
+      // Step 8: Generate tradeable items
       const typesPath = path.join(extractedDir, 'types.jsonl')
       const rawTypes = await readJsonlFile<TypeData>(typesPath)
-      const tradeableItems = generateTradeableItems(types, groups, rawTypes)
+      const tradeableItems = generateTradeableItems(types, groups, rawTypes, metaGroupMap)
       
-      // Step 8: Save all files
-      console.log('\nStep 4: Saving output files...')
+      // Step 9: Save all files
+      console.log('\nStep 5: Saving output files...')
       
       // inv-types.json
       const typesOutPath = path.join(DATA_DIR, 'inv-types.json')
