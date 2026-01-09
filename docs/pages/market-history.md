@@ -161,7 +161,6 @@ Requires EVE SSO login (standard authenticated page access).
 Market history data availability depends on:
 - Daily cron job updates
 - Item must have trading activity in the selected region
-- Minimum 30 days of data for RPC function to return results
 
 ## Usage Flow
 

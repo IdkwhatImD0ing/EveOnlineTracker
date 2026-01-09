@@ -1204,6 +1204,13 @@ export default function MarketSeederPage() {
     }
   }, [activeMainTab, capitalData, capitalLoading, capitalError, fetchCapitalEfficiency])
 
+  // Auto-fetch undercut data when Dashboard tab is active
+  useEffect(() => {
+    if (activeMainTab === "dashboard" && !undercutData && !undercutLoading && !undercutError) {
+      fetchUndercuts()
+    }
+  }, [activeMainTab, undercutData, undercutLoading, undercutError, fetchUndercuts])
+
   useEffect(() => {
     if (activeMainTab === "watchlist" && !watchlistInitialized && !watchlistLoading) {
       fetchWatchlist(false)
@@ -1325,6 +1332,8 @@ export default function MarketSeederPage() {
               velocityPeriod={velocityPeriod}
               onVelocityPeriodChange={handleVelocityPeriodChange}
               onVelocityRefresh={fetchVelocity}
+              undercutData={undercutData}
+              undercutLoading={undercutLoading}
             />
           </TabsContent>
 

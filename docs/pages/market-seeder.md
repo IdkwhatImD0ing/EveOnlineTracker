@@ -132,6 +132,16 @@ The dashboard shows:
 | Avg Time to Sell   | Capital-weighted average days      |
 | Effective APY      | Portfolio-wide annualized return   |
 
+### Undercut Alert
+
+When you have orders being undercut by competitors, an **Undercut Alert** card appears below the Dead Capital Alert showing:
+
+- Number of orders currently being undercut
+- Breakdown of profitable vs unprofitable undercuts
+- Percentage of total orders affected
+
+This alert automatically fetches undercut data when you view the Dashboard, so you can quickly see if action is needed without switching to the Market tab.
+
 ### Capital Allocation Chart
 
 Visual breakdown showing what percentage of capital is in each efficiency category (Fast/Moderate/Slow/Dead).

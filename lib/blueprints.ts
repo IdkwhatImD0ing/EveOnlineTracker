@@ -275,6 +275,8 @@ export function calculateRecursiveBuild(
   const excessTracker: Map<number, number> = new Map()
 
   // Recursive function to process a blueprint
+  // For top-level: runs = runsPerBpc (ME rounding per BPC, then multiply by numberOfBpcs)
+  // For components: runs = total batched runs (ME rounding for entire batch)
   function processBlueprintRecursive(
     bp: BlueprintData,
     runs: number,
@@ -285,7 +287,8 @@ export function calculateRecursiveBuild(
     const stepMaterials: MaterialRequirement[] = []
     
     for (const mat of bp.materials) {
-      const adjustedQty = calculateMaterialQuantity(
+      // Calculate materials with ME for the given runs
+      const adjustedQtyPerJob = calculateMaterialQuantity(
         mat.quantity,
         runs,
         me,
@@ -294,11 +297,16 @@ export function calculateRecursiveBuild(
         settings.securityMultiplier
       )
       
+      // For top-level: multiply by numberOfBpcs (each BPC is a separate job with its own ME rounding)
+      // For components: use as-is (all component runs are batched into one job)
+      const adjustedQty = isTopLevel ? adjustedQtyPerJob * numberOfBpcs : adjustedQtyPerJob
+      const baseQty = isTopLevel ? mat.quantity * runs * numberOfBpcs : mat.quantity * runs
+      
       const typeInfo = getTypeInfo(mat.typeId)
       const materialReq: MaterialRequirement = {
         typeId: mat.typeId,
         name: getTypeName(mat.typeId),
-        baseQuantity: mat.quantity * runs,
+        baseQuantity: baseQty,
         adjustedQuantity: adjustedQty,
         volume: (typeInfo?.volume || 0) * adjustedQty,
         groupName: getGroupName(mat.typeId) || undefined,
@@ -331,7 +339,7 @@ export function calculateRecursiveBuild(
         }
         
         if (needed > 0) {
-          // Calculate runs needed for this component
+          // Calculate runs needed for this component (batched - all runs in one job)
           const componentRuns = Math.ceil(needed / componentBp.producedQuantity)
           const produced = componentRuns * componentBp.producedQuantity
           const newExcess = produced - needed
@@ -354,7 +362,7 @@ export function calculateRecursiveBuild(
         const existing = rawMaterials.get(mat.typeId)
         if (existing) {
           existing.adjustedQuantity += adjustedQty
-          existing.baseQuantity += mat.quantity * runs
+          existing.baseQuantity += baseQty
           existing.volume = (typeInfo?.volume || 0) * existing.adjustedQuantity
         } else {
           rawMaterials.set(mat.typeId, { ...materialReq })
@@ -362,10 +370,13 @@ export function calculateRecursiveBuild(
       }
     }
     
+    // For top-level, calculate time and runs for all BPCs
+    const displayRuns = isTopLevel ? runs * numberOfBpcs : runs
+    
     // Calculate job time
     const jobTime = calculateJobTime(
       bp.time,
-      runs,
+      displayRuns,
       te,
       settings.structureBonus.teBonus,
       settings.rigBonus.teBonus,
@@ -378,11 +389,11 @@ export function calculateRecursiveBuild(
       return sum + (adjustedPrice * mat.adjustedQuantity)
     }, 0)
     
-    const jobCost = baseJobCost * settings.systemCostIndex * 0.02 * runs * 
+    const jobCost = baseJobCost * settings.systemCostIndex * 0.02 * displayRuns * 
                     (1 - settings.structureBonus.jobCostBonus) * 
                     (1 + settings.facilityTax)
     
-    const totalProduced = runs * bp.producedQuantity
+    const totalProduced = displayRuns * bp.producedQuantity
     // For top-level, there's no excess from the BPC itself (you get exactly what runs produce)
     // Excess only comes from component over-production
     const excessProduced = isTopLevel 
@@ -394,7 +405,7 @@ export function calculateRecursiveBuild(
       blueprintName: bp.blueprintName,
       productTypeId: bp.productTypeId,
       productName: bp.productName,
-      runs,
+      runs: displayRuns,
       producedQuantity: totalProduced,
       excessQuantity: excessProduced,
       time: jobTime,
@@ -403,12 +414,12 @@ export function calculateRecursiveBuild(
     })
   }
   
-  // Calculate for all runs at once (quantity × runs per BPC)
-  // This ensures proper batch efficiency in ME calculations for ALL materials
-  const totalRuns = runsPerBpc * numberOfBpcs
+  // Calculate for ONE BPC first (runsPerBpc runs), then multiply by numberOfBpcs
+  // This ensures correct per-BPC ME rounding for the top-level blueprint,
+  // while components are batched (all component runs in one job)
   processBlueprintRecursive(
     blueprint, 
-    totalRuns, 
+    runsPerBpc, 
     true, 
     settings.blueprintMe, 
     settings.blueprintTe

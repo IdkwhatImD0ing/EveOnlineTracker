@@ -27,8 +27,9 @@ import {
   Users,
   User,
   Zap,
+  TrendingDown,
 } from "lucide-react"
-import { type CapitalEfficiencyResponse, type CharacterCapitalSummary, type ProgressState, type TradingVelocityResponse, type VelocityPeriod, DEAD_CAPITAL_THRESHOLD_DAYS } from "@/types/market-seeder"
+import { type CapitalEfficiencyResponse, type CharacterCapitalSummary, type ProgressState, type TradingVelocityResponse, type VelocityPeriod, type UndercutData, DEAD_CAPITAL_THRESHOLD_DAYS } from "@/types/market-seeder"
 import { EveItemIcon } from "@/components/eve-item-icon"
 import { formatIskShort, KNOWN_STRUCTURES } from "./utils"
 import { ProgressBar } from "./progress-bar"
@@ -49,6 +50,10 @@ interface DashboardTabProps {
   velocityPeriod: VelocityPeriod
   onVelocityPeriodChange: (period: VelocityPeriod) => void
   onVelocityRefresh: () => void
+  
+  // Undercut data
+  undercutData: UndercutData | null
+  undercutLoading: boolean
 }
 
 // Helper to get location name from ID
@@ -100,6 +105,8 @@ export function DashboardTab({
   velocityPeriod,
   onVelocityPeriodChange,
   onVelocityRefresh,
+  undercutData,
+  undercutLoading,
 }: DashboardTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<"capital" | "velocity">("capital")
   
@@ -440,6 +447,58 @@ export function DashboardTab({
                             {((filteredSummary.deadCapitalValue / filteredSummary.totalCapitalDeployed) * 100).toFixed(1)}%
                           </p>
                           <p className="text-xs text-muted-foreground">of capital</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Undercut Alert */}
+                {undercutData && undercutData.summary.undercut_count > 0 && (
+                  <Card className="border-amber-500/50 bg-amber-500/5">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <TrendingDown className="size-8 text-amber-600" />
+                        <div className="flex-1">
+                          <p className="font-medium text-amber-600">Orders Being Undercut</p>
+                          <p className="text-sm text-muted-foreground">
+                            {undercutData.summary.profitable_undercut_count > 0 && (
+                              <span className="text-amber-600 font-medium">
+                                {undercutData.summary.profitable_undercut_count} profitable
+                              </span>
+                            )}
+                            {undercutData.summary.profitable_undercut_count > 0 && undercutData.summary.unprofitable_undercut_count > 0 && (
+                              <span> · </span>
+                            )}
+                            {undercutData.summary.unprofitable_undercut_count > 0 && (
+                              <span className="text-muted-foreground">
+                                {undercutData.summary.unprofitable_undercut_count} not worth it
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-amber-600">
+                            {undercutData.summary.undercut_count}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            of {undercutData.summary.total_orders_in_structure} orders
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {undercutLoading && !undercutData && (
+                  <Card className="border-muted">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <Loader2 className="size-8 text-muted-foreground animate-spin" />
+                        <div className="flex-1">
+                          <p className="font-medium text-muted-foreground">Checking for undercuts...</p>
+                          <p className="text-sm text-muted-foreground">
+                            Comparing your orders against competitor prices
+                          </p>
                         </div>
                       </div>
                     </CardContent>

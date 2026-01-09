@@ -216,6 +216,56 @@ When building intermediate components, the calculator uses default settings:
 
 This assumes you have researched component blueprints to optimal levels.
 
+## Multiple BPCs vs Multiple Runs
+
+There is an important distinction between using **multiple BPCs** and using **multiple runs** on a single BPC:
+
+### Multiple Runs (One BPC)
+
+When you have 1 BPC with 10 runs, EVE calculates materials as a **single batch**:
+
+```
+totalMaterials = max(10, ceil(baseQuantity × 10 × combinedFactor))
+```
+
+**Example:** Building 10 Revelation Navy Issue from 1 BPC with 10 runs
+- Base Capital Capacitor Battery: 2 per run
+- Combined factor: 0.94842 (ME 0, Azbel, T1 rig, nullsec)
+- Calculation: `max(10, ceil(2 × 10 × 0.94842)) = max(10, ceil(18.97)) = 19`
+- **Result: 19 Capital Capacitor Batteries**
+
+### Multiple BPCs (Separate Jobs)
+
+When you have 10 BPCs with 1 run each, each BPC is a **separate industry job** with its own ME rounding:
+
+```
+perBpcMaterials = max(runs, ceil(baseQuantity × runs × combinedFactor))
+totalMaterials = perBpcMaterials × numberOfBpcs
+```
+
+**Example:** Building 10 Revelation Navy Issue from 10 BPCs with 1 run each
+- Base Capital Capacitor Battery: 2 per run
+- Combined factor: 0.94842
+- Per-BPC calculation: `max(1, ceil(2 × 1 × 0.94842)) = max(1, ceil(1.90)) = 2`
+- Total: `2 × 10 = 20`
+- **Result: 20 Capital Capacitor Batteries**
+
+### Why the Difference?
+
+In EVE Online, ME rounding happens **per industry job**, not globally. A single BPC with multiple runs is one job, so rounding happens once. Multiple BPCs are multiple jobs, so rounding happens independently for each.
+
+This means:
+- **Fewer BPCs with more runs** = more ME efficiency (batch rounding)
+- **More BPCs with fewer runs** = less ME efficiency (per-job rounding)
+
+### Calculator Behavior
+
+The industry calculator handles this correctly:
+- **Top-level blueprint**: Calculates per-BPC, then multiplies by quantity (separate jobs)
+- **Components**: Batches all component runs together (one job for all components)
+
+This matches how players typically manufacture: running each BPC as a separate job, but batching all intermediate component builds.
+
 ## Related
 
 - [Time Efficiency](./time-efficiency.md)
