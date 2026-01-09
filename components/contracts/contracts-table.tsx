@@ -70,7 +70,7 @@ function getMarginBadgeVariant(margin: number): "default" | "secondary" | "destr
 function ContractItemRow({ item }: { item: ContractItemWithPrice }) {
   return (
     <div className="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-muted/50">
-      <EveItemIcon typeId={item.type_id} size={24} />
+      <EveItemIcon typeId={item.type_id} size={32} className="size-6" />
       <div className="flex-1 min-w-0">
         <div className="font-medium text-sm truncate">
           {item.type_name}

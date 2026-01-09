@@ -23,7 +23,7 @@ import { CONTRACT_REGIONS, CONTRACT_ANALYSIS_DEFAULTS } from "@/types/contracts"
 
 export default function ContractsPage() {
   // Region selection
-  const [regionId, setRegionId] = useState(CONTRACT_ANALYSIS_DEFAULTS.REGION_ID)
+  const [regionId, setRegionId] = useState<number>(CONTRACT_ANALYSIS_DEFAULTS.REGION_ID)
 
   // Analysis state
   const [isLoading, setIsLoading] = useState(false)
@@ -196,11 +196,7 @@ export default function ContractsPage() {
           <CardContent className="space-y-6">
             {/* Progress Bar */}
             {progress && (
-              <ProgressBar
-                stage={progress.stage}
-                message={progress.message}
-                percent={progress.percent}
-              />
+              <ProgressBar progress={progress} />
             )}
 
             {/* Error */}

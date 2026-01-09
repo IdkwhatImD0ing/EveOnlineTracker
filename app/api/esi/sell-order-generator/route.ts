@@ -77,6 +77,8 @@ export interface SellOrderItem {
 
   // Pricing
   has_competition: boolean
+  has_existing_order: boolean  // True if user already has a sell order for this item
+  order_characters: SellOrderItemCharacter[]  // Characters that have active sell orders for this item
   jita_price: number
   jita_price_formatted: string
   competitor_price: number | null
