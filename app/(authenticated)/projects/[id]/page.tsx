@@ -11,8 +11,169 @@ import { PriceSummary } from "@/components/price-summary"
 import { AdditionalCosts } from "@/components/additional-costs"
 import { TotalCost } from "@/components/total-cost"
 import { InventoryImport } from "@/components/inventory-import"
-import { ArrowLeft, Loader2, AlertCircle, Trash2, ShoppingCart, Hammer, CheckCircle2, Circle } from "lucide-react"
-import type { ProjectWithDetails, AdditionalCost, RawMaterial, Component } from "@/types/database"
+import { ArrowLeft, Loader2, AlertCircle, Trash2, ShoppingCart, Hammer, CheckCircle2, Circle, ChevronDown, ChevronUp, Database, ArrowUp, ArrowDown } from "lucide-react"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { EveItemIcon } from "@/components/eve-item-icon"
+import { getGroupName } from "@/lib/sde"
+import type { ProjectWithDetails, AdditionalCost, RawMaterial, Component, ComponentMaterialBreakdown } from "@/types/database"
+
+// Helper type for aggregated materials
+interface AggregatedMaterial {
+  typeId: number
+  name: string
+  quantity: number
+  groupName: string
+}
+
+// Helper function to aggregate materials from multiple components
+function aggregateMaterials(components: Component[]): AggregatedMaterial[] {
+  const materialsMap = new Map<number, AggregatedMaterial>()
+  
+  for (const comp of components) {
+    if (comp.materials_breakdown) {
+      for (const mat of comp.materials_breakdown) {
+        const existing = materialsMap.get(mat.typeId)
+        if (existing) {
+          existing.quantity += mat.quantity * (comp.quantity - comp.quantity_made)
+        } else {
+          materialsMap.set(mat.typeId, {
+            typeId: mat.typeId,
+            name: mat.name,
+            quantity: mat.quantity * (comp.quantity - comp.quantity_made),
+            groupName: getGroupName(mat.typeId) || "Unknown",
+          })
+        }
+      }
+    }
+  }
+  
+  // Filter out zero quantities and sort by name
+  return Array.from(materialsMap.values())
+    .filter(m => m.quantity > 0)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+// Sort types for aggregated materials table
+type MaterialSortField = "name" | "type" | "quantity"
+type MaterialSortDirection = "asc" | "desc"
+
+// Component to display aggregated materials as a sortable table
+function AggregatedMaterialsCard({ 
+  title, 
+  materials 
+}: { 
+  title: string
+  materials: AggregatedMaterial[] 
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [sortField, setSortField] = useState<MaterialSortField>("name")
+  const [sortDirection, setSortDirection] = useState<MaterialSortDirection>("asc")
+
+  const handleSort = (field: MaterialSortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
+
+  const sortedMaterials = useMemo(() => {
+    return [...materials].sort((a, b) => {
+      let comparison = 0
+      switch (sortField) {
+        case "name":
+          comparison = a.name.localeCompare(b.name)
+          break
+        case "type":
+          comparison = a.groupName.localeCompare(b.groupName)
+          break
+        case "quantity":
+          comparison = a.quantity - b.quantity
+          break
+      }
+      return sortDirection === "asc" ? comparison : -comparison
+    })
+  }, [materials, sortField, sortDirection])
+
+  // Early return must be AFTER all hooks to satisfy Rules of Hooks
+  if (materials.length === 0) return null
+
+  const SortIndicator = ({ field }: { field: MaterialSortField }) => {
+    if (sortField !== field) return null
+    return sortDirection === "asc" 
+      ? <ArrowUp className="size-3 ml-1" /> 
+      : <ArrowDown className="size-3 ml-1" />
+  }
+  
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className="border-dashed">
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {title} ({materials.length} items)
+              </CardTitle>
+              {isOpen ? (
+                <ChevronUp className="size-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="size-4 text-muted-foreground" />
+              )}
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pt-0">
+            {/* Table Header */}
+            <div className="flex items-center gap-3 px-2 py-2 border-b border-border/50 mb-1">
+              <div className="w-8 shrink-0" /> {/* Icon column */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleSort("name") }}
+                className="flex-1 flex items-center text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Name <SortIndicator field="name" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleSort("type") }}
+                className="w-32 shrink-0 flex items-center text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Type <SortIndicator field="type" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleSort("quantity") }}
+                className="w-24 shrink-0 flex items-center justify-end text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Qty <SortIndicator field="quantity" />
+              </button>
+            </div>
+            {/* Table Body */}
+            <div className="max-h-[400px] overflow-y-auto">
+              {sortedMaterials.map((mat) => (
+                <div 
+                  key={mat.typeId} 
+                  className="flex items-center gap-3 px-2 py-1.5 hover:bg-muted/50 rounded transition-colors"
+                >
+                  <div className="w-8 shrink-0">
+                    <EveItemIcon typeId={mat.typeId} size={32} className="size-6 rounded" />
+                  </div>
+                  <span className="flex-1 text-sm truncate">{mat.name}</span>
+                  <span className="w-32 shrink-0 text-sm text-muted-foreground truncate">
+                    {mat.groupName}
+                  </span>
+                  <span className="w-24 shrink-0 text-sm font-mono text-right">
+                    {mat.quantity.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  )
+}
 
 export default function ProjectDetailPage() {
   const params = useParams()
@@ -25,6 +186,7 @@ export default function ProjectDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCompleting, setIsCompleting] = useState(false)
   const [showBuyRecommendations, setShowBuyRecommendations] = useState(false)
+  const [isPopulatingMaterials, setIsPopulatingMaterials] = useState(false)
 
   // Calculate buy recommendations for components
   const componentBuyRecommendations = useMemo(() => {
@@ -80,6 +242,43 @@ export default function ProjectDetailPage() {
       })
       .filter((mat): mat is RawMaterial => mat !== null)
   }, [project?.raw_materials, project?.components, showBuyRecommendations, componentBuyRecommendations])
+
+  // Split components into Capital and Specialized groups
+  const { capitalComponents, specializedComponents } = useMemo(() => {
+    if (!project?.components) {
+      return { capitalComponents: [], specializedComponents: [] }
+    }
+    
+    const capital: Component[] = []
+    const specialized: Component[] = []
+    
+    for (const comp of project.components) {
+      if (comp.item_name.toLowerCase().includes("capital")) {
+        capital.push(comp)
+      } else {
+        specialized.push(comp)
+      }
+    }
+    
+    return { capitalComponents: capital, specializedComponents: specialized }
+  }, [project?.components])
+
+  // Aggregate materials for each component group
+  const capitalMaterials = useMemo(
+    () => aggregateMaterials(capitalComponents),
+    [capitalComponents]
+  )
+  
+  const specializedMaterials = useMemo(
+    () => aggregateMaterials(specializedComponents),
+    [specializedComponents]
+  )
+
+  // Check if any components need materials populated
+  const needsMaterialsPopulated = useMemo(() => {
+    if (!project?.components) return false
+    return project.components.some(comp => !comp.materials_breakdown)
+  }, [project?.components])
 
   const fetchProject = useCallback(async () => {
     try {
@@ -217,6 +416,28 @@ export default function ProjectDetailPage() {
     }
   }
 
+  const handlePopulateMaterials = async () => {
+    setIsPopulatingMaterials(true)
+    
+    try {
+      const response = await fetch(`/api/projects/${projectId}/populate-materials`, {
+        method: "POST",
+      })
+      
+      if (response.ok) {
+        // Refresh project data to get updated materials
+        await fetchProject()
+      } else {
+        const data = await response.json()
+        console.error("Failed to populate materials:", data.error)
+      }
+    } catch (err) {
+      console.error("Failed to populate materials:", err)
+    } finally {
+      setIsPopulatingMaterials(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -280,6 +501,23 @@ export default function ProjectDetailPage() {
                 )}
               </Button>
             )}
+            {/* Populate Materials - only show if components need materials data */}
+            {needsMaterialsPopulated && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePopulateMaterials}
+                disabled={isPopulatingMaterials}
+                className="gap-2"
+              >
+                {isPopulatingMaterials ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Database className="size-4" />
+                )}
+                Populate Materials
+              </Button>
+            )}
             <Button
               variant={project.completed ? "outline" : "default"}
               size="sm"
@@ -333,15 +571,44 @@ export default function ProjectDetailPage() {
             onItemUpdate={(itemId, collected) => handleItemUpdate(itemId, collected, "raw")}
             isAdjusted={showBuyRecommendations && componentBuyRecommendations.hasBuyRecommendations}
           />
-          <ItemList
-            title="Components"
-            items={project.components}
-            type="component"
-            projectId={projectId}
-            onItemUpdate={(itemId, collected, quantityMade) => handleItemUpdate(itemId, collected, "component", quantityMade)}
-            showBuyRecommendations={showBuyRecommendations}
-            buyRecommendations={componentBuyRecommendations.recommendations}
-          />
+          
+          {/* Capital Components */}
+          {capitalComponents.length > 0 && (
+            <div className="space-y-3">
+              <ItemList
+                title="Capital Components"
+                items={capitalComponents}
+                type="component"
+                projectId={projectId}
+                onItemUpdate={(itemId, collected, quantityMade) => handleItemUpdate(itemId, collected, "component", quantityMade)}
+                showBuyRecommendations={showBuyRecommendations}
+                buyRecommendations={componentBuyRecommendations.recommendations}
+              />
+              <AggregatedMaterialsCard 
+                title="Materials needed for Capital Components" 
+                materials={capitalMaterials} 
+              />
+            </div>
+          )}
+          
+          {/* Specialized Components */}
+          {specializedComponents.length > 0 && (
+            <div className="space-y-3">
+              <ItemList
+                title="Specialized Components"
+                items={specializedComponents}
+                type="component"
+                projectId={projectId}
+                onItemUpdate={(itemId, collected, quantityMade) => handleItemUpdate(itemId, collected, "component", quantityMade)}
+                showBuyRecommendations={showBuyRecommendations}
+                buyRecommendations={componentBuyRecommendations.recommendations}
+              />
+              <AggregatedMaterialsCard 
+                title="Materials needed for Specialized Components" 
+                materials={specializedMaterials} 
+              />
+            </div>
+          )}
         </div>
 
         {/* Price Summary */}

@@ -14,7 +14,7 @@ export interface StockFilterState {
   selectedUrgency: Set<string>        // 'critical' | 'warning' | 'ok' | 'none'
   selectedCategories: Set<string>
   noCompetitionOnly: boolean          // Show only items with no competition
-  hasActiveOrderOnly: boolean         // Show only items where user has active sell orders
+  noActiveOrderOnly: boolean          // Show only items where user does NOT have active sell orders
 }
 
 interface StockFilterSidebarProps {
@@ -55,7 +55,7 @@ export const DEFAULT_STOCK_FILTERS: StockFilterState = {
     "Drone", "Fighter", "Implant", "Deployable", "Subsystem"
   ]),
   noCompetitionOnly: false,
-  hasActiveOrderOnly: false,
+  noActiveOrderOnly: false,
 }
 
 export function StockFilterSidebar({
@@ -105,8 +105,8 @@ export function StockFilterSidebar({
     onFiltersChange({ ...filters, noCompetitionOnly: checked })
   }
 
-  const handleHasActiveOrderChange = (checked: boolean) => {
-    onFiltersChange({ ...filters, hasActiveOrderOnly: checked })
+  const handleNoActiveOrderChange = (checked: boolean) => {
+    onFiltersChange({ ...filters, noActiveOrderOnly: checked })
   }
 
   const handleReset = () => {
@@ -117,7 +117,7 @@ export function StockFilterSidebar({
       selectedUrgency: new Set(DEFAULT_STOCK_FILTERS.selectedUrgency),
       selectedCategories: new Set(DEFAULT_STOCK_FILTERS.selectedCategories),
       noCompetitionOnly: DEFAULT_STOCK_FILTERS.noCompetitionOnly,
-      hasActiveOrderOnly: DEFAULT_STOCK_FILTERS.hasActiveOrderOnly,
+      noActiveOrderOnly: DEFAULT_STOCK_FILTERS.noActiveOrderOnly,
     })
   }
 
@@ -128,7 +128,7 @@ export function StockFilterSidebar({
     filters.selectedUrgency.size !== DEFAULT_STOCK_FILTERS.selectedUrgency.size ||
     filters.selectedCategories.size !== DEFAULT_STOCK_FILTERS.selectedCategories.size ||
     filters.noCompetitionOnly !== DEFAULT_STOCK_FILTERS.noCompetitionOnly ||
-    filters.hasActiveOrderOnly !== DEFAULT_STOCK_FILTERS.hasActiveOrderOnly
+    filters.noActiveOrderOnly !== DEFAULT_STOCK_FILTERS.noActiveOrderOnly
 
   return (
     <Card className="sticky top-4">
@@ -217,18 +217,18 @@ export function StockFilterSidebar({
           </Label>
         </div>
 
-        {/* Has Active Order Toggle */}
+        {/* No Active Order Toggle */}
         <div className="flex items-center gap-3">
           <Checkbox
-            id={`${idPrefix}-has-active-order`}
-            checked={filters.hasActiveOrderOnly}
-            onCheckedChange={(checked) => handleHasActiveOrderChange(checked === true)}
+            id={`${idPrefix}-no-active-order`}
+            checked={filters.noActiveOrderOnly}
+            onCheckedChange={(checked) => handleNoActiveOrderChange(checked === true)}
           />
           <Label
-            htmlFor={`${idPrefix}-has-active-order`}
+            htmlFor={`${idPrefix}-no-active-order`}
             className="text-sm cursor-pointer leading-none"
           >
-            Has active order
+            No active order
           </Label>
         </div>
 

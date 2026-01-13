@@ -78,6 +78,25 @@ interface ImportReport {
   }>
 }
 
+interface ImportLogRecord {
+  mode: string
+  region_id: number
+  chunk: number | null
+  total_chunks: number | null
+  target_date: string | null
+  items_total: number
+  items_success: number
+  items_failed: number
+  items_with_data: number
+  rows_fetched: number
+  rows_inserted: number
+  duration_ms: number
+  esi_fetch_ms: number | null
+  db_upsert_ms: number | null
+  error_breakdown: Record<string, number> | null
+  fatal_error: string | null
+}
+
 /**
  * Clear the local cache file (start fresh)
  */
@@ -451,6 +470,44 @@ async function upsertToSupabase(rows: MarketHistoryRow[]): Promise<{ inserted: n
   return { inserted, errors }
 }
 
+/**
+ * Log import run statistics to the database for debugging
+ */
+async function logImportRun(log: ImportLogRecord): Promise<void> {
+  try {
+    const supabase = createClient()
+    
+    const { error } = await supabase
+      .from('market_history_import_logs')
+      .insert({
+        mode: log.mode,
+        region_id: log.region_id,
+        chunk: log.chunk,
+        total_chunks: log.total_chunks,
+        target_date: log.target_date,
+        items_total: log.items_total,
+        items_success: log.items_success,
+        items_failed: log.items_failed,
+        items_with_data: log.items_with_data,
+        rows_fetched: log.rows_fetched,
+        rows_inserted: log.rows_inserted,
+        duration_ms: log.duration_ms,
+        esi_fetch_ms: log.esi_fetch_ms,
+        db_upsert_ms: log.db_upsert_ms,
+        error_breakdown: log.error_breakdown,
+        fatal_error: log.fatal_error
+      })
+
+    if (error) {
+      console.error(`[Market History] Failed to log import run: ${error.message}`)
+    } else {
+      console.log(`[Market History] Import run logged to database`)
+    }
+  } catch (err) {
+    console.error(`[Market History] Error logging import run:`, err)
+  }
+}
+
 // Category name to ID mapping for filtering
 const CATEGORY_NAME_TO_ID: Record<string, number> = {
   'ship': 6,
@@ -579,33 +636,84 @@ async function processMarketHistoryBackground(params: MarketHistoryParams): Prom
 
     // Step 5: Upsert to Supabase unless skip_db is set
     let inserted = 0
+    let dbUpsertMs: number | null = null
 
     if (!skipDb && rows.length > 0) {
       console.log(`[Market History BG] Upserting ${rows.length} rows to Supabase...`)
       const supabaseStartTime = Date.now()
       const upsertResult = await upsertToSupabase(rows)
       inserted = upsertResult.inserted
-      const supabaseTime = Date.now() - supabaseStartTime
+      dbUpsertMs = Date.now() - supabaseStartTime
       
       if (upsertResult.errors.length > 0) {
         console.error(`[Market History BG] Supabase errors: ${JSON.stringify(upsertResult.errors)}`)
       }
-      console.log(`[Market History BG] Supabase upsert complete in ${supabaseTime}ms`)
+      console.log(`[Market History BG] Supabase upsert complete in ${dbUpsertMs}ms`)
     } else if (skipDb) {
       console.log(`[Market History BG] Skipping database (skip_db=true)`)
     }
 
-    // Step 6: Log final stats
+    // Step 6: Calculate final stats
     const successfulFetches = results.filter(r => r.success).length
     const failedFetches = results.filter(r => !r.success).length
     const itemsWithData = results.filter(r => r.success && r.entries > 0).length
     const totalTime = Date.now() - startTime
 
+    // Build error breakdown
+    const errorBreakdown: Record<string, number> = {}
+    for (const r of results) {
+      if (r.error) {
+        errorBreakdown[r.error] = (errorBreakdown[r.error] || 0) + 1
+      }
+    }
+
     console.log(`[Market History BG] Complete! mode=${mode}, region=${regionId}, chunk=${chunk ?? 'all'}/${totalChunks}`)
     console.log(`[Market History BG] Stats: ${successfulFetches} success, ${failedFetches} failed, ${itemsWithData} with data, ${inserted} rows inserted, ${totalTime}ms total`)
 
+    // Step 7: Log import run to database
+    await logImportRun({
+      mode,
+      region_id: regionId,
+      chunk: chunk ?? null,
+      total_chunks: chunk !== undefined ? totalChunks : null,
+      target_date: toDateStr ?? null,
+      items_total: items.length,
+      items_success: successfulFetches,
+      items_failed: failedFetches,
+      items_with_data: itemsWithData,
+      rows_fetched: rows.length,
+      rows_inserted: inserted,
+      duration_ms: totalTime,
+      esi_fetch_ms: esiFetchTime,
+      db_upsert_ms: dbUpsertMs,
+      error_breakdown: Object.keys(errorBreakdown).length > 0 ? errorBreakdown : null,
+      fatal_error: null
+    })
+
   } catch (error) {
+    const totalTime = Date.now() - startTime
+    const errorMessage = error instanceof Error ? error.message : String(error)
     console.error('[Market History BG] Fatal error in background processing:', error)
+    
+    // Log the fatal error
+    await logImportRun({
+      mode,
+      region_id: regionId,
+      chunk: chunk ?? null,
+      total_chunks: chunk !== undefined ? totalChunks : null,
+      target_date: null,
+      items_total: 0,
+      items_success: 0,
+      items_failed: 0,
+      items_with_data: 0,
+      rows_fetched: 0,
+      rows_inserted: 0,
+      duration_ms: totalTime,
+      esi_fetch_ms: null,
+      db_upsert_ms: null,
+      error_breakdown: null,
+      fatal_error: errorMessage
+    })
   }
 }
 

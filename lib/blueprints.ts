@@ -252,9 +252,11 @@ export function getSecurityMultiplier(securityType: keyof typeof structures.secu
  * settings.quantity = number of BPCs
  * settings.runs = runs per BPC
  * 
- * Note: We calculate for ONE BPC first, then multiply component needs by
- * numberOfBpcs to get total component runs, then calculate materials for
- * that total. This ensures proper batch efficiency in ME calculations.
+ * When using multiple 1-run BPCs, each BPC is a separate industry job.
+ * We calculate ALL materials (including components) for ONE BPC first,
+ * then multiply everything by numberOfBpcs. This ensures ME rounding
+ * happens at the per-BPC level throughout the entire component tree,
+ * matching how EVE Online handles separate industry jobs.
  */
 export function calculateRecursiveBuild(
   blueprintTypeId: number,
@@ -270,17 +272,16 @@ export function calculateRecursiveBuild(
   const runsPerBpc = settings.runs
   const numberOfBpcs = settings.quantity
   
-  const rawMaterials: Map<number, MaterialRequirement> = new Map()
-  const buildSteps: BuildStep[] = []
-  const excessTracker: Map<number, number> = new Map()
+  // First, calculate everything for ONE BPC only
+  // We'll multiply by numberOfBpcs at the end
+  const rawMaterialsPerBpc: Map<number, MaterialRequirement> = new Map()
+  const buildStepsPerBpc: BuildStep[] = []
+  const excessTrackerPerBpc: Map<number, number> = new Map()
 
-  // Recursive function to process a blueprint
-  // For top-level: runs = runsPerBpc (ME rounding per BPC, then multiply by numberOfBpcs)
-  // For components: runs = total batched runs (ME rounding for entire batch)
+  // Recursive function to process a blueprint for ONE BPC's worth
   function processBlueprintRecursive(
     bp: BlueprintData,
     runs: number,
-    isTopLevel: boolean,
     me: number,
     te: number
   ): void {
@@ -288,7 +289,7 @@ export function calculateRecursiveBuild(
     
     for (const mat of bp.materials) {
       // Calculate materials with ME for the given runs
-      const adjustedQtyPerJob = calculateMaterialQuantity(
+      const adjustedQty = calculateMaterialQuantity(
         mat.quantity,
         runs,
         me,
@@ -296,11 +297,7 @@ export function calculateRecursiveBuild(
         settings.rigBonus.meBonus,
         settings.securityMultiplier
       )
-      
-      // For top-level: multiply by numberOfBpcs (each BPC is a separate job with its own ME rounding)
-      // For components: use as-is (all component runs are batched into one job)
-      const adjustedQty = isTopLevel ? adjustedQtyPerJob * numberOfBpcs : adjustedQtyPerJob
-      const baseQty = isTopLevel ? mat.quantity * runs * numberOfBpcs : mat.quantity * runs
+      const baseQty = mat.quantity * runs
       
       const typeInfo = getTypeInfo(mat.typeId)
       const materialReq: MaterialRequirement = {
@@ -329,54 +326,50 @@ export function calculateRecursiveBuild(
       )
       
       if (shouldRecurse && componentBp) {
-        // Check excess from previous builds
+        // Check excess from previous builds (within this single BPC)
         let needed = adjustedQty
-        const excess = excessTracker.get(mat.typeId) || 0
+        const excess = excessTrackerPerBpc.get(mat.typeId) || 0
         if (excess > 0) {
           const used = Math.min(excess, needed)
           needed -= used
-          excessTracker.set(mat.typeId, excess - used)
+          excessTrackerPerBpc.set(mat.typeId, excess - used)
         }
         
         if (needed > 0) {
-          // Calculate runs needed for this component (batched - all runs in one job)
+          // Calculate runs needed for this component
           const componentRuns = Math.ceil(needed / componentBp.producedQuantity)
           const produced = componentRuns * componentBp.producedQuantity
           const newExcess = produced - needed
           
           if (newExcess > 0) {
-            excessTracker.set(mat.typeId, (excessTracker.get(mat.typeId) || 0) + newExcess)
+            excessTrackerPerBpc.set(mat.typeId, (excessTrackerPerBpc.get(mat.typeId) || 0) + newExcess)
           }
           
           // Recursively process component (using default component ME/TE)
           processBlueprintRecursive(
             componentBp,
             componentRuns,
-            false,
             settings.componentMe,
             settings.componentTe
           )
         }
       } else {
-        // Raw material - add to final list
-        const existing = rawMaterials.get(mat.typeId)
+        // Raw material - add to final list (per BPC)
+        const existing = rawMaterialsPerBpc.get(mat.typeId)
         if (existing) {
           existing.adjustedQuantity += adjustedQty
           existing.baseQuantity += baseQty
           existing.volume = (typeInfo?.volume || 0) * existing.adjustedQuantity
         } else {
-          rawMaterials.set(mat.typeId, { ...materialReq })
+          rawMaterialsPerBpc.set(mat.typeId, { ...materialReq })
         }
       }
     }
     
-    // For top-level, calculate time and runs for all BPCs
-    const displayRuns = isTopLevel ? runs * numberOfBpcs : runs
-    
-    // Calculate job time
+    // Calculate job time for this step
     const jobTime = calculateJobTime(
       bp.time,
-      displayRuns,
+      runs,
       te,
       settings.structureBonus.teBonus,
       settings.rigBonus.teBonus,
@@ -389,23 +382,19 @@ export function calculateRecursiveBuild(
       return sum + (adjustedPrice * mat.adjustedQuantity)
     }, 0)
     
-    const jobCost = baseJobCost * settings.systemCostIndex * 0.02 * displayRuns * 
+    const jobCost = baseJobCost * settings.systemCostIndex * 0.02 * runs * 
                     (1 - settings.structureBonus.jobCostBonus) * 
                     (1 + settings.facilityTax)
     
-    const totalProduced = displayRuns * bp.producedQuantity
-    // For top-level, there's no excess from the BPC itself (you get exactly what runs produce)
-    // Excess only comes from component over-production
-    const excessProduced = isTopLevel 
-      ? 0 
-      : excessTracker.get(bp.productTypeId) || 0
+    const totalProduced = runs * bp.producedQuantity
+    const excessProduced = excessTrackerPerBpc.get(bp.productTypeId) || 0
     
-    buildSteps.unshift({
+    buildStepsPerBpc.unshift({
       blueprintTypeId: bp.blueprintTypeId,
       blueprintName: bp.blueprintName,
       productTypeId: bp.productTypeId,
       productName: bp.productName,
-      runs: displayRuns,
+      runs: runs,
       producedQuantity: totalProduced,
       excessQuantity: excessProduced,
       time: jobTime,
@@ -414,28 +403,64 @@ export function calculateRecursiveBuild(
     })
   }
   
-  // Calculate for ONE BPC first (runsPerBpc runs), then multiply by numberOfBpcs
-  // This ensures correct per-BPC ME rounding for the top-level blueprint,
-  // while components are batched (all component runs in one job)
+  // Calculate for ONE BPC (runsPerBpc runs)
   processBlueprintRecursive(
     blueprint, 
     runsPerBpc, 
-    true, 
     settings.blueprintMe, 
     settings.blueprintTe
   )
   
-  // Convert excess tracker to array
-  const excessMaterials = Array.from(excessTracker.entries())
+  // Now multiply everything by numberOfBpcs
+  // Each BPC is an identical, separate job, so we simply multiply all quantities
+  
+  // Scale raw materials by numberOfBpcs
+  const rawMaterials: Map<number, MaterialRequirement> = new Map()
+  for (const [typeId, mat] of rawMaterialsPerBpc) {
+    rawMaterials.set(typeId, {
+      ...mat,
+      baseQuantity: mat.baseQuantity * numberOfBpcs,
+      adjustedQuantity: mat.adjustedQuantity * numberOfBpcs,
+      volume: mat.volume * numberOfBpcs
+    })
+  }
+  
+  // Scale build steps by numberOfBpcs
+  const buildSteps: BuildStep[] = buildStepsPerBpc.map(step => ({
+    ...step,
+    runs: step.runs * numberOfBpcs,
+    producedQuantity: step.producedQuantity * numberOfBpcs,
+    excessQuantity: step.excessQuantity * numberOfBpcs,
+    time: step.time * numberOfBpcs,
+    jobCost: step.jobCost * numberOfBpcs,
+    materials: step.materials.map(mat => ({
+      ...mat,
+      baseQuantity: mat.baseQuantity * numberOfBpcs,
+      adjustedQuantity: mat.adjustedQuantity * numberOfBpcs,
+      volume: mat.volume * numberOfBpcs
+    }))
+  }))
+  
+  // For top-level product, there's no excess (you get exactly what runs produce)
+  // Set excessQuantity to 0 for the main product
+  if (buildSteps.length > 0) {
+    const topLevelStep = buildSteps[buildSteps.length - 1]
+    if (topLevelStep.productTypeId === blueprint.productTypeId) {
+      topLevelStep.excessQuantity = 0
+    }
+  }
+  
+  // Scale excess materials by numberOfBpcs
+  const excessMaterials = Array.from(excessTrackerPerBpc.entries())
     .filter(([, qty]) => qty > 0)
     .map(([typeId, quantity]) => ({
       typeId,
       name: getTypeName(typeId),
-      quantity,
-      volume: (getTypeInfo(typeId)?.volume || 0) * quantity
+      quantity: quantity * numberOfBpcs,
+      volume: (getTypeInfo(typeId)?.volume || 0) * quantity * numberOfBpcs
     }))
   
-  // Calculate totals
+  // Calculate totals (already scaled)
   const totalTime = buildSteps.reduce((sum, step) => sum + step.time, 0)
   const totalJobCost = buildSteps.reduce((sum, step) => sum + step.jobCost, 0)
   

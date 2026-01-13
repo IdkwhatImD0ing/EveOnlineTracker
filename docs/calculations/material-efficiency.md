@@ -260,11 +260,25 @@ This means:
 
 ### Calculator Behavior
 
-The industry calculator handles this correctly:
-- **Top-level blueprint**: Calculates per-BPC, then multiplies by quantity (separate jobs)
-- **Components**: Batches all component runs together (one job for all components)
+The industry calculator handles this correctly by calculating **all materials (including components) for one BPC first**, then multiplying everything by the number of BPCs:
 
-This matches how players typically manufacture: running each BPC as a separate job, but batching all intermediate component builds.
+- **Top-level blueprint**: Calculates per-BPC, then multiplies by quantity
+- **Components**: Also calculated per-BPC's worth, then multiplied by quantity
+
+This ensures that when using multiple 1-run BPCs:
+1. All material quantities are divisible by the number of BPCs
+2. ME rounding happens at the per-BPC level throughout the entire component tree
+3. Results match the worst-case scenario of running each ship as a completely separate build
+
+**Example:** Building 10 Revelation Navy Issue from 10× 1-run BPCs (ME 0, Azbel, T1 rig, nullsec)
+
+For 1 ship:
+- Genetic Structure Repairer: 22 (after ME on component chain)
+
+For 10 ships:
+- Genetic Structure Repairer: 22 × 10 = **220** (each ship's components calculated identically)
+
+This approach reflects the reality that with 1-run BPCs, you cannot combine runs - each BPC represents an independent manufacturing chain.
 
 ## Related
 

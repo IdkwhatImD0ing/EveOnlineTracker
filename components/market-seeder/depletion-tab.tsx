@@ -142,8 +142,8 @@ export function DepletionTab({
       // Check no competition filter
       if (filters.noCompetitionOnly && p.hasCompetition) return false
       
-      // Check has active order filter (show only items where user has sell orders)
-      if (filters.hasActiveOrderOnly && !p.userHasSellOrder) return false
+      // Check no active order filter (show only items where user does NOT have sell orders)
+      if (filters.noActiveOrderOnly && p.userHasSellOrder) return false
       
       // Check min orders/day filter
       if (filters.minOrdersPerDay !== null && p.estimatedDailySales < filters.minOrdersPerDay) return false

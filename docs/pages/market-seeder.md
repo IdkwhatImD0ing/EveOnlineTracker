@@ -132,16 +132,6 @@ The dashboard shows:
 | Avg Time to Sell   | Capital-weighted average days      |
 | Effective APY      | Portfolio-wide annualized return   |
 
-### Undercut Alert
-
-When you have orders being undercut by competitors, an **Undercut Alert** card appears below the Dead Capital Alert showing:
-
-- Number of orders currently being undercut
-- Breakdown of profitable vs unprofitable undercuts
-- Percentage of total orders affected
-
-This alert automatically fetches undercut data when you view the Dashboard, so you can quickly see if action is needed without switching to the Market tab.
-
 ### Capital Allocation Chart
 
 Visual breakdown showing what percentage of capital is in each efficiency category (Fast/Moderate/Slow/Dead).
@@ -723,7 +713,7 @@ The tab includes a filter sidebar (visible on desktop, collapsible on mobile) wi
 
 **Toggle Filters:**
 
-- **Hide items with sell orders** - Hide items where you already have active sell orders
+- **No active order** - Show only items where you do NOT have active sell orders (useful for finding items to create new orders for)
 
 **Urgency Level Filters:**
 | Filter | Description |
@@ -929,8 +919,9 @@ Each prediction card displays:
 
 The Depletion tab includes a filter sidebar (visible on desktop, collapsible on mobile) with the following options:
 
-**Hide Owned Items:**
-Toggle to hide items that you already have in your 3T7 inventory or have active sell orders for. This helps you focus on items you need to acquire from Jita, excluding items you already own across all linked characters.
+**Order Status Filter:**
+
+- **No active order** - Show only items where you do NOT have active sell orders (useful for finding items to create new orders for)
 
 **Competition Filter:**
 Filter items based on whether you have competition from other sellers:

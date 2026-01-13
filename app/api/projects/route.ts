@@ -177,7 +177,6 @@ export async function POST(request: NextRequest) {
       }
 
       // Insert components from structured data
-      // Note: build_cost, should_buy, savings are not stored in DB - they're calculated on demand
       if (structuredData.components.length > 0) {
         const componentsData = structuredData.components.map((item) => ({
           project_id: project.id,
@@ -185,12 +184,16 @@ export async function POST(request: NextRequest) {
           type_id: item.typeId,
           quantity: item.quantity,
           collected: false,
+          quantity_made: 0,
           buy_price: item.sellPrice,
           sell_price: item.sellPrice,
           split_price: null,
           // item.volume from calculation is total volume; store per-unit volume instead
           volume: item.quantity > 0 ? item.volume / item.quantity : 0,
           item_type: item.groupName || null,
+          // Store materials breakdown for aggregated materials display
+          materials_breakdown: item.materialsBreakdown || null,
+          build_cost: item.buildCost || null,
         }))
 
         const { error: compError } = await supabase

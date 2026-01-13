@@ -136,10 +136,24 @@ View and manage a manufacturing project:
 │  │ └──────────────────────────────────────────────────────────┘  ││
 │  └────────────────────────────────────────────────────────────────┘│
 ├────────────────────────────────────────────────────────────────────┤
-│  Components                                            [Copy ▼]    │
+│  Capital Components                                    [Copy ▼]    │
 │  ┌────────────────────────────────────────────────────────────────┐│
 │  │ ☐ Capital Armor Plates   25/100   75   🔨 Build   +200M       ││
 │  │ ☐ Capital Propulsion      0/40    40   🛒 Buy     -50M        ││
+│  └────────────────────────────────────────────────────────────────┘│
+│  ▼ Materials needed for Capital Components (12 items)              │
+│  ┌────────────────────────────────────────────────────────────────┐│
+│  │ Tritanium 50,000 │ Pyerite 25,000 │ Mexallon 10,000           ││
+│  └────────────────────────────────────────────────────────────────┘│
+├────────────────────────────────────────────────────────────────────┤
+│  Specialized Components                                [Copy ▼]    │
+│  ┌────────────────────────────────────────────────────────────────┐│
+│  │ ☐ Plasma Thruster         0/50    50   🔨 Build               ││
+│  │ ☐ Fernite Carbide        10/100   90   🛒 Buy                 ││
+│  └────────────────────────────────────────────────────────────────┘│
+│  ▼ Materials needed for Specialized Components (8 items)           │
+│  ┌────────────────────────────────────────────────────────────────┐│
+│  │ Morphite 500 │ Fullerides 1,000 │ Crystalline Carbonide 2,000 ││
 │  └────────────────────────────────────────────────────────────────┘│
 ├────────────────────────────────────────────────────────────────────┤
 │  Jita Prices                                                       │
@@ -172,6 +186,14 @@ View and manage a manufacturing project:
 - Quantity and value display
 - Grouped by item type (for raw materials)
 - Copy dropdown: "Copy All" / "Copy Remaining"
+
+**Component Grouping:**
+- Components are automatically separated into two groups:
+  - **Capital Components**: Components with "Capital" in the name
+  - **Specialized Components**: All other components (without "Capital" in the name)
+- Each group shows only if it has components
+- Each group has a collapsible "Materials needed" card showing aggregated materials
+- Material quantities are calculated based on remaining components to build (quantity - quantity_made)
 
 **Component Progress:**
 - Click quantity to edit (e.g., "25/100")
@@ -242,6 +264,23 @@ const componentBuyRecommendations = useMemo(() => {
 const adjustedRawMaterials = useMemo(() => {
   // Subtract materials for "buy" components
 }, [project?.raw_materials, showBuyRecommendations])
+
+// Split components into Capital and Specialized groups
+const { capitalComponents, specializedComponents } = useMemo(() => {
+  // Components with "Capital" in name → capitalComponents
+  // All other components → specializedComponents
+}, [project?.components])
+
+// Aggregate materials for each component group
+const capitalMaterials = useMemo(() => {
+  // Sum materials_breakdown from all capital components
+  // Multiply by remaining quantity (quantity - quantity_made)
+}, [capitalComponents])
+
+const specializedMaterials = useMemo(() => {
+  // Sum materials_breakdown from all specialized components
+  // Multiply by remaining quantity (quantity - quantity_made)
+}, [specializedComponents])
 ```
 
 ### API Calls
@@ -269,6 +308,7 @@ Item updates are optimistic:
 | `InventoryImport` | Custom | Bulk import from Eve inventory |
 | `ItemList` | Custom | Component list with progress |
 | `GroupedItemList` | Custom | Grouped raw materials |
+| `AggregatedMaterialsCard` | Custom (inline) | Collapsible card showing aggregated materials for component groups |
 | `PriceSummary` | Custom | Jita price totals |
 | `AdditionalCosts` | Custom | Cost management |
 | `TotalCost` | Custom | Grand total display |

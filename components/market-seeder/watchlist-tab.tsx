@@ -140,8 +140,8 @@ export function WatchlistTab({
       // Check category filter
       if (item.category_name && !filters.selectedCategories.has(item.category_name)) return false
       
-      // Check has active order filter (show only items where user has sell orders)
-      if (filters.hasActiveOrderOnly && !item.hasSellOrder) return false
+      // Check no active order filter (show only items where user does NOT have sell orders)
+      if (filters.noActiveOrderOnly && item.hasSellOrder) return false
       
       // Note: noCompetitionOnly filter not applicable for watchlist (no competition data)
       

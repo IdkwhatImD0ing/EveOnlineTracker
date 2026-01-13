@@ -89,6 +89,7 @@ export interface CreateProjectRequest {
       buildCost?: number
       shouldBuy?: boolean
       savings?: number
+      materialsBreakdown?: Array<{ typeId: number; name: string; quantity: number }>
     }>
   }
 }

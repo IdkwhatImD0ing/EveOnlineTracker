@@ -496,6 +496,95 @@ CREATE INDEX idx_alliance_fits_created_by ON alliance_fits(created_by);
 
 ---
 
+### market_history_import_logs
+
+Tracks statistics from each market history batch import run for debugging.
+
+```sql
+CREATE TABLE market_history_import_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_at timestamptz NOT NULL DEFAULT now(),
+  
+  -- Run configuration
+  mode text NOT NULL,
+  region_id bigint NOT NULL,
+  chunk int,
+  total_chunks int,
+  target_date date,
+  
+  -- Item counts
+  items_total int NOT NULL,
+  items_success int NOT NULL,
+  items_failed int NOT NULL,
+  items_with_data int NOT NULL,
+  
+  -- Row counts
+  rows_fetched int NOT NULL,
+  rows_inserted int NOT NULL,
+  
+  -- Timing
+  duration_ms int NOT NULL,
+  esi_fetch_ms int,
+  db_upsert_ms int,
+  
+  -- Errors
+  error_breakdown jsonb,
+  fatal_error text
+);
+
+CREATE INDEX idx_import_logs_run_at ON market_history_import_logs(run_at DESC);
+CREATE INDEX idx_import_logs_region_date ON market_history_import_logs(region_id, target_date);
+```
+
+| Column          | Type        | Constraints        | Description                              |
+| --------------- | ----------- | ------------------ | ---------------------------------------- |
+| id              | uuid        | PK, auto-generated | Unique identifier                        |
+| run_at          | timestamptz | NOT NULL, DEFAULT now() | When the import run started         |
+| mode            | text        | NOT NULL           | Import mode (daily, initial, backfill)   |
+| region_id       | bigint      | NOT NULL           | EVE region ID                            |
+| chunk           | int         | nullable           | Which chunk (0 to total_chunks-1)        |
+| total_chunks    | int         | nullable           | Total number of chunks                   |
+| target_date     | date        | nullable           | The date being fetched (for daily mode)  |
+| items_total     | int         | NOT NULL           | Total items in this chunk                |
+| items_success   | int         | NOT NULL           | Successfully fetched from ESI            |
+| items_failed    | int         | NOT NULL           | Failed to fetch from ESI                 |
+| items_with_data | int         | NOT NULL           | Items that had market data               |
+| rows_fetched    | int         | NOT NULL           | Total rows fetched from ESI              |
+| rows_inserted   | int         | NOT NULL           | Rows written to database                 |
+| duration_ms     | int         | NOT NULL           | Total run duration in milliseconds       |
+| esi_fetch_ms    | int         | nullable           | ESI fetch time in milliseconds           |
+| db_upsert_ms    | int         | nullable           | Database upsert time in milliseconds     |
+| error_breakdown | jsonb       | nullable           | Error counts by type {"HTTP 400": 25}    |
+| fatal_error     | text        | nullable           | Fatal error message if run failed        |
+
+**Purpose:** Debug import issues by tracking success/failure rates for each batch run. Helps identify gaps like the December 2025 data issue.
+
+**Example Queries:**
+
+```sql
+-- Find runs with high failure rates
+SELECT * FROM market_history_import_logs 
+WHERE items_failed > items_total * 0.5
+ORDER BY run_at DESC;
+
+-- Check specific date's imports
+SELECT * FROM market_history_import_logs 
+WHERE target_date = '2025-12-11'
+ORDER BY run_at;
+
+-- Daily summary
+SELECT target_date, 
+       SUM(items_success) as total_success, 
+       SUM(items_failed) as total_failed,
+       SUM(rows_inserted) as total_rows
+FROM market_history_import_logs 
+WHERE target_date IS NOT NULL
+GROUP BY target_date
+ORDER BY target_date DESC;
+```
+
+---
+
 ## Triggers
 
 ### update_updated_at_column
