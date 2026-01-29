@@ -1,7 +1,7 @@
 /**
  * Script to add curated essential items to the essential_items table
  * 
- * This is a hand-picked list of ~70 items that are truly essential for
+ * This is a hand-picked list of ~140 items that are truly essential for
  * nullsec living in Deklein (Guristas space). No scraping - all items
  * are manually selected for their importance.
  */
@@ -137,6 +137,20 @@ const ESSENTIAL_TYPE_IDS = [
   22456,  // Sabre - Interdictor
   11198,  // Stiletto - Fast tackle/travel
 
+  // === T2 HAULERS - DEEP SPACE TRANSPORTS (5) ===
+  12731,  // Bustard - Caldari DST
+  12753,  // Impel - Amarr DST
+  12747,  // Mastodon - Minmatar DST
+  12745,  // Occator - Gallente DST
+  81047,  // Torrent - Serpentis DST
+
+  // === T2 HAULERS - BLOCKADE RUNNERS (5) ===
+  12729,  // Crane - Caldari BR
+  12733,  // Prorator - Amarr BR
+  12735,  // Prowler - Minmatar BR
+  12743,  // Viator - Gallente BR
+  81046,  // Deluge - Serpentis BR
+
   // === DRONES (12) ===
   2436,   // Wasp II - Heavy kinetic (Guristas)
   21638,  // Vespa II - Medium kinetic (Guristas)
@@ -230,7 +244,7 @@ const ESSENTIAL_TYPE_IDS = [
 async function addEssentialItems() {
   console.log('=== Add Curated Essential Items for Deklein ===\n')
   console.log('This script adds a hand-picked list of essential items:')
-  console.log('  - 22 ships (ratting, mining, T3 cruisers, utility, PvP)')
+  console.log('  - 32 ships (ratting, mining, T3 cruisers, T2 haulers, utility, PvP)')
   console.log('  - 48 T3 subsystems (all Tengu/Legion/Proteus/Loki)')
   console.log('  - 12 drones (kinetic for Guristas, mining, salvage)')
   console.log('  - ~40 modules (drone mods, mining T1/T2, shields, etc.)')

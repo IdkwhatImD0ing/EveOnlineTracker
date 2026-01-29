@@ -4,7 +4,7 @@ API endpoints for managing the nullsec essentials list - pre-curated items for m
 
 ## Overview
 
-The Essentials API manages a hand-curated list of ~130 essential items for nullsec living in Deklein (Guristas space). Unlike the personal Watchlist, this list is admin-managed and visible to all users.
+The Essentials API manages a hand-curated list of ~140 essential items for nullsec living in Deklein (Guristas space). Unlike the personal Watchlist, this list is admin-managed and visible to all users.
 
 ## Endpoints
 
@@ -203,14 +203,14 @@ npx tsx scripts/add-deklein-nullsec-items.ts
 ```
 
 This script:
-1. Contains a hardcoded list of ~130 essential type IDs
+1. Contains a hardcoded list of ~140 essential type IDs
 2. Looks up item details from `data/tradeable-items.jsonl`
 3. Upserts into the `essential_items` table
 
 The script can be run multiple times safely - it uses upsert to avoid duplicates.
 
 **Curated Items Include:**
-- 23 ships (ratting, ALL mining barges/exhumers, T3 cruisers, utility, PvP)
+- 33 ships (ratting, ALL mining barges/exhumers, T3 cruisers, T2 haulers, utility, PvP)
 - 48 T3 subsystems (all Tengu, Legion, Proteus, Loki subsystems)
 - 12 drones (kinetic, thermal, mining, salvage)
 - ~40 modules (drone mods, T1/T2 mining equipment, shields, propulsion)

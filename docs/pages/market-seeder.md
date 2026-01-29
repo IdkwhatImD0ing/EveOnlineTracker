@@ -797,13 +797,13 @@ The watchlist fetches:
 
 ## Essentials Tab (Nullsec Curated)
 
-The Essentials tab displays a hand-picked list of ~130 essential items for nullsec living in Guristas space (Deklein region). Unlike the personal Watchlist, this list is admin-managed and shared across all users.
+The Essentials tab displays a hand-picked list of ~140 essential items for nullsec living in Guristas space (Deklein region). Unlike the personal Watchlist, this list is admin-managed and shared across all users.
 
 ### Concept
 
 A focused, hand-curated collection of the most important items:
 
-- **23 ships**: Ratting (Ishtar, Gila, VNI, Dominix), Mining (ALL barges & exhumers: Venture, Covetor, Retriever, Procurer, Hulk, Mackinaw, Skiff, Porpoise, Orca), T3 Cruisers (Tengu, Legion, Proteus, Loki), Utility (Epithal, Tayra, Astero, Heron), PvP (Sabre, Stiletto)
+- **33 ships**: Ratting (Ishtar, Gila, VNI, Dominix), Mining (ALL barges & exhumers: Venture, Covetor, Retriever, Procurer, Hulk, Mackinaw, Skiff, Porpoise, Orca), T3 Cruisers (Tengu, Legion, Proteus, Loki), T2 Haulers (Bustard, Impel, Mastodon, Occator, Torrent, Crane, Prorator, Prowler, Viator, Deluge), Utility (Epithal, Tayra, Astero, Heron), PvP (Sabre, Stiletto)
 - **48 T3 subsystems**: All subsystems for Tengu, Legion, Proteus, and Loki
 - **12 drones**: Kinetic (Wasp II, Vespa II, Hornet II), Thermal (Ogre II, Hammerhead II, Hobgoblin II), Mining, Salvage
 - **~40 modules**: Drone mods, mining equipment (T1 & T2 strip miners, mining laser upgrades, ice harvesters), shield tank, propulsion, tackle, cloaking, deployables
@@ -837,9 +837,9 @@ Run the setup script to populate essentials:
 npx tsx scripts/add-deklein-nullsec-items.ts
 ```
 
-This adds ~130 hand-picked items to the `essential_items` table:
+This adds ~140 hand-picked items to the `essential_items` table:
 
-- 23 ships (ratting, ALL mining barges/exhumers, T3 cruisers, utility, PvP)
+- 33 ships (ratting, ALL mining barges/exhumers, T3 cruisers, T2 haulers, utility, PvP)
 - 48 T3 subsystems (all Tengu/Legion/Proteus/Loki subsystems)
 - 12 drones (kinetic for Guristas, thermal, mining, salvage)
 - ~40 modules (drone mods, T1/T2 mining equipment, shields, propulsion)
@@ -1753,7 +1753,7 @@ Scripts are available to bulk-populate the essentials and watchlist tables.
 
 ### Deklein Nullsec Essentials
 
-The `add-deklein-nullsec-items.ts` script populates the **Essentials tab** with a hand-picked list of ~130 items essential for nullsec living in Guristas space (Deklein region).
+The `add-deklein-nullsec-items.ts` script populates the **Essentials tab** with a hand-picked list of ~140 items essential for nullsec living in Guristas space (Deklein region).
 
 **Target Table:** `essential_items` (Essentials tab, admin-managed)
 
@@ -1767,7 +1767,7 @@ npx tsx scripts/add-deklein-nullsec-items.ts
 
 | Category   | Count | Items                                                                                                                                                                                                                            |
 | ---------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ship       | 23    | Ishtar, Gila, VNI, Dominix, ALL barges (Venture, Covetor, Retriever, Procurer), ALL exhumers (Hulk, Mackinaw, Skiff), Porpoise, Orca, T3 cruisers (Tengu, Legion, Proteus, Loki), Epithal, Tayra, Astero, Heron, Sabre, Stiletto |
+| Ship       | 33    | Ishtar, Gila, VNI, Dominix, ALL barges (Venture, Covetor, Retriever, Procurer), ALL exhumers (Hulk, Mackinaw, Skiff), Porpoise, Orca, T3 cruisers (Tengu, Legion, Proteus, Loki), T2 haulers (DSTs: Bustard, Impel, Mastodon, Occator, Torrent; BRs: Crane, Prorator, Prowler, Viator, Deluge), Epithal, Tayra, Astero, Heron, Sabre, Stiletto |
 | Subsystem  | 48    | All Tengu, Legion, Proteus, and Loki subsystems (Core, Defensive, Offensive, Propulsion)                                                                                                                                         |
 | Drone      | 12    | Wasp II, Vespa II, Hornet II, Ogre II, Hammerhead II, Hobgoblin II, Mining Drone I/II, Salvage Drone I, Augmented Mining Drone, Warrior II, Acolyte II                                                                           |
 | Module     | 38    | Drone mods, Strip Miner I, Modulated Strip Miner II, Mining Laser Upgrade I/II, Ice Harvester I/II, Shield Extenders, Hardeners, MWDs, Tackle, Cloaking, etc.                                                                    |
@@ -1776,7 +1776,7 @@ npx tsx scripts/add-deklein-nullsec-items.ts
 
 **Key Features:**
 
-- **Hand-curated**: ~130 essential items, not a scraped list
+- **Hand-curated**: ~140 essential items, not a scraped list
 - **Complete mining lineup**: All mining barges, exhumers, and T1/T2 equipment
 - **T3 cruisers + all subsystems**: Tengu (kinetic bonus for Guristas), Legion, Proteus, Loki
 - **Kinetic focus**: Scourge missiles for Guristas NPC damage profile
