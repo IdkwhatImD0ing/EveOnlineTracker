@@ -1,3 +1,10 @@
+/**
+ * @deprecated The daily import moved to /api/cron/market-history-import,
+ * which ingests EVERef bulk dumps (one file/day, all regions) instead of
+ * ~21k per-item ESI calls/day. This route remains for verify/test_assets
+ * tooling and as a fallback; delete it once the EVERef cron is confirmed
+ * running (check market_history_import_logs for mode='everef' rows).
+ */
 import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import * as fs from 'fs'

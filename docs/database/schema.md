@@ -362,20 +362,48 @@ CREATE INDEX idx_market_history_updated_at ON market_history(updated_at);
 | volume      | bigint      | nullable                         | Total units traded that day       |
 | updated_at  | timestamptz | DEFAULT now()                    | When this record was last updated |
 
-**Data Source:** ESI `/markets/{region_id}/history` endpoint
+**Data Source:** EVERef daily bulk dumps (`https://data.everef.net/market-history/`), which mirror the ESI `/markets/{region_id}/history` endpoint. Imported by `/api/cron/market-history-import` (cron-job.org, twice daily at 12:10 and 22:10 UTC).
 
-**Update Frequency:** Weekly via Vercel cron (Sundays at 12:00 UTC)
+**Update Frequency:** Daily. EVERef publishes the file for EVE-date D on D+1 (after ~11:05 UTC); each import run ingests the last 2 days so partial files self-heal.
 
-**Data Retention:** Last 7 days of history per item
+**Data Retention:** ~100 days (enforced by the importer and migration 018). The primary analytics paths query 90 days back; the market/opportunities 365-day fallback path (`get_market_statistics`) silently operates on the retained window. Longer-horizon needs are served by `market_ath` (all-time highs, full depth) and direct ESI (the market-history chart fetches ESI directly via `lib/esi-history.ts` — 3 calls per view, ~13 months of depth). All other features (watchlist, essentials, sell-order tools, scanners) read this table via the existing RPCs.
 
-**Region IDs:**
+**Region IDs (tracked):**
 
-| Region                | ID       |
-| --------------------- | -------- |
-| The Forge (Jita)      | 10000002 |
-| Domain (Amarr)        | 10000043 |
-| Sinq Laison (Dodixie) | 10000032 |
-| Heimatar (Rens)       | 10000030 |
+| Region                 | ID       |
+| ---------------------- | -------- |
+| The Forge (Jita)       | 10000002 |
+| Vale of the Silent     | 10000003 |
+| Deklein                | 10000035 |
+
+---
+
+### market_ath
+
+Highest daily price ever observed per item per region. Lets `market_history` stay pruned to ~100 days without losing all-time-high depth for the sell-opportunities feature.
+
+```sql
+CREATE TABLE market_ath (
+  type_id bigint NOT NULL,
+  region_id bigint NOT NULL,
+  all_time_high numeric NOT NULL,
+  ath_date date,
+  updated_at timestamptz DEFAULT now(),
+  PRIMARY KEY (type_id, region_id)
+);
+```
+
+| Column        | Type        | Constraints    | Description                            |
+| ------------- | ----------- | -------------- | -------------------------------------- |
+| type_id       | bigint      | PK (composite) | EVE item type ID                       |
+| region_id     | bigint      | PK (composite) | EVE region ID                          |
+| all_time_high | numeric     | NOT NULL       | Highest daily `highest` ever observed  |
+| ath_date      | date        | nullable       | Date the ATH was set                   |
+| updated_at    | timestamptz | DEFAULT now()  | Last time the row was folded forward   |
+
+**Population:** Seeded by migration 018 from the full pre-prune history (back to Dec 2024); kept current by the daily EVERef import via the `record_market_ath(jsonb)` function.
+
+**Consumers:** `get_sell_statistics` reads ATH from here (mean price still comes from the retained `market_history` window).
 
 ---
 

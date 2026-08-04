@@ -330,14 +330,15 @@ GET /api/esi/market-history-test?type_id=587
 ```
 
 **Cron Schedule (via cron-job.org):**
-- 52 jobs run daily across 3 regions
+- 2 jobs run daily (12:10 and 22:10 UTC) hitting `/api/cron/market-history-import`
+- The importer ingests EVERef bulk dumps (all 3 regions in one file) instead of per-item ESI calls
 - Configured via `scripts/setup-cron-jobs.ts`
 - See `docs/api/esi.md` for full schedule details
 
 **Database Table:** `market_history`
-- Stores last 7 days of price history per item
-- Region: The Forge (10000002) - Jita
-- Updated via upsert (ON CONFLICT replace)
+- Stores ~100 days of price history per item (retention enforced by the importer)
+- Regions: The Forge (10000002), Vale of the Silent (10000003), Deklein (10000035)
+- Updated via upsert (ON CONFLICT replace); all-time highs preserved in `market_ath`
 
 ## Troubleshooting
 

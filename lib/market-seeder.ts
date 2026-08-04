@@ -6,10 +6,7 @@
  */
 
 import { createClient } from '@/utils/supabase/server'
-import {
-  getCachedMarketSeederStatistics,
-  getCachedJitaPrices,
-} from '@/lib/cached-data'
+import { getCachedJitaPrices } from '@/lib/cached-data'
 import { config } from '@/lib/config'
 import {
   type TradeableItem,
@@ -83,34 +80,6 @@ export async function loadTradeableItems(): Promise<TradeableItem[]> {
   }
 
   return items
-}
-
-/**
- * Query Vale of the Silent market history from Supabase using RPC with batching
- * Uses cached function for efficiency when no progress callback needed
- * This provides actual demand data for the alliance hub
- */
-export async function fetchValeMarketHistory(
-  typeIds: number[],
-  days: number = 30
-): Promise<Map<number, JitaDemandMetrics>> {
-  // Use Next.js cached version (no progress callback)
-  console.log(`[Market Seeder] Using cached Vale market history for ${typeIds.length} items`)
-  return getCachedMarketSeederStatistics(typeIds, days, REGION_IDS.VALE_OF_SILENT)
-}
-
-/**
- * Query Jita market history from Supabase using RPC with batching
- * Uses cached function for efficiency when no progress callback needed
- * @deprecated Use fetchValeMarketHistory for demand metrics
- */
-export async function fetchJitaMarketHistory(
-  typeIds: number[],
-  days: number = 30
-): Promise<Map<number, JitaDemandMetrics>> {
-  // Use Next.js cached version (no progress callback)
-  console.log(`[Market Seeder] Using cached Jita market history for ${typeIds.length} items`)
-  return getCachedMarketSeederStatistics(typeIds, days, REGION_IDS.THE_FORGE)
 }
 
 /**
@@ -196,95 +165,6 @@ export async function fetchRegionMarketHistoryWithProgress(
   }
   
   console.log(`[Market Seeder] ${regionName} market history: ${result.size} items with data out of ${typeIds.length} requested`)
-  
-  return result
-}
-
-/**
- * Query Vale of the Silent market history with progress callback
- * @deprecated Use fetchRegionMarketHistoryWithProgress instead
- */
-export async function fetchValeMarketHistoryWithProgress(
-  typeIds: number[],
-  days: number = 30,
-  onBatchProgress?: (batch: number, total: number) => void
-): Promise<Map<number, JitaDemandMetrics>> {
-  return fetchRegionMarketHistoryWithProgress(typeIds, REGION_IDS.VALE_OF_SILENT, days, onBatchProgress)
-}
-
-/**
- * Query Jita market history with progress callback
- * @deprecated Use fetchValeMarketHistoryWithProgress for demand metrics
- */
-export async function fetchJitaMarketHistoryWithProgress(
-  typeIds: number[],
-  days: number = 30,
-  onBatchProgress?: (batch: number, total: number) => void
-): Promise<Map<number, JitaDemandMetrics>> {
-  const supabase = createClient()
-  const result = new Map<number, JitaDemandMetrics>()
-  
-  if (typeIds.length === 0) {
-    console.warn('[Market Seeder] No type IDs provided for market history')
-    return result
-  }
-  
-  const RPC_BATCH_SIZE = 200  // Process 200 type_ids per RPC call to avoid timeouts
-  const totalBatches = Math.ceil(typeIds.length / RPC_BATCH_SIZE)
-  
-  console.log(`[Market Seeder] Fetching Jita market history for ${typeIds.length} items in ${totalBatches} batches...`)
-  
-  for (let i = 0; i < typeIds.length; i += RPC_BATCH_SIZE) {
-    const batchTypeIds = typeIds.slice(i, i + RPC_BATCH_SIZE)
-    const batchNum = Math.floor(i / RPC_BATCH_SIZE) + 1
-    
-    // Send progress update
-    onBatchProgress?.(batchNum, totalBatches)
-    
-    try {
-      const { data, error } = await supabase.rpc('get_market_seeder_statistics', {
-        p_type_ids: batchTypeIds,
-        p_region_id: REGION_IDS.THE_FORGE,
-        p_days_back: days
-      })
-      
-      if (error) {
-        console.error(`[Market Seeder] Jita RPC batch ${batchNum}/${totalBatches} failed:`, error.message)
-        continue
-      }
-      
-      if (data && Array.isArray(data)) {
-        for (const row of data as {
-          type_id: number
-          total_volume: number
-          avg_daily_volume: number
-          avg_price: number
-          total_orders: number
-          recent_avg_volume: number
-          older_avg_volume: number
-          trend_direction: string
-        }[]) {
-          result.set(row.type_id, {
-            typeId: row.type_id,
-            totalVolume30d: row.total_volume || 0,
-            avgDailyVolume: row.avg_daily_volume || 0,
-            avgPrice: row.avg_price || 0,
-            totalOrders: row.total_orders || 0,
-            recentAvgVolume: row.recent_avg_volume || 0,
-            olderAvgVolume: row.older_avg_volume || 0,
-            trendDirection: (row.trend_direction as 'up' | 'down' | 'stable') || 'stable'
-          })
-        }
-      }
-      
-      console.log(`[Market Seeder] Jita RPC batch ${batchNum}/${totalBatches}: ${data?.length || 0} results`)
-      
-    } catch (err) {
-      console.error(`[Market Seeder] Jita RPC batch ${batchNum}/${totalBatches} exception:`, err)
-    }
-  }
-  
-  console.log(`[Market Seeder] Jita market history: ${result.size} items with data out of ${typeIds.length} requested`)
   
   return result
 }

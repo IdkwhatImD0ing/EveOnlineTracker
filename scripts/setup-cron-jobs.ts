@@ -1,13 +1,18 @@
 /**
  * Setup script to create cron jobs on cron-job.org
- * 
- * This script provisions 52 cron jobs for market history updates:
- * - 20 jobs for The Forge (Jita) - region 10000002
- * - 20 jobs for Vale of the Silent - region 10000003
- * - 12 jobs for Deklein - region 10000035
- * 
- * Run with: npx tsx scripts/setup-cron-jobs.ts
- * 
+ *
+ * This script provisions the market history import jobs. Since the move to
+ * EVERef bulk dumps (one CSV per day covering all regions), that means just
+ * 2 jobs hitting /api/cron/market-history-import:
+ * - 12:10 UTC: picks up yesterday's file (partial) and the day before (complete)
+ * - 22:10 UTC: re-runs so yesterday's file is mostly complete the same evening
+ *
+ * The old system was 52 per-region-chunk jobs scraping ESI directly
+ * (~21k ESI calls/day); run with --delete to remove those and create the
+ * new jobs in one pass (both are titled "Market History ...").
+ *
+ * Run with: npx tsx scripts/setup-cron-jobs.ts [--delete | --fill | --list]
+ *
  * Required environment variables:
  * - CRONJOB_API_KEY: Your cron-job.org API key
  * - CRON_SECRET: The secret used to authenticate cron requests
@@ -91,42 +96,26 @@ interface JobDefinition {
   minute: number
 }
 
-// Generate job definitions for all 48 jobs
+// Generate the EVERef import job definitions.
+// EVERef publishes the file for EVE-date D on D+1 after ~11:05 UTC and fills
+// it in over that day, so each run imports the last 2 days (idempotent
+// upserts) - the noon run catches the new file early, the evening run
+// completes it.
 function generateJobDefinitions(): JobDefinition[] {
-  const jobs: JobDefinition[] = []
-
-  // The Forge (Jita) - 20 jobs, chunks 0-19, minute :00, hours 0-19
-  for (let chunk = 0; chunk < 20; chunk++) {
-    jobs.push({
-      title: `Market History - Jita - Chunk ${chunk}/20`,
-      path: `/api/esi/market-history?mode=daily&chunk=${chunk}&total_chunks=20`,
-      hour: chunk,
-      minute: 0,
-    })
-  }
-
-  // Vale of the Silent - 20 jobs, chunks 0-19, minute :20, hours 0-19
-  for (let chunk = 0; chunk < 20; chunk++) {
-    jobs.push({
-      title: `Market History - Vale - Chunk ${chunk}/20`,
-      path: `/api/esi/market-history?mode=daily&region_id=10000003&chunk=${chunk}&total_chunks=20`,
-      hour: chunk,
-      minute: 20,
-    })
-  }
-
-  // Deklein - 12 jobs, chunks 0-11, minute :40, every 2 hours
-  const dekleinHours = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]
-  for (let i = 0; i < 12; i++) {
-    jobs.push({
-      title: `Market History - Deklein - Chunk ${i}/12`,
-      path: `/api/esi/market-history?mode=daily&region_id=10000035&chunk=${i}&total_chunks=12`,
-      hour: dekleinHours[i],
-      minute: 40,
-    })
-  }
-
-  return jobs
+  return [
+    {
+      title: 'Market History - EVERef Import (noon)',
+      path: '/api/cron/market-history-import',
+      hour: 12,
+      minute: 10,
+    },
+    {
+      title: 'Market History - EVERef Import (evening)',
+      path: '/api/cron/market-history-import',
+      hour: 22,
+      minute: 10,
+    },
+  ]
 }
 
 async function sleep(ms: number): Promise<void> {

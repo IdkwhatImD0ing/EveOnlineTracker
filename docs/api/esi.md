@@ -612,16 +612,14 @@ Since results are logged (not returned in the response), check Vercel logs:
 
 **Cron Jobs (via cron-job.org):**
 
-Since Vercel's free tier only allows 2 cron jobs, we use [cron-job.org](https://cron-job.org) as an external cron service. Jobs are provisioned via API using the setup script.
-
-Items are distributed across 52 cron jobs with 3 regions running at different minute offsets:
-
-| Region | ID | Schedule | Chunks | Items/Chunk |
-|--------|-----|----------|--------|-------------|
-| The Forge (Jita) | 10000002 | :00 hourly (hours 0-19) | 20 | ~350 |
-| Vale of the Silent | 10000003 | :20 hourly (hours 0-19) | 20 | ~350 |
-| Deklein | 10000035 | :40 every 2h | 12 | ~583 |
-| **Total** | | | **52** | |
+> **DEPRECATED:** The 52-job per-chunk ESI scrape has been replaced by
+> `/api/cron/market-history-import`, which ingests EVERef bulk dumps
+> (`https://data.everef.net/market-history/` - one compressed CSV per day
+> covering every region). Two cron-job.org jobs (12:10 and 22:10 UTC) replace
+> the old fleet; each run imports the last 2 days idempotently and enforces
+> ~100-day retention. All-time highs are preserved in the `market_ath` table
+> (see `migrations/018_market_ath_and_retention.sql`). This route remains for
+> `verify`/`test_assets` debugging and manual backfill only.
 
 **Setup Script:**
 
@@ -631,24 +629,14 @@ Items are distributed across 52 cron jobs with 3 regions running at different mi
 # CRON_SECRET=your-cron-secret
 # VERCEL_URL=your-app.vercel.app
 
-# Create all 52 cron jobs
-npx tsx scripts/setup-cron-jobs.ts
+# Delete old jobs and create the 2 EVERef import jobs
+npx tsx scripts/setup-cron-jobs.ts --delete
 
 # List existing jobs
 npx tsx scripts/setup-cron-jobs.ts --list
-
-# Delete all jobs and recreate
-npx tsx scripts/setup-cron-jobs.ts --delete
 ```
 
-The script creates jobs that call the market history endpoint with the `Authorization: Bearer <CRON_SECRET>` header.
-
-**Setup Workflow:**
-1. Run `?mode=backfill&chunk=N&total_chunks=100` iteratively to populate 365 days of history (Jita & Vale only)
-2. Run `npx tsx scripts/setup-cron-jobs.ts` to create all 52 cron jobs on cron-job.org
-3. Cron jobs run `?mode=daily&chunk=N` hourly to append yesterday's data
-4. All 52 chunks complete daily = full item coverage for all 3 regions
-5. Historical data grows over time (no data is deleted)
+The script creates jobs that call `/api/cron/market-history-import` with the `Authorization: Bearer <CRON_SECRET>` header.
 
 ---
 

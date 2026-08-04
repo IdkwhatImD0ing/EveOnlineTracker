@@ -36,7 +36,8 @@
     "react-dom": "19.2.0",
     "serwist": "^9.2.3",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "unbzip2-stream": "^1.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -45,6 +46,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/unbzip2-stream": "^1.4.3",
     "adm-zip": "^0.5.16",
     "baseline-browser-mapping": "^2.9.6",
     "better-sqlite3": "^12.5.0",
